@@ -1,0 +1,13 @@
+"""Provider protocol — each provider module exposes the 4 action fns."""
+from __future__ import annotations
+from typing import Protocol, Any
+
+
+class ImageProvider(Protocol):
+    def understand(self, tier: str, image_url: str, prompt: str) -> dict[str, Any]: ...
+
+    def generate(self, tier: str, prompt: str, **kwargs: Any) -> dict[str, Any]: ...
+
+    def edit(self, tier: str, image_url: str, prompt: str) -> dict[str, Any]: ...
+
+    def video_status(self, tier: str, job_id: str) -> dict[str, Any]: ...
