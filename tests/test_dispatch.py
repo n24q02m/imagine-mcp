@@ -59,3 +59,14 @@ def test_dispatch_grok_understand_not_implemented() -> None:
             image_url="https://example.com/x.png",
             prompt="hi",
         )
+
+
+def test_gemini_understand_ssrf_lfi_prevention() -> None:
+    from imagine_mcp.providers.gemini import understand
+
+    with pytest.raises(ValueError, match="Invalid image_url"):
+        understand(
+            tier="poor",
+            image_url="file:///etc/passwd",
+            prompt="describe",
+        )

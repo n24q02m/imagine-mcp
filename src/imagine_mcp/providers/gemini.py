@@ -32,6 +32,9 @@ def _client():
 
 def understand(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
     """Image understanding via Gemini flash/pro. Accepts http(s) image URL."""
+    if not (image_url.startswith("http://") or image_url.startswith("https://")):
+        raise ValueError("Invalid image_url: must start with http:// or https://")
+
     from google.genai import types
 
     model = _MODELS["understand"][tier]
