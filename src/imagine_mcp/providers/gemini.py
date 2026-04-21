@@ -32,7 +32,12 @@ def _client():
 
 def understand(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
     """Image understanding via Gemini flash/pro. Accepts http(s) image URL."""
+    from urllib.parse import urlparse
     from google.genai import types
+
+    parsed_url = urlparse(image_url)
+    if parsed_url.scheme not in {"http", "https"}:
+        raise ValueError("Invalid image_url scheme. Only http and https are allowed.")
 
     model = _MODELS["understand"][tier]
     resp = _client().models.generate_content(
