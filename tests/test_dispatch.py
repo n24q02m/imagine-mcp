@@ -40,6 +40,17 @@ def test_dispatch_invalid_tier() -> None:
         dispatch(action="understand", provider="gemini", tier="mega")
 
 
+def test_dispatch_invalid_image_url_scheme() -> None:
+    with pytest.raises(ValueError, match="Invalid image_url scheme: 'file'. Must be 'http' or 'https'"):
+        dispatch(
+            action="understand",
+            provider="gemini",
+            tier="poor",
+            image_url="file:///etc/passwd",
+            prompt="hi",
+        )
+
+
 def test_dispatch_stubbed_path_raises_not_implemented() -> None:
     with pytest.raises(NotImplementedError):
         dispatch(

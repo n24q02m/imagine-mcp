@@ -15,6 +15,12 @@ def dispatch(action: str, provider: str, tier: str = "poor", **kwargs: Any) -> d
     Raises ValueError cho unknown action/provider/tier.
     NotImplementedError bubbled up từ provider stubs cho unimplemented paths.
     """
+    if "image_url" in kwargs:
+        from urllib.parse import urlparse
+        parsed = urlparse(kwargs["image_url"])
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(f"Invalid image_url scheme: {parsed.scheme!r}. Must be 'http' or 'https'")
+
     if action not in _ACTIONS:
         raise ValueError(f"Unknown action: {action!r}. Valid: {sorted(_ACTIONS)}")
     if provider not in _PROVIDERS:
