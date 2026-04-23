@@ -40,6 +40,17 @@ def test_dispatch_invalid_tier() -> None:
         dispatch(action="understand", provider="gemini", tier="mega")
 
 
+def test_dispatch_invalid_url_scheme_raises_error() -> None:
+    with pytest.raises(ValueError, match="Security Error: Invalid URL scheme 'file'"):
+        dispatch(
+            action="understand",
+            provider="gemini",
+            tier="poor",
+            image_url="file:///etc/passwd",
+            prompt="read this file",
+        )
+
+
 def test_dispatch_stubbed_path_raises_not_implemented() -> None:
     with pytest.raises(NotImplementedError):
         dispatch(

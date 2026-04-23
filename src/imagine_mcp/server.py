@@ -1,6 +1,7 @@
 """imagine-mcp server: mega-tool dispatcher for image/video across Gemini/OpenAI/Grok."""
 from __future__ import annotations
 from typing import Any
+from urllib.parse import urlparse
 
 from .providers import gemini, grok, openai
 
@@ -23,6 +24,14 @@ def dispatch(action: str, provider: str, tier: str = "poor", **kwargs: Any) -> d
         )
     if tier not in _TIERS:
         raise ValueError(f"Unknown tier: {tier!r}. Valid: {sorted(_TIERS)}")
+
+    # 🛡️ Sentinel: Validate external URLs to prevent SSRF and Path Traversal
+    image_url = kwargs.get("image_url")
+    if image_url is not None:
+        parsed = urlparse(image_url)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(f"Security Error: Invalid URL scheme '{parsed.scheme}'. Only http and https are allowed.")
+
     mod = _PROVIDERS[provider]
     fn = getattr(mod, action, None)
     if fn is None:
