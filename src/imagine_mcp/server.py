@@ -8,6 +8,18 @@ _PROVIDERS: dict[str, Any] = {"gemini": gemini, "openai": openai, "grok": grok}
 _ACTIONS = {"understand", "generate", "edit", "video_status"}
 _TIERS = {"poor", "rich"}
 
+_SORTED_PROVIDERS = sorted(_PROVIDERS)
+_SORTED_ACTIONS = sorted(_ACTIONS)
+_SORTED_TIERS = sorted(_TIERS)
+
+_HELP_TEXT = (
+    "imagine(action, provider, tier, **kwargs)\n"
+    f"  action: {_SORTED_ACTIONS}\n"
+    f"  provider: {_SORTED_PROVIDERS}\n"
+    f"  tier: {_SORTED_TIERS}\n"
+    "See CLAUDE.md for model IDs per provider+tier."
+)
+
 
 def dispatch(action: str, provider: str, tier: str = "poor", **kwargs: Any) -> dict:
     """Validate + route to provider-specific function.
@@ -16,13 +28,11 @@ def dispatch(action: str, provider: str, tier: str = "poor", **kwargs: Any) -> d
     NotImplementedError bubbled up từ provider stubs cho unimplemented paths.
     """
     if action not in _ACTIONS:
-        raise ValueError(f"Unknown action: {action!r}. Valid: {sorted(_ACTIONS)}")
+        raise ValueError(f"Unknown action: {action!r}. Valid: {_SORTED_ACTIONS}")
     if provider not in _PROVIDERS:
-        raise ValueError(
-            f"Unknown provider: {provider!r}. Valid: {sorted(_PROVIDERS)}"
-        )
+        raise ValueError(f"Unknown provider: {provider!r}. Valid: {_SORTED_PROVIDERS}")
     if tier not in _TIERS:
-        raise ValueError(f"Unknown tier: {tier!r}. Valid: {sorted(_TIERS)}")
+        raise ValueError(f"Unknown tier: {tier!r}. Valid: {_SORTED_TIERS}")
     mod = _PROVIDERS[provider]
     fn = getattr(mod, action, None)
     if fn is None:
@@ -46,21 +56,15 @@ def main() -> None:
     @app.tool()
     def help() -> str:
         """Return usage guide (see CLAUDE.md for full architecture)."""
-        return (
-            "imagine(action, provider, tier, **kwargs)\n"
-            f"  action: {sorted(_ACTIONS)}\n"
-            f"  provider: {sorted(_PROVIDERS)}\n"
-            f"  tier: {sorted(_TIERS)}\n"
-            "See CLAUDE.md for model IDs per provider+tier."
-        )
+        return _HELP_TEXT
 
     @app.tool()
     def config(key: str | None = None) -> dict:
         """Return current config (providers available, actions, tiers)."""
         return {
-            "providers": sorted(_PROVIDERS),
-            "actions": sorted(_ACTIONS),
-            "tiers": sorted(_TIERS),
+            "providers": _SORTED_PROVIDERS,
+            "actions": _SORTED_ACTIONS,
+            "tiers": _SORTED_TIERS,
         }
 
     app.run()
