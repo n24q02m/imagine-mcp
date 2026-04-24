@@ -1,0 +1,7 @@
+{
+  "workspaceId": "placeholder-to-be-set-after-public-flip",
+  "defaultEnvironment": "dev",
+  "gitBranchToEnvironmentMapping": {
+    "main": "prod"
+  }
+}

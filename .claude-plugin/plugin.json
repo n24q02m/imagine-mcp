@@ -1,0 +1,12 @@
+{
+  "name": "imagine-mcp",
+  "version": "0.1.0",
+  "description": "Image/video understanding & generation across Gemini, OpenAI, Grok",
+  "mcpServers": {
+    "imagine-mcp": {
+      "command": "uvx",
+      "args": ["--python", "3.13", "imagine-mcp"]
+    }
+  },
+  "skills": "./skills/"
+}

@@ -1,0 +1,53 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude_types: [image]
+      - id: check-merge-conflict
+      - id: check-json
+        types: [json]
+      - id: check-yaml
+        types: [yaml]
+      - id: check-toml
+        types: [toml]
+      - id: end-of-file-fixer
+        exclude_types: [image]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.0
+    hooks:
+      - id: ruff
+        name: ruff lint
+        args: [--fix, --target-version=py313]
+      - id: ruff-format
+        name: ruff format
+
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty type check
+        entry: uv run ty check
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: pytest
+        name: pytest
+        entry: uv run pytest --tb=short -q -m "not live and not mcp_protocol"
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: models-table-drift
+        name: docs/models.md drift check
+        entry: uv run python scripts/gen_models_table.py --check
+        language: system
+        files: ^(src/imagine_mcp/models\.py|docs/models\.md|scripts/gen_models_table\.py)$
+        pass_filenames: false
+
+      - id: enforce-commit
+        name: Enforce feat/fix commit prefix
+        entry: bash scripts/enforce-commit.sh
+        language: system
+        stages: [commit-msg]
