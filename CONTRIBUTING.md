@@ -1,23 +1,65 @@
 # Contributing to imagine-mcp
 
-Thanks for your interest in contributing!
+Thank you for your interest in contributing!
 
-## Development setup
+## Getting started
+
+### Prerequisites
+
+- [mise](https://mise.jdx.dev/) (recommended) or **Python 3.13+** and **uv**
+- Git + a GitHub account
+
+### Setup development environment
+
+1. Fork and clone:
 
 ```bash
-git clone https://github.com/n24q02m/imagine-mcp
+git clone https://github.com/YOUR_USERNAME/imagine-mcp
 cd imagine-mcp
+```
+
+2. Install tools and dependencies:
+
+```bash
 mise run setup
 ```
 
-This installs Python 3.13, uv, dependencies, and pre-commit hooks.
-
-## Running tests
+Without mise:
 
 ```bash
-mise run test              # fast unit tests (mocked)
-mise run test -- -m live   # live tests (requires API keys)
+uv sync --group dev
+uv run pre-commit install
+uv run pre-commit install --hook-type commit-msg
 ```
+
+## Development workflow
+
+### Run locally
+
+```bash
+mise run dev                  # http local relay mode (default)
+uv run imagine-mcp --stdio    # stdio proxy mode
+
+# Optional: set env vars so the server skips the relay form
+export GOOGLE_AI_STUDIO_API_KEY=...
+export OPENAI_API_KEY=...
+export XAI_API_KEY=...
+```
+
+### Make changes
+
+1. Create a branch: `git checkout -b feature/your-feature-name`
+2. Edit code, docs, or tests.
+3. Run checks:
+
+```bash
+mise run lint                 # ruff + ruff format + ty
+mise run test                 # fast unit tests (mocked)
+mise run test -- -m live      # live tests (requires API keys)
+```
+
+4. Commit (pre-commit hooks will run gitleaks, ruff, ty, pytest).
+5. Push + open a Pull Request.
 
 ## Commit convention
 
@@ -25,29 +67,46 @@ We use `python-semantic-release` v10 to auto-version releases from commits.
 
 **Allowed prefixes**: `fix:` (patch) and `feat:` (minor). `chore(release):` is reserved for PSR.
 
-**NOT allowed**: `refactor:`, `chore:` (except release), `docs:`, `ci:`, `build:`, `style:`, `perf:`, `test:`, or `!` breaking-change marker.
+**NOT allowed**: `refactor:`, `chore:` (except release), `docs:`, `ci:`, `build:`, `style:`, `perf:`, `test:`, or the `!` breaking-change marker.
 
-Breaking changes: open an issue first to discuss major version bump.
+Breaking changes: open an issue first to discuss the major version bump.
 
-## Pull request process
+## Release process
 
-1. Fork + branch from `main`.
-2. One logical change per PR (atomic commits).
-3. Pre-commit hooks run on commit (`ruff`, `ty`, `pytest`).
-4. CI must be green.
-5. PR needs 1 approval + code owner review.
-6. Squash merge only.
+Releases are automated via python-semantic-release v10 + `.github/workflows/cd.yml`.
 
-## Issue reporting
+1. Merge PRs into `main`.
+2. A maintainer dispatches CD via `workflow_dispatch` and picks `beta` or `stable`.
+3. PSR bumps version, updates CHANGELOG + version files, creates the tag.
+4. CD publishes to PyPI (trusted publisher), builds multi-arch Docker images (DockerHub + ghcr.io), publishes to the MCP Registry (stable only), and syncs to the Claude Plugin Marketplace.
 
-Use the issue templates at `.github/ISSUE_TEMPLATE/`. For security issues, see `SECURITY.md`.
+You do **not** need to create manual tags or changelog entries.
+
+## Pull request checklist
+
+- [ ] Single logical change, atomic commits.
+- [ ] CI green (lint + tests on ubuntu + windows + macos).
+- [ ] Commit messages follow `fix:` or `feat:` prefix.
+- [ ] Documentation updated (`docs/*.md`, README) when user-facing behavior changes.
+- [ ] Tests added or updated for the change.
+- [ ] `SECURITY.md` followed for vulnerability disclosure.
 
 ## Code style
 
-- Python 3.13, type hints required (`ty` checker).
-- `ruff` format + lint (auto-fix via `mise run fix`).
-- English for docstrings and comments (public repo).
+- Python 3.13, type hints required (enforced by `ty`).
+- `ruff` handles lint + format (`mise run fix` to auto-apply).
+- English for docstrings, comments, and commit messages (public repo).
 - No emojis in code or documentation.
+
+## Testing
+
+```bash
+uv run pytest                 # all non-live tests
+uv run pytest -v              # verbose
+uv run pytest -m security     # SSRF / path-traversal / injection boundary tests
+```
+
+Coverage target: 94% for v1.1 (fixtures covering real provider responses). v1.0 baseline is 48%; gate currently set to `fail_under = 45` in `pyproject.toml`.
 
 ## Refreshing model ranks
 
@@ -57,4 +116,40 @@ Model ordering in `docs/models.md` is derived from Artificial Analysis + LMArena
 mise run refresh-ranks
 ```
 
-A GitHub Actions workflow (`.github/workflows/refresh-ranks.yml`) runs the same command weekly (Monday 00:00 UTC) and opens a PR if ranks changed. When adding a new model alias (display name → canonical model ID), update `scripts/fetch_leaderboards.py::MODEL_ALIASES`.
+The `.github/workflows/refresh-ranks.yml` cron runs the same command weekly (Monday 00:00 UTC) and opens a PR when ranks change. When adding a new model alias (display name -> canonical model ID), update `scripts/fetch_leaderboards.py::MODEL_ALIASES`.
+
+## Project structure
+
+```text
+imagine-mcp/
+|- src/imagine_mcp/
+|   |- __init__.py
+|   |- __main__.py         # Entry: dispatches stdio proxy vs http local relay
+|   |- server.py           # FastMCP server, 4 tools (N+2 layout)
+|   |- dispatcher.py       # Validates inputs, routes to provider
+|   |- providers/          # gemini / openai / grok adapters
+|   |- models.py           # ModelEntry + rank metadata
+|   |- config.py           # Pydantic Settings
+|   |- relay_schema.py     # Relay form fields
+|   |- relay_setup.py      # ensure_config via mcp-core
+|   |- cache.py            # diskcache wrapper
+|   |- media.py            # URL -> image|video detection + download
+|   `- docs/               # Tool documentation (Markdown)
+|- scripts/
+|   |- fetch_leaderboards.py   # AA + LMArena scraper
+|   `- gen_models_table.py     # Render docs/models.md from models.py
+|- tests/
+|- pyproject.toml
+|- server.json             # MCP Registry manifest
+|- .claude-plugin/
+|   `- plugin.json         # Claude Code plugin manifest
+`- README.md
+```
+
+## Questions?
+
+Open an issue for bug reports, feature requests, or architecture discussions. For security vulnerabilities see `SECURITY.md`.
+
+## License
+
+By contributing, you agree that your contributions will be licensed under the MIT License.
