@@ -1,6 +1,6 @@
 [project]
 name = "imagine-mcp"
-version = "1.0.1"
+version = "1.0.2"
 description = "MCP server for image/video understanding & generation (Gemini/OpenAI/Grok)"
 readme = "README.md"
 license = { text = "MIT" }

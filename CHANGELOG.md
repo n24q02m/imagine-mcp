@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.0.2 (2026-04-24)
+
+### Bug Fixes
+
+- Wire on_credentials_saved into run_local_server
+  ([#11](https://github.com/n24q02m/imagine-mcp/pull/11),
+  [`031ae63`](https://github.com/n24q02m/imagine-mcp/commit/031ae63c4b1d3f170264b57884cf554025ebd45f))
+
+
 ## v1.0.1 (2026-04-24)
 
 ### Bug Fixes
