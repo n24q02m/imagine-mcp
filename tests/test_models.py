@@ -16,19 +16,40 @@ from imagine_mcp.models import (
 
 
 def test_gemini_understand_poor_rich() -> None:
-    assert get_model_id("gemini", "understand", "image", "poor") == "gemini-3.1-flash-lite-preview"
-    assert get_model_id("gemini", "understand", "image", "rich") == "gemini-3.1-pro-preview"
-    assert get_model_id("gemini", "understand", "video", "poor") == "gemini-3.1-flash-lite-preview"
+    assert (
+        get_model_id("gemini", "understand", "image", "poor")
+        == "gemini-3.1-flash-lite-preview"
+    )
+    assert (
+        get_model_id("gemini", "understand", "image", "rich")
+        == "gemini-3.1-pro-preview"
+    )
+    assert (
+        get_model_id("gemini", "understand", "video", "poor")
+        == "gemini-3.1-flash-lite-preview"
+    )
 
 
 def test_gemini_generate_image_cross_gen() -> None:
-    assert get_model_id("gemini", "generate", "image", "poor") == "gemini-3.1-flash-image-preview"
-    assert get_model_id("gemini", "generate", "image", "rich") == "gemini-3-pro-image-preview"
+    assert (
+        get_model_id("gemini", "generate", "image", "poor")
+        == "gemini-3.1-flash-image-preview"
+    )
+    assert (
+        get_model_id("gemini", "generate", "image", "rich")
+        == "gemini-3-pro-image-preview"
+    )
 
 
 def test_gemini_generate_video() -> None:
-    assert get_model_id("gemini", "generate", "video", "poor") == "veo-3.1-lite-generate-preview"
-    assert get_model_id("gemini", "generate", "video", "rich") == "veo-3.1-generate-preview"
+    assert (
+        get_model_id("gemini", "generate", "video", "poor")
+        == "veo-3.1-lite-generate-preview"
+    )
+    assert (
+        get_model_id("gemini", "generate", "video", "rich")
+        == "veo-3.1-generate-preview"
+    )
 
 
 def test_openai_understand_image() -> None:
@@ -67,7 +88,9 @@ def test_rank_for_unsupported_is_none() -> None:
 
 def test_list_models_sorted_by_rank_within_group() -> None:
     group = list_models(
-        filter_fn=lambda e: e.action == "generate" and e.media == "image" and e.tier == "rich",
+        filter_fn=lambda e: (
+            e.action == "generate" and e.media == "image" and e.tier == "rich"
+        ),
         sort_by="rank",
     )
     live_ranks = [e.quality_rank for e in group if e.model_id is not UNSUPPORTED]

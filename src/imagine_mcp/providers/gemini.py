@@ -118,9 +118,7 @@ def generate_image(
     contents: list[Any] = [prompt]
     if reference_image_url:
         contents.append(
-            types.Part.from_uri(
-                file_uri=reference_image_url, mime_type="image/png"
-            )
+            types.Part.from_uri(file_uri=reference_image_url, mime_type="image/png")
         )
 
     resp = _client().models.generate_content(

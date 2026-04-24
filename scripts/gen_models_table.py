@@ -49,10 +49,7 @@ def render_markdown(models: list[ModelEntry]) -> str:
             out.append("|:----:|----------|----------|:----:|:-------------:|-------|")
             current_group = g
         rank = str(e.quality_rank) if e.quality_rank is not None else "—"
-        if e.model_id is UNSUPPORTED:
-            model = "**ERROR**"
-        else:
-            model = f"`{e.model_id}`"
+        model = "**ERROR**" if e.model_id is UNSUPPORTED else f"`{e.model_id}`"
         notes = e.notes.replace("|", r"\|") if e.notes else ""
         out.append(
             f"| {rank} | {e.provider} | {model} | {e.cost_tier} | "

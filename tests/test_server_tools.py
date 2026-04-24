@@ -15,7 +15,7 @@ def test_four_tools_registered() -> None:
 
 
 def test_help_topic_set() -> None:
-    assert VALID_HELP_TOPICS == {"understand", "generate", "config"}
+    assert {"understand", "generate", "config"} == VALID_HELP_TOPICS
 
 
 def test_tools_have_non_empty_descriptions() -> None:

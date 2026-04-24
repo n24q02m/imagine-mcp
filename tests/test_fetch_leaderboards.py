@@ -9,8 +9,8 @@ if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
 from scripts.fetch_leaderboards import (  # noqa: E402
-    LBRow,
     MODEL_ALIASES,
+    LBRow,
     merge_ranks,
     parse_leaderboard,
     resolve_alias,
@@ -53,8 +53,22 @@ def test_resolve_alias_unknown_returns_none() -> None:
 
 
 def test_merge_ranks_takes_min() -> None:
-    aa = [LBRow(rank=1, model_id="gemini-3-pro-image-preview", provider="gemini", score=1250.0)]
-    lm = [LBRow(rank=2, model_id="gemini-3-pro-image-preview", provider="gemini", score=1280.0)]
+    aa = [
+        LBRow(
+            rank=1,
+            model_id="gemini-3-pro-image-preview",
+            provider="gemini",
+            score=1250.0,
+        )
+    ]
+    lm = [
+        LBRow(
+            rank=2,
+            model_id="gemini-3-pro-image-preview",
+            provider="gemini",
+            score=1280.0,
+        )
+    ]
     merged = merge_ranks(aa, lm)
     assert merged["gemini-3-pro-image-preview"] == 1
 

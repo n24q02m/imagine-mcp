@@ -92,9 +92,7 @@ def generate_image(
             model=model, image=img_bytes, prompt=prompt, size=size
         )
     else:
-        resp = _client().images.generate(
-            model=model, prompt=prompt, size=size, n=1
-        )
+        resp = _client().images.generate(model=model, prompt=prompt, size=size, n=1)
 
     img_b64 = resp.data[0].b64_json
     if not img_b64:

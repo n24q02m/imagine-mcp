@@ -10,9 +10,7 @@ from imagine_mcp.providers import openai as provider
 
 def test_understand_video_raises() -> None:
     with pytest.raises(ProviderUnsupportedError):
-        provider.understand_video(
-            "https://example.com/x.mp4", "describe", "poor"
-        )
+        provider.understand_video("https://example.com/x.mp4", "describe", "poor")
 
 
 def test_generate_video_raises() -> None:

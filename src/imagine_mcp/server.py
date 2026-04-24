@@ -213,16 +213,12 @@ def build_app() -> FastMCP:
                 }
 
     @app.tool(
-        description=(
-            "Full documentation. Topics: understand | generate | config."
-        ),
+        description=("Full documentation. Topics: understand | generate | config."),
     )
     def help(topic: str = "understand") -> str:
         """Load documentation for a specific tool or topic."""
         if topic not in VALID_HELP_TOPICS:
-            return (
-                f"Unknown topic {topic!r}. Valid: {sorted(VALID_HELP_TOPICS)}"
-            )
+            return f"Unknown topic {topic!r}. Valid: {sorted(VALID_HELP_TOPICS)}"
         doc_file = files("imagine_mcp.docs").joinpath(f"{topic}.md")
         return doc_file.read_text(encoding="utf-8")
 

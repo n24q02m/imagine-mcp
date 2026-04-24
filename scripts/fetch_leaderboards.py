@@ -9,6 +9,7 @@ See spec Section 15 for design.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
@@ -139,9 +140,7 @@ def parse_leaderboard(url: str, html: str) -> list[LBRow]:
         return []
 
     name_i = next((i for i, c in enumerate(header_cells) if c in ("model", "name")), 1)
-    provider_i = next(
-        (i for i, c in enumerate(header_cells) if "provider" in c), -1
-    )
+    provider_i = next((i for i, c in enumerate(header_cells) if "provider" in c), -1)
     score_i = next(
         (i for i, c in enumerate(header_cells) if c in ("score", "elo", "arena score")),
         -1,
@@ -166,9 +165,9 @@ def parse_leaderboard(url: str, html: str) -> list[LBRow]:
         link = name_cell.find("a")
         display = link.get_text(strip=True) if link else name_cell.get_text(strip=True)
         # Strip trailing "provider . type" annotations LMArena embeds
-        display = re.split(
-            r"\s*·\s*|\s+xAI\s+|\s+OpenAI\s+|\s+Google\s+", display
-        )[0].strip()
+        display = re.split(r"\s*·\s*|\s+xAI\s+|\s+OpenAI\s+|\s+Google\s+", display)[
+            0
+        ].strip()
 
         model_id = resolve_alias(display)
         if not model_id:
@@ -189,19 +188,15 @@ def parse_leaderboard(url: str, html: str) -> list[LBRow]:
         if score_i >= 0:
             score_match = re.search(r"[\d.]+", cells[score_i].get_text())
             if score_match:
-                try:
+                with contextlib.suppress(ValueError):
                     score = float(score_match.group())
-                except ValueError:
-                    pass
 
         rows.append(LBRow(rank=rank, model_id=model_id, provider=provider, score=score))
 
     return rows
 
 
-def merge_ranks(
-    rows_aa: list[LBRow], rows_lmarena: list[LBRow]
-) -> dict[str, int]:
+def merge_ranks(rows_aa: list[LBRow], rows_lmarena: list[LBRow]) -> dict[str, int]:
     """Return {canonical_model_id: quality_rank} using min(rank_aa, rank_lmarena)."""
     result: dict[str, int] = {}
     all_ids = {r.model_id for r in rows_aa} | {r.model_id for r in rows_lmarena}

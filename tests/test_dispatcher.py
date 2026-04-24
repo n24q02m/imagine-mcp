@@ -19,9 +19,7 @@ def test_understand_routes_to_gemini_image(monkeypatch: pytest.MonkeyPatch) -> N
     import imagine_mcp.providers.gemini as gemini_mod
 
     monkeypatch.setattr(gemini_mod, "understand_image", mock_fn, raising=False)
-    monkeypatch.setattr(
-        "imagine_mcp.dispatcher.detect_media_type", lambda u: "image"
-    )
+    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "image")
 
     result = dispatch_understand(
         media_urls=["https://example.com/cat.png"],
@@ -53,9 +51,7 @@ def test_understand_invalid_tier() -> None:
 
 
 def test_understand_unsupported_video_openai(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "imagine_mcp.dispatcher.detect_media_type", lambda u: "video"
-    )
+    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "video")
     with pytest.raises(ProviderUnsupportedError) as exc_info:
         dispatch_understand(
             media_urls=["https://example.com/x.mp4"],
@@ -67,9 +63,7 @@ def test_understand_unsupported_video_openai(monkeypatch: pytest.MonkeyPatch) ->
 
 
 def test_understand_unsupported_video_grok(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "imagine_mcp.dispatcher.detect_media_type", lambda u: "video"
-    )
+    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "video")
     with pytest.raises(ProviderUnsupportedError):
         dispatch_understand(
             media_urls=["https://example.com/x.mp4"],
@@ -97,4 +91,7 @@ def test_generate_unsupported_video_openai() -> None:
             provider="openai",
             tier="poor",
         )
-    assert "sora" in str(exc_info.value).lower() or "shutdown" in str(exc_info.value).lower()
+    assert (
+        "sora" in str(exc_info.value).lower()
+        or "shutdown" in str(exc_info.value).lower()
+    )
