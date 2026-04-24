@@ -5,17 +5,35 @@ description = "MCP server for image/video understanding & generation (Gemini/Ope
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "n24q02m" }]
-requires-python = ">=3.13,<3.14"
+requires-python = ">=3.13.13,<3.14"
 keywords = [
-    "mcp", "mcp-server", "model-context-protocol",
-    "image-generation", "video-generation", "image-understanding",
-    "gemini", "openai", "grok",
-    "claude", "cursor", "copilot", "antigravity", "codex", "opencode", "gemini-cli",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "image-generation",
+    "video-generation",
+    "image-understanding",
+    "multimodal",
+    "gemini",
+    "openai",
+    "grok",
+    "claude",
+    "cursor",
+    "copilot",
+    "antigravity",
+    "codex",
+    "opencode",
+    "gemini-cli",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Graphics",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
@@ -71,10 +89,9 @@ timeout = 30
 markers = [
     "live: live API calls (requires real credentials, slow)",
     "integration: in-process integration tests",
-    "mcp_protocol: spawns server subprocess via stdio_client",
     "security: SSRF / path traversal / injection boundary tests",
 ]
-addopts = "-m 'not live and not mcp_protocol' --strict-markers"
+addopts = "-m 'not live' --strict-markers"
 
 [tool.ruff]
 line-length = 88

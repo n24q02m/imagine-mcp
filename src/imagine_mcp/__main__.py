@@ -7,19 +7,24 @@ import sys
 
 
 def main() -> None:
-    from imagine_mcp.server import main as http_local_relay_main
-    from imagine_mcp.server import main_stdio
+    mode = (os.environ.get("MCP_MODE") or "").strip().lower()
 
-    mode = os.environ.get("MCP_MODE", "http-local-relay")
-    if "--stdio" in sys.argv:
-        mode = "stdio-proxy"
+    if "--stdio" in sys.argv or os.environ.get("MCP_TRANSPORT") == "stdio":
+        from mcp_core.transport import run_smart_stdio_proxy
 
-    if mode == "stdio-proxy":
-        main_stdio()
-    elif mode == "http-local-relay":
+        daemon_cmd = [sys.executable, "-m", "imagine_mcp"]
+        sys.exit(run_smart_stdio_proxy("imagine-mcp", daemon_cmd))
+
+    if mode in ("", "http-local-relay", "local-relay"):
+        from imagine_mcp.server import main as http_local_relay_main
+
         http_local_relay_main()
-    else:
-        raise ValueError(f"Unsupported MCP_MODE={mode!r}")
+        return
+
+    raise SystemExit(
+        f"Unsupported MCP_MODE={mode!r}. Supported: local-relay (default) "
+        "or set MCP_TRANSPORT=stdio / pass --stdio for stdio proxy."
+    )
 
 
 if __name__ == "__main__":

@@ -246,11 +246,5 @@ def main() -> None:
         app.run()
 
 
-def main_stdio() -> None:
-    """stdio proxy mode."""
-    app = build_app()
-    app.run()
-
-
 if __name__ == "__main__":
     main()
