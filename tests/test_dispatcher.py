@@ -7,6 +7,7 @@ from imagine_mcp.errors import (
     InvalidMediaTypeError,
     InvalidProviderError,
     InvalidTierError,
+    InvalidURLError,
     ProviderUnsupportedError,
 )
 
@@ -95,3 +96,44 @@ def test_generate_unsupported_video_openai() -> None:
         "sora" in str(exc_info.value).lower()
         or "shutdown" in str(exc_info.value).lower()
     )
+
+
+@pytest.mark.parametrize(
+    "bad_url",
+    [
+        "file:///etc/passwd",
+        "ftp://internal.local/secret",
+        "gopher://127.0.0.1:9000/_x",
+        "//no-scheme.example.com/a.png",
+        "javascript:alert(1)",
+    ],
+)
+def test_understand_rejects_non_http_url(bad_url: str) -> None:
+    with pytest.raises(InvalidURLError):
+        dispatch_understand(
+            media_urls=[bad_url],
+            prompt="hi",
+            provider="gemini",
+            tier="poor",
+        )
+
+
+def test_understand_rejects_non_http_url_in_second_position() -> None:
+    with pytest.raises(InvalidURLError, match=r"media_urls\[1\]"):
+        dispatch_understand(
+            media_urls=["https://example.com/ok.png", "file:///etc/passwd"],
+            prompt="hi",
+            provider="gemini",
+            tier="poor",
+        )
+
+
+def test_generate_rejects_non_http_reference_image_url() -> None:
+    with pytest.raises(InvalidURLError, match="reference_image_url"):
+        dispatch_generate(
+            media_type="image",
+            prompt="cat",
+            provider="gemini",
+            tier="poor",
+            reference_image_url="file:///etc/passwd",
+        )

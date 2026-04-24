@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import importlib
 from typing import Any
+from urllib.parse import urlparse
 
 from imagine_mcp.errors import (
     InvalidMediaTypeError,
     InvalidProviderError,
     InvalidTierError,
+    InvalidURLError,
     ProviderUnsupportedError,
 )
 from imagine_mcp.media import detect_media_type
@@ -33,6 +35,23 @@ _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
         "Use provider='gemini' for video understanding."
     ),
 }
+
+
+_ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
+
+
+def _validate_url(url: str, param: str) -> None:
+    """Reject non-http(s) URLs to prevent SSRF and local file inclusion.
+
+    Providers pass URLs to SDKs / HEAD requests that honour file://, ftp://,
+    gopher://, etc. Restrict to http/https at the dispatch boundary so every
+    downstream call inherits the check.
+    """
+    scheme = urlparse(url).scheme.lower()
+    if scheme not in _ALLOWED_URL_SCHEMES:
+        raise InvalidURLError(
+            f"Invalid {param} scheme {scheme!r}. Only http/https are allowed."
+        )
 
 
 def _validate(provider: str, tier: str) -> None:
@@ -67,6 +86,8 @@ def dispatch_understand(
     _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
+    for i, u in enumerate(media_urls):
+        _validate_url(u, f"media_urls[{i}]")
 
     media_types = [detect_media_type(u) for u in media_urls]
     has_video = "video" in media_types
@@ -105,6 +126,8 @@ def dispatch_generate(
         raise InvalidMediaTypeError(
             f"Unknown media_type {media_type!r}. Valid: {VALID_MEDIA_TYPES}"
         )
+    if reference_image_url is not None:
+        _validate_url(reference_image_url, "reference_image_url")
 
     model = get_model_id(provider, "generate", media_type, tier)
     if model is UNSUPPORTED:

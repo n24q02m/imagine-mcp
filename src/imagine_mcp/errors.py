@@ -31,6 +31,10 @@ class InvalidMediaTypeError(ValidationError):
     """Media type is not in {image, video}."""
 
 
+class InvalidURLError(ValidationError):
+    """URL scheme is not http or https (SSRF/LFI prevention)."""
+
+
 class ProviderError(ImagineError):
     """Provider-side error (network, quota, auth, or API refusal)."""
 
