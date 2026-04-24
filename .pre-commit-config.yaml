@@ -1,21 +1,32 @@
-repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: trailing-whitespace
-        exclude_types: [image]
-      - id: check-merge-conflict
-      - id: check-json
-        types: [json]
-      - id: check-yaml
-        types: [yaml]
-      - id: check-toml
-        types: [toml]
-      - id: end-of-file-fixer
-        exclude_types: [image]
+# Pre-commit Hooks Configuration
+# Installation: https://pre-commit.com/
+#
+# Quick start:
+#   1. Install hooks: uv run pre-commit install
+#   2. Run manually: uv run pre-commit run --all-files
+#
+# Bypass checks: git commit --no-verify (use only in emergency)
 
+default_language_version:
+  python: python3.13
+
+repos:
+  # ============================================================================
+  # Security: Secret Detection (MUST be first -- blocks commit if secrets found)
+  # ============================================================================
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e # v8.30.1
+    hooks:
+      - id: gitleaks
+        name: gitleaks (detect secrets)
+
+  # ============================================================================
+  # Python (Ruff + ty)
+  # ============================================================================
+
+  # Ruff: Fast Python linter and formatter
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.0
+    rev: e05c5c0818279e5ac248ac9e954431ba58865e61 # v0.15.7
     hooks:
       - id: ruff
         name: ruff lint
@@ -23,6 +34,7 @@ repos:
       - id: ruff-format
         name: ruff format
 
+  # ty: Static type checker for Python
   - repo: local
     hooks:
       - id: ty
@@ -32,13 +44,58 @@ repos:
         types: [python]
         pass_filenames: false
 
+  # Pytest: Run tests
+  - repo: local
+    hooks:
       - id: pytest
-        name: pytest
-        entry: uv run pytest --tb=short -q -m "not live and not mcp_protocol"
+        name: pytest (Python)
+        entry: uv run pytest --tb=short -q --timeout=30 -m "not live"
         language: system
         types: [python]
         pass_filenames: false
 
+  # ============================================================================
+  # Common Checks
+  # ============================================================================
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: cef0300fd0fc4d2a87a85fa2093c6b283ea36f4b # v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: trim trailing whitespace
+        exclude_types: [image]
+
+      - id: check-merge-conflict
+        name: check for merge conflicts
+
+      - id: check-added-large-files
+        name: check for added large files (>500 kB)
+        args: [--maxkb=500]
+
+      - id: check-case-conflict
+        name: check for case conflicts
+
+      - id: check-json
+        name: check JSON files
+        types: [json]
+
+      - id: check-yaml
+        name: check YAML files
+        types: [yaml]
+
+      - id: check-toml
+        name: check TOML files
+        types: [toml]
+
+      - id: end-of-file-fixer
+        name: fix end of files
+        exclude_types: [image]
+
+  # ============================================================================
+  # Repo-specific: keep docs/models.md in sync with models.py
+  # ============================================================================
+  - repo: local
+    hooks:
       - id: models-table-drift
         name: docs/models.md drift check
         entry: uv run python scripts/gen_models_table.py --check
@@ -46,8 +103,13 @@ repos:
         files: ^(src/imagine_mcp/models\.py|docs/models\.md|scripts/gen_models_table\.py)$
         pass_filenames: false
 
+  # ============================================================================
+  # Commit Message Enforcement
+  # ============================================================================
+  - repo: local
+    hooks:
       - id: enforce-commit
-        name: Enforce feat/fix commit prefix
+        name: Enforce feat and fix commit prefixes
         entry: bash scripts/enforce-commit.sh
         language: system
         stages: [commit-msg]
