@@ -1,6 +1,17 @@
+# Mise configuration for imagine-mcp
+# https://mise.jdx.dev/
+#
+# Setup: mise run setup
+
 [tools]
 python = "3.13"
 uv = "latest"
+
+[settings]
+trusted_config_paths = ["."]
+
+[env]
+UV_LINK_MODE = "copy"
 
 [tasks.setup]
 description = "Setup development environment"
@@ -28,7 +39,7 @@ run = "uv run pytest"
 [tasks.fix]
 description = "Auto-fix formatting and linting issues"
 run = [
-    "uv run ruff check --fix .",
+    "uv run ruff check --fix --unsafe-fixes .",
     "uv run ruff format .",
 ]
 

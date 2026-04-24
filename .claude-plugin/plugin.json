@@ -1,12 +1,26 @@
 {
   "name": "imagine-mcp",
-  "version": "1.0.0",
   "description": "Image/video understanding & generation across Gemini, OpenAI, Grok",
+  "version": "1.0.0",
+  "author": {
+    "name": "n24q02m",
+    "url": "https://github.com/n24q02m"
+  },
+  "homepage": "https://github.com/n24q02m/imagine-mcp",
+  "repository": "https://github.com/n24q02m/imagine-mcp",
+  "license": "MIT",
+  "keywords": [
+    "image-generation",
+    "video-generation",
+    "image-understanding",
+    "multimodal",
+    "mcp",
+    "claude-code"
+  ],
   "mcpServers": {
-    "imagine-mcp": {
+    "imagine": {
       "command": "uvx",
       "args": ["--python", "3.13", "imagine-mcp"]
     }
-  },
-  "skills": "./skills/"
+  }
 }
