@@ -54,10 +54,11 @@ For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/model
 | grok | generate | image | rich | `grok-imagine-image-pro` |
 | grok | generate | video | — | `grok-imagine-video` (single-tier) |
 
-## Transport modes
+## Transport modes (parity with wet/mnemo/crg category `http local relay`)
 
-- **Default**: `http local relay mode` — `run_local_server` on 127.0.0.1:<port>, credentials via browser form
-- **Alternative**: `stdio proxy mode` — spawn with `--stdio` or `MCP_MODE=stdio-proxy`
+- **Default**: `http local relay` -- `run_local_server` on 127.0.0.1:<port>, credential form at `/authorize`.
+- **Alternative**: `http remote relay (self-host)` -- `MCP_MODE=remote-relay` + `MCP_RELAY_URL=<your-deployed-url>`; server pulls creds from your relay, then serves MCP protocol locally. n24q02m does not host a public `imagine-mcp.n24q02m.com` (see mode-matrix.md section 2.5).
+- **Stdio transport**: `--stdio` or `MCP_TRANSPORT=stdio` -- `run_smart_stdio_proxy` spawns a local daemon (same backend as http local relay) and bridges stdin/stdout. Not a separate mode; it is a transport wrapper on top of the daemon.
 
 ## Credentials
 

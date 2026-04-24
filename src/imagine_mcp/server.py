@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Literal
@@ -225,25 +227,85 @@ def build_app() -> FastMCP:
     return app
 
 
-def main() -> None:
-    """Default entry: http local relay mode via mcp-core."""
+async def run_http(port: int = 0) -> None:
+    """Default ``http local relay`` mode.
+
+    Spawns a local HTTP daemon on 127.0.0.1:<port> via mcp-core's
+    ``run_local_server``, serving the credential form at ``/authorize`` and
+    the MCP streamable HTTP endpoint at ``/mcp``. User pastes API keys in
+    the browser form; ``on_credentials_saved`` writes them to ``config.enc``
+    and applies them to the process env.
+    """
+    from mcp_core.transport.local_server import run_local_server
+
+    from imagine_mcp.relay_schema import RELAY_SCHEMA
+
     app = build_app()
-    logger.info("imagine-mcp {} starting", _get_version())
+    logger.info("imagine-mcp {} starting (http local relay)", _get_version())
+    await run_local_server(
+        app,
+        server_name="imagine-mcp",
+        relay_schema=RELAY_SCHEMA,
+        port=port,
+        open_browser=True,
+    )
+
+
+async def run_remote_relay() -> None:
+    """``http remote relay (self-host)`` mode.
+
+    Fetch credentials from a user-supplied relay server (``MCP_RELAY_URL``)
+    via ``create_session`` + ``poll_for_result`` from mcp-core, then serve
+    the MCP protocol over Streamable HTTP on 127.0.0.1:<port>.
+
+    Unlike the default ``http local relay``, this path does NOT serve a
+    credential form locally -- the user pastes API keys into the remote
+    relay's browser form (URL printed to stderr) and the encrypted payload
+    flows back through ECDH + AES-256-GCM.
+    """
+    from imagine_mcp.relay_setup import apply_config, ensure_config
 
     try:
-        from mcp_core.transport import run_local_server
+        timeout = float(os.environ.get("MCP_RELAY_TIMEOUT_S", "300"))
+    except ValueError:
+        timeout = 300.0
 
-        from imagine_mcp.relay_schema import RELAY_SCHEMA
-
-        run_local_server(
-            app,
-            server_name="imagine-mcp",
-            relay_schema=RELAY_SCHEMA,
-            open_browser=True,
+    config = await ensure_config(force=True, timeout=timeout)
+    if config is None:
+        logger.warning(
+            "Remote relay produced no credentials; continuing in degraded "
+            "mode (tools return CredentialMissingError until keys are set)."
         )
-    except ImportError:
-        logger.warning("mcp_core not installed; falling back to FastMCP .run()")
-        app.run()
+    else:
+        apply_config(config)
+
+    host = os.environ.get("MCP_HOST", "127.0.0.1")
+    try:
+        port = int(os.environ.get("MCP_PORT", "0"))
+    except ValueError:
+        port = 0
+
+    app = build_app()
+    app.settings.host = host
+    app.settings.port = port
+    logger.info(
+        "Starting MCP Streamable HTTP on {}:{}{}",
+        host,
+        port or "<auto>",
+        app.settings.streamable_http_path,
+    )
+    await app.run_streamable_http_async()
+
+
+def main() -> None:
+    """Sync wrapper for the default ``http local relay`` mode.
+
+    Kept as the public entry point so `python -m imagine_mcp` and the
+    ``imagine-mcp`` console_script both resolve to the same thing.
+    Mode dispatch (stdio / remote-relay / local-relay) lives in
+    ``imagine_mcp.__main__``.
+    """
+    asyncio.run(run_http())
 
 
 if __name__ == "__main__":
