@@ -1,0 +1,75 @@
+{
+  "fetched_at_utc": "2026-04-24T05:42:51.925590+00:00",
+  "urls": {
+    "https://artificialanalysis.ai/image/leaderboard/text-to-image": [],
+    "https://artificialanalysis.ai/image/leaderboard/editing": [],
+    "https://artificialanalysis.ai/video/leaderboard/text-to-video": [],
+    "https://artificialanalysis.ai/video/leaderboard/image-to-video": [],
+    "https://arena.ai/leaderboard/vision": [
+      {
+        "rank": 8,
+        "model_id": "gemini-3.1-pro-preview",
+        "provider": "gemini",
+        "score": 1279.0,
+        "cost_per_call_usd": null
+      },
+      {
+        "rank": 23,
+        "model_id": "gemini-3.1-flash-lite-preview",
+        "provider": "gemini",
+        "score": 1239.0,
+        "cost_per_call_usd": null
+      }
+    ],
+    "https://arena.ai/leaderboard/text-to-image": [
+      {
+        "rank": 8,
+        "model_id": "grok-imagine-image",
+        "provider": "grok",
+        "score": 1170.0,
+        "cost_per_call_usd": null
+      },
+      {
+        "rank": 11,
+        "model_id": "grok-imagine-image-pro",
+        "provider": "grok",
+        "score": 1158.0,
+        "cost_per_call_usd": null
+      },
+      {
+        "rank": 30,
+        "model_id": "gpt-image-1-mini",
+        "provider": "openai",
+        "score": 1105.0,
+        "cost_per_call_usd": null
+      }
+    ],
+    "https://arena.ai/leaderboard/image-edit": [
+      {
+        "rank": 7,
+        "model_id": "grok-imagine-image",
+        "provider": "grok",
+        "score": 1334.0,
+        "cost_per_call_usd": null
+      },
+      {
+        "rank": 42,
+        "model_id": "gpt-image-1-mini",
+        "provider": "openai",
+        "score": 1125.0,
+        "cost_per_call_usd": null
+      }
+    ],
+    "https://arena.ai/leaderboard/text-to-video": [],
+    "https://arena.ai/leaderboard/image-to-video": [],
+    "https://arena.ai/leaderboard/video-edit": [
+      {
+        "rank": 3,
+        "model_id": "grok-imagine-video",
+        "provider": "grok",
+        "score": 1259.0,
+        "cost_per_call_usd": null
+      }
+    ]
+  }
+}
