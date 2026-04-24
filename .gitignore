@@ -12,9 +12,14 @@ build/
 # Virtualenv
 .venv/
 
-# AI traces (per CLAUDE.md private repo policy)
+# AI traces (per CLAUDE.md public repo policy — superpower content lives in private repo n24q02m/.superpower)
 .jules/
 .Jules/
+.jules
+.superpower/
+superpower/
+superpowers/
+docs/superpowers/
 
 # OS
 .DS_Store
