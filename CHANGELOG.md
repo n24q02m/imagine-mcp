@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.0-beta.3 (2026-04-24)
+
+### Bug Fixes
+
+- Remove wheel force-include and whitelist README.md in .dockerignore
+  ([`8af6f76`](https://github.com/n24q02m/imagine-mcp/commit/8af6f7613f331a1903b37b8b9115cbeaee10c15b))
+
+
 ## v1.0.0-beta.2 (2026-04-24)
 
 ### Bug Fixes
