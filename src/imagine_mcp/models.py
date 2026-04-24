@@ -335,14 +335,21 @@ MODELS: Final[list[ModelEntry]] = [
 ]
 
 
+_MODEL_CACHE: Final[dict[tuple[Provider, Action, Media, Tier], ModelEntry]] = {
+    (e.provider, e.action, e.media, e.tier): e for e in MODELS
+}
+
+
 def _lookup(provider: str, action: str, media: str, tier: str) -> ModelEntry:
-    for e in MODELS:
-        if (e.provider, e.action, e.media, e.tier) == (provider, action, media, tier):
-            return e
-    raise KeyError(
-        f"unknown combo: provider={provider!r} action={action!r} "
-        f"media={media!r} tier={tier!r}"
-    )
+    try:
+        # Cast to ignore dynamic type mismatch (provider/action etc are str dynamically
+        # but typed as Literals in the cache key)
+        return _MODEL_CACHE[(provider, action, media, tier)]  # type: ignore
+    except KeyError:
+        raise KeyError(
+            f"unknown combo: provider={provider!r} action={action!r} "
+            f"media={media!r} tier={tier!r}"
+        ) from None
 
 
 def get_model_id(
