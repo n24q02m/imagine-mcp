@@ -49,10 +49,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/imagine_mcp"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/imagine_mcp/docs" = "imagine_mcp/docs"
-"src/imagine_mcp/py.typed" = "imagine_mcp/py.typed"
-
 [dependency-groups]
 dev = [
     "pytest>=8.0",

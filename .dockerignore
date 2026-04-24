@@ -19,6 +19,7 @@ docs/superpowers/
 tests/
 docs/
 *.md
+!README.md
 .env*
 .DS_Store
 Thumbs.db
