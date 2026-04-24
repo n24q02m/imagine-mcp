@@ -1,7 +1,7 @@
 {
   "name": "imagine-mcp",
   "description": "Image/video understanding & generation across Gemini, OpenAI, Grok",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "n24q02m",
     "url": "https://github.com/n24q02m"
