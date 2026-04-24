@@ -69,32 +69,11 @@ jobs:
         with:
           files: coverage.xml
 
-  codeql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'push')
-      && github.actor != 'dependabot[bot]'
-      && github.actor != 'renovate[bot]'
-    permissions:
-      security-events: write
-      contents: read
-    steps:
-      - name: Harden Runner
-        uses: step-security/harden-runner@8d3c67de8e2fe68ef647c8db1e6a09f647780f40 # v2
-        with:
-          egress-policy: audit
-
-      - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4
-        with:
-          languages: python
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4
+  # NOTE: CodeQL analysis is handled by GitHub's default setup for this public
+  # repo (see Security -> Code scanning). Workflow-based CodeQL conflicts with
+  # default setup ("CodeQL analyses from advanced configurations cannot be
+  # processed when the default setup is enabled"). Disable default setup in
+  # repo settings if you prefer workflow-driven analysis.
 
   dependency-review:
     name: Dependency Review
