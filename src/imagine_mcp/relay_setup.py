@@ -44,6 +44,24 @@ def apply_config(config: dict[str, str]) -> None:
             logger.debug("Applied relay config: {}", key)
 
 
+def save_credentials(
+    config: dict[str, str],
+    _context: dict[str, str] | None = None,
+) -> dict | None:
+    """Persist credentials from the OAuth form to config.enc + env vars.
+
+    Wired into `run_local_server(on_credentials_saved=save_credentials)`.
+    `_context` carries the per-authorize `sub` for future multi-user use;
+    imagine-mcp is single-user by design so the subject is unused here.
+    """
+    from mcp_core.storage.config_file import write_config
+
+    write_config(SERVER_NAME, config)
+    apply_config(config)
+    logger.info("Credentials saved via local OAuth form")
+    return None
+
+
 async def ensure_config(
     *, force: bool = False, timeout: float | None = RELAY_TIMEOUT_S
 ) -> dict[str, str] | None:
