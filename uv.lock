@@ -571,7 +571,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27" },
     { name = "loguru", specifier = ">=0.7" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.0" },
-    { name = "n24q02m-mcp-core", specifier = ">=1.7.5" },
+    { name = "n24q02m-mcp-core", specifier = ">=1.7.6" },
     { name = "openai", specifier = ">=1.60" },
     { name = "pillow", specifier = ">=10.0" },
     { name = "platformdirs", specifier = ">=4.0" },
@@ -839,7 +839,7 @@ wheels = [
 
 [[package]]
 name = "n24q02m-mcp-core"
-version = "1.7.5"
+version = "1.7.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "authlib" },
@@ -852,9 +852,9 @@ dependencies = [
     { name = "starlette" },
     { name = "tomli-w" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/4e/95/6b62d9910af0fe3324e3daa5ad840bd104de87a5595ad9b732e0187071b7/n24q02m_mcp_core-1.7.5.tar.gz", hash = "sha256:107a75e19b8754f4914334c4e7afb9f8d0f29ee0b5a976ff1df52155cd2ce6c1", size = 157664, upload-time = "2026-04-24T04:31:58.923Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/41/b2/ec817cfce281a2d6efe19936c74ae935a14bd734f380cee3c61ff052c6a7/n24q02m_mcp_core-1.7.6.tar.gz", hash = "sha256:939ad6c841cb8980b7b6e99937322aad18b0f488b09ed1948c09ecf67108eb62", size = 160060, upload-time = "2026-04-24T10:52:57.975Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3c/05/668eebe66063f46ef0d53119dffe0d45bc0c996ac30828c88fd989eaed2a/n24q02m_mcp_core-1.7.5-py3-none-any.whl", hash = "sha256:6f69460af8b8387f6084feba3af487c3a8529b292ff4118be3955ece24d33be0", size = 97996, upload-time = "2026-04-24T04:31:57.737Z" },
+    { url = "https://files.pythonhosted.org/packages/49/57/ba494b0bebacbeb3877eda025f4045ea37ff82bc06ffa80d688e4c51454f/n24q02m_mcp_core-1.7.6-py3-none-any.whl", hash = "sha256:3b07e254dfa50cb9561ef8f892df7d86792e5af23640dc6cb365bdf04fb94d4a", size = 99096, upload-time = "2026-04-24T10:52:56.4Z" },
 ]
 
 [[package]]
