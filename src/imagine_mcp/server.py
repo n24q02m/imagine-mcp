@@ -32,10 +32,11 @@ def _get_version() -> str:
 
 
 def _creds_state() -> str:
-    if (
-        settings.google_ai_studio_api_key
-        or settings.openai_api_key
-        or settings.xai_api_key
+    # Read from os.environ -- settings singleton is frozen at import time
+    # and does not observe post-startup relay-saved credentials.
+    if any(
+        os.environ.get(k)
+        for k in ("GOOGLE_AI_STUDIO_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
     ):
         return "CONFIGURED"
     return "NEEDS_SETUP"
@@ -43,11 +44,11 @@ def _creds_state() -> str:
 
 def _providers_configured() -> list[str]:
     out: list[str] = []
-    if settings.google_ai_studio_api_key:
+    if os.environ.get("GOOGLE_AI_STUDIO_API_KEY"):
         out.append("gemini")
-    if settings.openai_api_key:
+    if os.environ.get("OPENAI_API_KEY"):
         out.append("openai")
-    if settings.xai_api_key:
+    if os.environ.get("XAI_API_KEY"):
         out.append("grok")
     return out
 
@@ -239,6 +240,7 @@ async def run_http(port: int = 0) -> None:
     from mcp_core.transport.local_server import run_local_server
 
     from imagine_mcp.relay_schema import RELAY_SCHEMA
+    from imagine_mcp.relay_setup import save_credentials
 
     app = build_app()
     logger.info("imagine-mcp {} starting (http local relay)", _get_version())
@@ -248,6 +250,7 @@ async def run_http(port: int = 0) -> None:
         relay_schema=RELAY_SCHEMA,
         port=port,
         open_browser=True,
+        on_credentials_saved=save_credentials,
     )
 
 
