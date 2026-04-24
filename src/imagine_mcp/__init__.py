@@ -1,2 +1,10 @@
-"""imagine-mcp: MCP server for image/video understanding + generation."""
-__version__ = "0.1.0"
+"""imagine-mcp: MCP server for image/video understanding and generation."""
+
+from __future__ import annotations
+
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("imagine-mcp")
+except PackageNotFoundError:
+    __version__ = "0.0.0+unknown"
