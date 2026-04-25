@@ -335,10 +335,15 @@ MODELS: Final[list[ModelEntry]] = [
 ]
 
 
+_MODEL_CACHE: Final[dict[tuple[str, str, str, str], ModelEntry]] = {
+    (e.provider, e.action, e.media, e.tier): e for e in MODELS
+}
+
+
 def _lookup(provider: str, action: str, media: str, tier: str) -> ModelEntry:
-    for e in MODELS:
-        if (e.provider, e.action, e.media, e.tier) == (provider, action, media, tier):
-            return e
+    key = (provider, action, media, tier)
+    if key in _MODEL_CACHE:
+        return _MODEL_CACHE[key]
     raise KeyError(
         f"unknown combo: provider={provider!r} action={action!r} "
         f"media={media!r} tier={tier!r}"
