@@ -106,6 +106,16 @@ def test_generate_unsupported_video_openai() -> None:
         "gopher://127.0.0.1:9000/_x",
         "//no-scheme.example.com/a.png",
         "javascript:alert(1)",
+        "http://localhost",
+        "http://127.0.0.1",
+        "https://127.0.0.1",
+        "http://169.254.169.254",
+        "http://0x7f000001",
+        "http://0.0.0.0",
+        "http://10.0.0.1",
+        "https://192.168.1.5",
+        "http://[::ffff:127.0.0.1]/",
+        "http://[::ffff:7f00:1]/",
     ],
 )
 def test_understand_rejects_non_http_url(bad_url: str) -> None:
@@ -137,3 +147,24 @@ def test_generate_rejects_non_http_reference_image_url() -> None:
             tier="poor",
             reference_image_url="file:///etc/passwd",
         )
+
+
+def test_understand_rejects_dns_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    import time
+
+    def mock_getaddrinfo(*args, **kwargs):
+        time.sleep(3)
+        return []
+
+    monkeypatch.setattr("socket.getaddrinfo", mock_getaddrinfo)
+
+    start = time.time()
+    with pytest.raises(InvalidURLError, match=r"timed out for 'slow\.example\.com'"):
+        dispatch_understand(
+            media_urls=["http://slow.example.com/test.png"],
+            prompt="hi",
+            provider="gemini",
+            tier="poor",
+        )
+    duration = time.time() - start
+    assert duration < 2.5, f"DNS timeout block took too long: {duration}s"
