@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import importlib
+import ipaddress
+import socket
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from typing import Any
 from urllib.parse import urlparse
 
@@ -38,6 +41,7 @@ _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
 
 
 _ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
+_DNS_RESOLVER_POOL = ThreadPoolExecutor(max_workers=4)
 
 
 def _validate_url(url: str, param: str) -> None:
@@ -45,13 +49,38 @@ def _validate_url(url: str, param: str) -> None:
 
     Providers pass URLs to SDKs / HEAD requests that honour file://, ftp://,
     gopher://, etc. Restrict to http/https at the dispatch boundary so every
-    downstream call inherits the check.
+    downstream call inherits the check. Also resolves hostnames to prevent
+    SSRF/DNS rebinding to internal IP addresses.
     """
-    scheme = urlparse(url).scheme.lower()
+    parsed = urlparse(url)
+    scheme = parsed.scheme.lower()
     if scheme not in _ALLOWED_URL_SCHEMES:
         raise InvalidURLError(
             f"Invalid {param} scheme {scheme!r}. Only http/https are allowed."
         )
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise InvalidURLError(f"Invalid {param}: missing hostname.")
+
+    try:
+        future = _DNS_RESOLVER_POOL.submit(socket.gethostbyname, hostname)
+        ip_str = future.result(timeout=2.0)
+    except TimeoutError as err:
+        raise InvalidURLError(f"DNS resolution timed out for {hostname}") from err
+    except Exception as e:
+        raise InvalidURLError(f"DNS resolution failed for {hostname}: {e}") from e
+
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        if getattr(ip, "ipv4_mapped", None):
+            ip = ip.ipv4_mapped
+        if ip.is_private or ip.is_loopback or ip.is_link_local or getattr(ip, "is_unspecified", False):
+            raise InvalidURLError(
+                f"Invalid {param}: hostname resolves to a private or local IP."
+            )
+    except ValueError as err:
+        raise InvalidURLError(f"Invalid resolved IP for {hostname}") from err
 
 
 def _validate(provider: str, tier: str) -> None:

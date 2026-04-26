@@ -84,6 +84,29 @@ def test_generate_invalid_media_type() -> None:
         )
 
 
+@pytest.mark.security
+@pytest.mark.parametrize(
+    "bad_ip_url",
+    [
+        "http://127.0.0.1/test.png",
+        "https://localhost/test.png",
+        "http://192.168.1.1/test.png",
+        "http://10.0.0.1/test.png",
+        "http://172.16.0.1/test.png",
+        "http://169.254.169.254/latest/meta-data/",
+        "http://0.0.0.0/test.png",
+    ],
+)
+def test_understand_rejects_private_or_local_ips(bad_ip_url: str) -> None:
+    with pytest.raises(InvalidURLError):
+        dispatch_understand(
+            media_urls=[bad_ip_url],
+            prompt="hi",
+            provider="gemini",
+            tier="poor",
+        )
+
+
 def test_generate_unsupported_video_openai() -> None:
     with pytest.raises(ProviderUnsupportedError) as exc_info:
         dispatch_generate(
