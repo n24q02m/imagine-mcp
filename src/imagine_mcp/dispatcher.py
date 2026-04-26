@@ -75,7 +75,12 @@ def _validate_url(url: str, param: str) -> None:
         ip = ipaddress.ip_address(ip_str)
         if getattr(ip, "ipv4_mapped", None):
             ip = ip.ipv4_mapped
-        if ip.is_private or ip.is_loopback or ip.is_link_local or getattr(ip, "is_unspecified", False):
+        if (
+            ip.is_private
+            or ip.is_loopback
+            or ip.is_link_local
+            or getattr(ip, "is_unspecified", False)
+        ):
             raise InvalidURLError(
                 f"Invalid {param}: hostname resolves to a private or local IP."
             )
