@@ -20,13 +20,11 @@ _CLIENT: Any = None
 def _client() -> Any:
     global _CLIENT
     if _CLIENT is None:
-        api_key = settings.google_ai_studio_api_key or os.environ.get(
-            "GOOGLE_AI_STUDIO_API_KEY"
-        )
+        api_key = settings.gemini_api_key or os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise CredentialMissingError(
                 "Gemini API key missing. Run config(action='open_relay') for "
-                "browser-based setup, or set GOOGLE_AI_STUDIO_API_KEY."
+                "browser-based setup, or set GEMINI_API_KEY."
             )
         from google import genai
 

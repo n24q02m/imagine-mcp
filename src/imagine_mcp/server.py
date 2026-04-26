@@ -36,7 +36,7 @@ def _creds_state() -> str:
     # and does not observe post-startup relay-saved credentials.
     if any(
         os.environ.get(k)
-        for k in ("GOOGLE_AI_STUDIO_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
+        for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
     ):
         return "CONFIGURED"
     return "NEEDS_SETUP"
@@ -44,7 +44,7 @@ def _creds_state() -> str:
 
 def _providers_configured() -> list[str]:
     out: list[str] = []
-    if os.environ.get("GOOGLE_AI_STUDIO_API_KEY"):
+    if os.environ.get("GEMINI_API_KEY"):
         out.append("gemini")
     if os.environ.get("OPENAI_API_KEY"):
         out.append("openai")

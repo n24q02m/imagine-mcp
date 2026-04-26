@@ -41,8 +41,8 @@ def test_understand_video_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
 @pytest.mark.live
 def test_understand_image_live() -> None:
     """Live test against real Gemini API."""
-    if not os.environ.get("GOOGLE_AI_STUDIO_API_KEY"):
-        pytest.skip("Requires GOOGLE_AI_STUDIO_API_KEY")
+    if not os.environ.get("GEMINI_API_KEY"):
+        pytest.skip("Requires GEMINI_API_KEY")
 
     gemini._reset_client()
     result = gemini.understand_image(
