@@ -2,6 +2,23 @@
 
 <!-- version list -->
 
+## v1.1.0-beta.1 (2026-04-27)
+
+### Features
+
+- GEMINI_API_KEY rename + per-JWT-sub LLM keys
+  ([#18](https://github.com/n24q02m/imagine-mcp/pull/18),
+  [`62ae0b7`](https://github.com/n24q02m/imagine-mcp/commit/62ae0b789cb46d3087c7871cea883bb32f9b5ffe))
+
+- Imagine-mcp per-JWT-sub LLM keys for multi-user remote mode
+  ([#18](https://github.com/n24q02m/imagine-mcp/pull/18),
+  [`62ae0b7`](https://github.com/n24q02m/imagine-mcp/commit/62ae0b789cb46d3087c7871cea883bb32f9b5ffe))
+
+- Rename GOOGLE_AI_STUDIO_API_KEY to GEMINI_API_KEY for parity with wet/mnemo/crg
+  ([#18](https://github.com/n24q02m/imagine-mcp/pull/18),
+  [`62ae0b7`](https://github.com/n24q02m/imagine-mcp/commit/62ae0b789cb46d3087c7871cea883bb32f9b5ffe))
+
+
 ## v1.0.2 (2026-04-24)
 
 ### Bug Fixes
