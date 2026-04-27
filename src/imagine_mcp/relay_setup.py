@@ -13,7 +13,7 @@ from loguru import logger
 
 SERVER_NAME = "imagine-mcp"
 CREDENTIAL_KEYS: list[str] = [
-    "GOOGLE_AI_STUDIO_API_KEY",
+    "GEMINI_API_KEY",
     "OPENAI_API_KEY",
     "XAI_API_KEY",
 ]

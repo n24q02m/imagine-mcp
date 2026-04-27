@@ -64,7 +64,7 @@ For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/model
 
 3 API keys (all optional — server runs in degraded mode with missing creds):
 
-- `GOOGLE_AI_STUDIO_API_KEY`
+- `GEMINI_API_KEY` (renamed from `GOOGLE_AI_STUDIO_API_KEY` 2026-04-26 for parity with wet/mnemo/crg)
 - `OPENAI_API_KEY`
 - `XAI_API_KEY`
 

@@ -14,8 +14,8 @@ RELAY_SCHEMA: dict[str, Any] = {
     ),
     "fields": [
         {
-            "key": "GOOGLE_AI_STUDIO_API_KEY",
-            "label": "Google AI Studio API Key",
+            "key": "GEMINI_API_KEY",
+            "label": "Gemini API Key",
             "type": "password",
             "placeholder": "AIza...",
             "helpUrl": "https://aistudio.google.com/apikey",

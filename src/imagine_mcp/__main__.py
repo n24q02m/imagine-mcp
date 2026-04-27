@@ -4,8 +4,9 @@ Modes (parity with wet-mcp / mnemo-mcp / better-code-review-graph):
 
 - ``http local relay`` (default) -- ``run_http``: local HTTP daemon with
   credential form at ``127.0.0.1:<port>/authorize``.
-- ``http remote relay (self-host)`` -- ``run_remote_relay``: pull creds from a
-  user-deployed relay URL (``MCP_RELAY_URL``) then serve MCP protocol locally.
+- ``http remote relay (multi-user)`` -- same ``run_http`` codepath, activated
+  by setting ``PUBLIC_URL`` (and ``MCP_DCR_SERVER_SECRET``). Daemon binds
+  ``0.0.0.0:8080`` and scopes LLM API keys per JWT ``sub``.
 - ``stdio proxy`` -- ``run_smart_stdio_proxy``: bridge stdin/stdout to a local
   HTTP daemon (same backend as http local relay, client-side transport only).
 """
@@ -27,10 +28,12 @@ def main() -> None:
         sys.exit(run_smart_stdio_proxy("imagine-mcp", daemon_cmd))
 
     if mode == "remote-relay":
-        from imagine_mcp.server import run_remote_relay
-
-        asyncio.run(run_remote_relay())
-        return
+        raise SystemExit(
+            "MCP_MODE=remote-relay is deprecated. The unified http daemon "
+            "(`run_http`) now handles both single-user (default) and "
+            "multi-user remote modes; set PUBLIC_URL + MCP_DCR_SERVER_SECRET "
+            "to enable multi-user remote mode."
+        )
 
     if mode in ("", "local-relay", "http-local-relay"):
         from imagine_mcp.server import run_http
@@ -39,9 +42,9 @@ def main() -> None:
         return
 
     raise SystemExit(
-        f"Unsupported MCP_MODE={mode!r}. Supported: local-relay (default), "
-        "remote-relay (requires MCP_RELAY_URL), or set MCP_TRANSPORT=stdio / "
-        "pass --stdio for stdio proxy."
+        f"Unsupported MCP_MODE={mode!r}. Supported: local-relay (default; set "
+        "PUBLIC_URL + MCP_DCR_SERVER_SECRET for multi-user remote mode), or set "
+        "MCP_TRANSPORT=stdio / pass --stdio for stdio proxy."
     )
 
 

@@ -16,8 +16,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # Credentials (all optional -- degraded mode if missing)
-    google_ai_studio_api_key: str | None = Field(default=None)
+    # Credentials (all optional -- degraded mode if missing).
+    # Renamed 2026-04-26: GOOGLE_AI_STUDIO_API_KEY -> GEMINI_API_KEY for parity
+    # with wet/mnemo/crg.
+    gemini_api_key: str | None = Field(default=None)
     openai_api_key: str | None = Field(default=None)
     xai_api_key: str | None = Field(default=None)
 
