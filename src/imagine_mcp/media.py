@@ -8,7 +8,7 @@ from typing import Literal
 
 import httpx
 
-from imagine_mcp.errors import MediaDetectError
+from imagine_mcp.errors import InvalidURLError, MediaDetectError
 
 MediaType = Literal["image", "video"]
 
@@ -17,6 +17,20 @@ _VIDEO_EXT = {".mp4", ".webm", ".mov", ".avi", ".mkv", ".flv", ".m4v"}
 
 _IMAGE_MIME_PREFIX = "image/"
 _VIDEO_MIME_PREFIX = "video/"
+
+
+class SSRFSafeTransport(httpx.HTTPTransport):
+    """Custom transport that validates redirect locations against SSRF checks."""
+
+    def handle_request(self, request: httpx.Request) -> httpx.Response:
+        from imagine_mcp.dispatcher import _validate_url
+
+        _validate_url(str(request.url), "redirect_url")
+        return super().handle_request(request)
+
+
+def get_ssrf_safe_client() -> httpx.Client:
+    return httpx.Client(transport=SSRFSafeTransport())
 
 
 def detect_media_type(url: str) -> MediaType:
@@ -32,10 +46,15 @@ def detect_media_type(url: str) -> MediaType:
         return "video"
 
     try:
-        resp = httpx.head(url, follow_redirects=True, timeout=10)
-        resp.raise_for_status()
+        with get_ssrf_safe_client() as client:
+            resp = client.head(url, follow_redirects=True, timeout=10)
+            resp.raise_for_status()
     except httpx.HTTPError as e:
         raise MediaDetectError(f"HEAD request failed for {url}: {e}") from e
+    except InvalidURLError as e:
+        raise MediaDetectError(
+            f"HEAD request failed due to invalid redirect for {url}: {e}"
+        ) from e
 
     ctype = resp.headers.get("content-type", "").lower()
     if ctype.startswith(_IMAGE_MIME_PREFIX):
@@ -58,9 +77,15 @@ def _extract_extension(url: str) -> str:
 def download_to_path(url: str, dest: Path) -> Path:
     """Download URL content to dest path. Returns path."""
     dest.parent.mkdir(parents=True, exist_ok=True)
-    with httpx.stream("GET", url, follow_redirects=True, timeout=60) as resp:
-        resp.raise_for_status()
-        with dest.open("wb") as f:
-            for chunk in resp.iter_bytes(chunk_size=65536):
-                f.write(chunk)
+    try:
+        with (
+            get_ssrf_safe_client() as client,
+            client.stream("GET", url, follow_redirects=True, timeout=60) as resp,
+        ):
+            resp.raise_for_status()
+            with dest.open("wb") as f:
+                for chunk in resp.iter_bytes(chunk_size=65536):
+                    f.write(chunk)
+    except InvalidURLError as e:
+        raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
     return dest

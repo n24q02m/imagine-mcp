@@ -23,7 +23,18 @@ def test_detect_by_content_type_image(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_response = MagicMock()
     mock_response.headers = {"content-type": "image/jpeg"}
     mock_response.raise_for_status = MagicMock()
-    monkeypatch.setattr("httpx.head", lambda url, **kw: mock_response)
+
+    class MockClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def head(self, url, **kw):
+            return mock_response
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
     assert detect_media_type("https://example.com/xyz") == "image"
 
 
@@ -31,7 +42,18 @@ def test_detect_by_content_type_video(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_response = MagicMock()
     mock_response.headers = {"content-type": "video/mp4"}
     mock_response.raise_for_status = MagicMock()
-    monkeypatch.setattr("httpx.head", lambda url, **kw: mock_response)
+
+    class MockClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def head(self, url, **kw):
+            return mock_response
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
     assert detect_media_type("https://example.com/xyz") == "video"
 
 
@@ -39,7 +61,18 @@ def test_detect_ambiguous_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_response = MagicMock()
     mock_response.headers = {"content-type": "application/octet-stream"}
     mock_response.raise_for_status = MagicMock()
-    monkeypatch.setattr("httpx.head", lambda url, **kw: mock_response)
+
+    class MockClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def head(self, url, **kw):
+            return mock_response
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
     with pytest.raises(MediaDetectError):
         detect_media_type("https://example.com/unknown-bin")
 
