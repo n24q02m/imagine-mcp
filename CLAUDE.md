@@ -87,3 +87,26 @@ docker run -it --rm ghcr.io/n24q02m/imagine-mcp:latest
 ## License
 
 MIT. See [`LICENSE`](LICENSE).
+
+## E2E
+
+Driven by `mcp-core/scripts/e2e/` (matrix-locked, 15 configs). Run a single config from this repo via `make e2e` (proxy) or directly:
+
+```
+cd ../mcp-core && uv run --project scripts/e2e python -m e2e.driver <config-id>
+```
+
+Configs for this repo: `imagine`.
+
+t2-non-interaction: paste optional LLM provider keys (Gemini/OpenAI/xAI). 2026-04-24 env rename ``GOOGLE_AI_STUDIO_API_KEY`` -> ``GEMINI_API_KEY``.
+
+Tier policy:
+
+- **T0** (precommit + CI on PR / main push) - runs without upstream identity. Skret keys not required.
+- **T2 non-interaction** (`make e2e-config CONFIG=<id>` locally) - driver pre-fills relay form from skret AWS SSM `/imagine-mcp/prod` (`ap-southeast-1`). No user gate.
+- **T2 interaction** - driver fills relay form, then prints upstream user-gate URL; user signs in / types OTP at provider. Driver enforces per-flow timeouts (device-code 900s, oauth-redirect 300s, browser-form 600s) and emits `[poll] elapsed=Xs remaining=Ys status=<body>` every 30s. On timeout, container logs + last `setup-status` are saved to `<tmp>/e2e-diag/` BEFORE teardown for post-mortem.
+
+Multi-user remote mode (deployment property; not a separate config) requires `MCP_DCR_SERVER_SECRET` in the same skret namespace - driver refuses to start the container without it when `PUBLIC_URL` is set.
+
+References: `mcp-core/scripts/e2e/matrix.yaml`, `~/.claude/skills/mcp-dev/references/e2e-full-matrix.md` (harness-readiness gate), `~/.claude/skills/mcp-dev/references/secrets-skret.md` (per-server credential layout), `~/.claude/skills/mcp-dev/references/multi-user-pattern.md` (per-JWT-sub isolation).
+
