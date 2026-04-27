@@ -340,6 +340,7 @@ _MODEL_CACHE: Final[dict[tuple[str, str, str, str], ModelEntry]] = {
     (e.provider, e.action, e.media, e.tier): e for e in MODELS
 }
 
+
 def _lookup(provider: str, action: str, media: str, tier: str) -> ModelEntry:
     try:
         return _MODEL_CACHE[(provider, action, media, tier)]
