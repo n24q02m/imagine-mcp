@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.1.0 (2026-04-27)
+
+### Bug Fixes
+
+- Bump n24q02m-mcp-core to 1.8.0 ([#21](https://github.com/n24q02m/imagine-mcp/pull/21),
+  [`aa78edf`](https://github.com/n24q02m/imagine-mcp/commit/aa78edf556ca7232a6f80e50f781795dfa057dfe))
+
+### Features
+
+- Add ## E2E section to CLAUDE.md per Task 21 docs rollout
+  ([#21](https://github.com/n24q02m/imagine-mcp/pull/21),
+  [`aa78edf`](https://github.com/n24q02m/imagine-mcp/commit/aa78edf556ca7232a6f80e50f781795dfa057dfe))
+
+- Add ## E2E section to CLAUDE.md per Task 21 docs rollout
+  ([#19](https://github.com/n24q02m/imagine-mcp/pull/19),
+  [`c64f07c`](https://github.com/n24q02m/imagine-mcp/commit/c64f07c3edbce5b88e5413302c1dec871ebc0c32))
+
+
 ## v1.1.0-beta.1 (2026-04-27)
 
 ### Features
