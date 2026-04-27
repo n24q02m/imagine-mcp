@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import importlib
+import ipaddress
+import socket
 from typing import Any
 from urllib.parse import urlparse
 
@@ -39,6 +42,10 @@ _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
 
 _ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
 
+_DNS_RESOLVER_POOL = concurrent.futures.ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="dns_resolver"
+)
+
 
 def _validate_url(url: str, param: str) -> None:
     """Reject non-http(s) URLs to prevent SSRF and local file inclusion.
@@ -46,12 +53,56 @@ def _validate_url(url: str, param: str) -> None:
     Providers pass URLs to SDKs / HEAD requests that honour file://, ftp://,
     gopher://, etc. Restrict to http/https at the dispatch boundary so every
     downstream call inherits the check.
+
+    Also verify that the resolved hostname does not point to a local/private IP.
+    Note: This is a best-effort defense against SSRF. Because we pass the URL string
+    to downstream SDKs rather than managing the HTTP client ourselves, this check
+    remains vulnerable to Time-Of-Check to Time-Of-Use (TOCTOU) DNS rebinding attacks.
     """
-    scheme = urlparse(url).scheme.lower()
+    parsed = urlparse(url)
+    scheme = parsed.scheme.lower()
     if scheme not in _ALLOWED_URL_SCHEMES:
         raise InvalidURLError(
             f"Invalid {param} scheme {scheme!r}. Only http/https are allowed."
         )
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise InvalidURLError(f"Invalid {param}: missing hostname.")
+
+    try:
+        # Wrap the blocking getaddrinfo in a thread with a short timeout
+        # to prevent DoS attacks via malicious DNS servers.
+        future = _DNS_RESOLVER_POOL.submit(socket.getaddrinfo, hostname, None)
+        # Short timeout to fail fast on tarpit DNS
+        addr_info = future.result(timeout=2.0)
+
+        for res in addr_info:
+            ip_str = res[4][0]
+            ip_obj = ipaddress.ip_address(ip_str)
+
+            # Extract underlying IPv4 if it's an IPv4-mapped IPv6 address (e.g. ::ffff:127.0.0.1)
+            if ip_obj.version == 6 and ip_obj.ipv4_mapped:
+                ip_obj = ip_obj.ipv4_mapped
+
+            if (
+                ip_obj.is_loopback
+                or ip_obj.is_private
+                or ip_obj.is_link_local
+                or ip_obj.is_multicast
+                or ip_obj.is_unspecified
+            ):
+                raise InvalidURLError(
+                    f"Invalid {param}: URL resolves to an internal/private IP."
+                )
+    except concurrent.futures.TimeoutError as e:
+        raise InvalidURLError(
+            f"Invalid {param}: DNS resolution timed out for {hostname!r}."
+        ) from e
+    except socket.gaierror as e:
+        raise InvalidURLError(
+            f"Invalid {param}: Could not resolve hostname {hostname!r}."
+        ) from e
 
 
 def _validate(provider: str, tier: str) -> None:
