@@ -335,14 +335,20 @@ MODELS: Final[list[ModelEntry]] = [
 ]
 
 
+# O(1) dictionary cache for fast model lookups, replacing O(n) list traversal.
+_MODEL_CACHE: Final[dict[tuple[str, str, str, str], ModelEntry]] = {
+    (e.provider, e.action, e.media, e.tier): e for e in MODELS
+}
+
+
 def _lookup(provider: str, action: str, media: str, tier: str) -> ModelEntry:
-    for e in MODELS:
-        if (e.provider, e.action, e.media, e.tier) == (provider, action, media, tier):
-            return e
-    raise KeyError(
-        f"unknown combo: provider={provider!r} action={action!r} "
-        f"media={media!r} tier={tier!r}"
-    )
+    try:
+        return _MODEL_CACHE[(provider, action, media, tier)]
+    except KeyError:
+        raise KeyError(
+            f"unknown combo: provider={provider!r} action={action!r} "
+            f"media={media!r} tier={tier!r}"
+        ) from None
 
 
 def get_model_id(
