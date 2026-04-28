@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.1 (2026-04-28)
+
+### Bug Fixes
+
+- Bump n24q02m-mcp-core to 1.9.0 ([#27](https://github.com/n24q02m/imagine-mcp/pull/27),
+  [`2f619f2`](https://github.com/n24q02m/imagine-mcp/commit/2f619f216fb6b859084f6241e7db555161f51217))
+
+
 ## v1.1.0 (2026-04-27)
 
 ### Bug Fixes
