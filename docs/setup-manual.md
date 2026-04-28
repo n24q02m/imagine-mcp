@@ -40,7 +40,7 @@ Set in your MCP client config:
       "command": "uvx",
       "args": ["imagine-mcp"],
       "env": {
-        "GOOGLE_AI_STUDIO_API_KEY": "...",
+        "GEMINI_API_KEY": "...",
         "OPENAI_API_KEY": "...",
         "XAI_API_KEY": "..."
       }
