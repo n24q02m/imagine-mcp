@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.1.2 (2026-04-28)
+
+### Bug Fixes
+
+- Align setup-manual env example with GEMINI_API_KEY rename
+  ([#28](https://github.com/n24q02m/imagine-mcp/pull/28),
+  [`70ffa3b`](https://github.com/n24q02m/imagine-mcp/commit/70ffa3baddcb50a722f17561b1422fb828b78173))
+
+- Pass MCP_TRANSPORT=stdio in plugin.json ([#29](https://github.com/n24q02m/imagine-mcp/pull/29),
+  [`2f90a96`](https://github.com/n24q02m/imagine-mcp/commit/2f90a96cc0431f7f32fc62ac86a728e21b05f356))
+
+- **deps**: Bump n24q02m-mcp-core to 1.10.0 — Transparent Bridge waves 1-3
+  ([#31](https://github.com/n24q02m/imagine-mcp/pull/31),
+  [`a8fe1ec`](https://github.com/n24q02m/imagine-mcp/commit/a8fe1ec7ca28abc8813f1384a967a16809b0d02d))
+
+
 ## v1.1.1 (2026-04-28)
 
 ### Bug Fixes
