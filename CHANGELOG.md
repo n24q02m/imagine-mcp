@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.1.3 (2026-04-29)
+
+### Bug Fixes
+
+- Pin Python to ==3.13.* for pin parity (D13)
+  ([#32](https://github.com/n24q02m/imagine-mcp/pull/32),
+  [`5842c73`](https://github.com/n24q02m/imagine-mcp/commit/5842c735a24dc2821ec033724e91f2e3bbe87717))
+
+- Register config__open_relay tool (Transparent Bridge Wave 3)
+  ([#34](https://github.com/n24q02m/imagine-mcp/pull/34),
+  [`c5be7ae`](https://github.com/n24q02m/imagine-mcp/commit/c5be7ae6c3717926c3b30ba8d141a9eec747b8f7))
+
+
 ## v1.1.2 (2026-04-28)
 
 ### Bug Fixes
