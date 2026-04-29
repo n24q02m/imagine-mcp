@@ -5,7 +5,7 @@ description = "MCP server for image/video understanding & generation (Gemini/Ope
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "n24q02m" }]
-requires-python = ">=3.13,<3.14"
+requires-python = "==3.13.*"
 keywords = [
     "mcp",
     "mcp-server",
