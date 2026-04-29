@@ -8,7 +8,6 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import httpx
 import platformdirs
 
 from imagine_mcp.config import settings
@@ -17,6 +16,7 @@ from imagine_mcp.errors import (
     ProviderAPIError,
     ProviderUnsupportedError,
 )
+from imagine_mcp.media import get_ssrf_safe_client
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
@@ -87,7 +87,12 @@ def generate_image(
     size = size_map.get(aspect_ratio, "1024x1024")
 
     if reference_image_url:
-        img_bytes = httpx.get(reference_image_url, timeout=60).content
+        with get_ssrf_safe_client() as client:
+            resp_img = client.get(
+                reference_image_url, timeout=60, follow_redirects=True
+            )
+            resp_img.raise_for_status()
+            img_bytes = resp_img.content
         resp = _client().images.edit(
             model=model, image=img_bytes, prompt=prompt, size=size
         )
