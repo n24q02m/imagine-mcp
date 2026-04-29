@@ -11,9 +11,11 @@ from typing import Any, Literal
 import platformdirs
 from fastmcp import FastMCP
 from loguru import logger
+from mcp_core.relay.tool_helpers import register_open_relay_tool
 
 from imagine_mcp.config import settings
 from imagine_mcp.dispatcher import dispatch_generate, dispatch_understand
+from imagine_mcp.relay_schema import RELAY_SCHEMA
 
 VALID_HELP_TOPICS = {"understand", "generate", "config"}
 
@@ -224,6 +226,8 @@ def build_app() -> FastMCP:
         doc_file = files("imagine_mcp.docs").joinpath(f"{topic}.md")
         return doc_file.read_text(encoding="utf-8")
 
+    register_open_relay_tool(app, "imagine-mcp", RELAY_SCHEMA)
+
     return app
 
 
@@ -246,7 +250,6 @@ async def run_http(port: int = 0) -> None:
     from mcp_core.transport.local_server import run_local_server
 
     from imagine_mcp.credential_state import save_credentials
-    from imagine_mcp.relay_schema import RELAY_SCHEMA
 
     public_url = os.environ.get("PUBLIC_URL")
     if public_url:
