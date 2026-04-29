@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.1.4 (2026-04-29)
+
+### Bug Fixes
+
+- Bump n24q02m-mcp-core to 1.11.3 for D17 tools cache refresh
+  ([#38](https://github.com/n24q02m/imagine-mcp/pull/38),
+  [`8b84cf1`](https://github.com/n24q02m/imagine-mcp/commit/8b84cf15077e9ac32dbea9c458aa951af826c779))
+
+
 ## v1.1.3 (2026-04-29)
 
 ### Bug Fixes
