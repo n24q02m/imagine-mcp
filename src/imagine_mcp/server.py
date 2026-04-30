@@ -69,7 +69,7 @@ def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
 def build_app() -> FastMCP:
     """Create FastMCP app with 4 tools registered."""
     app: FastMCP = FastMCP(
-        "imagine-mcp",
+        "imagine",
         instructions=(
             "Image/video understanding and generation across Gemini, OpenAI, Grok. "
             "4 tools: understand, generate, config, help. "
