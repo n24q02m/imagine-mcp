@@ -70,6 +70,15 @@ mise run setup      # or: uv sync --group dev
 mise run dev        # run http local relay daemon
 ```
 
+## Trust Model
+
+This plugin implements **TC-Local** (machine-bound, single trust principal). See [mcp-core/docs/TRUST-MODEL.md](https://github.com/n24q02m/mcp-core/blob/main/docs/TRUST-MODEL.md) for full classification.
+
+| Mode | Storage | Encryption | Who can read your data? |
+|---|---|---|---|
+| stdio (default) | `~/.imagine-mcp/config.json` | AES-GCM, machine-bound key | Only your OS user (file perm 0600) |
+| HTTP self-host | Same as stdio | Same | Only you (admin = user) |
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development workflow, commit convention, and release process. Issues + Discussions welcome.
