@@ -47,7 +47,9 @@ def _relay_skip() -> dict[str, Any]:
 class TestRelayStatusLiveDerivedState:
     """relay_status derives state from live PerPluginStore, not env-only."""
 
-    def test_returns_configured_when_store_has_keys(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_returns_configured_when_store_has_keys(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """relay_status returns configured when PerPluginStore has provider keys."""
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -62,7 +64,9 @@ class TestRelayStatusLiveDerivedState:
         assert result["status"] == "configured"
         assert "gemini" in result["providers_configured"]
 
-    def test_returns_pending_when_store_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_returns_pending_when_store_empty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """relay_status returns pending when store empty and no env vars."""
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -77,7 +81,9 @@ class TestRelayStatusLiveDerivedState:
         assert result["status"] == "pending"
         assert result["providers_configured"] == []
 
-    def test_response_includes_providers_configured_field(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_response_includes_providers_configured_field(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """relay_status always includes providers_configured key in response."""
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -108,7 +114,9 @@ class TestRelayStatusLiveDerivedState:
 class TestRelaySkipHonesty:
     """relay_skip reports needs_setup when no env vars are set (Bug 2 fix)."""
 
-    def test_returns_needs_setup_when_no_env_vars(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_returns_needs_setup_when_no_env_vars(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """relay_skip returns needs_setup status when no provider env vars set."""
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -119,7 +127,9 @@ class TestRelaySkipHonesty:
         assert result["status"] == "needs_setup"
         assert "open_relay" in result["message"]
 
-    def test_returns_using_env_when_env_vars_set(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_returns_using_env_when_env_vars_set(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """relay_skip returns using_env status when provider env vars are set."""
         monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
