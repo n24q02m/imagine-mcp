@@ -7,7 +7,8 @@ import pytest
 
 @pytest.mark.integration
 def test_two_subs_isolated(tmp_path, monkeypatch):
-    monkeypatch.setenv("IMAGINE_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    monkeypatch.setenv("CREDENTIAL_SECRET", "test-secret-value")
     from imagine_mcp.credential_state import read_for_sub, store_for_sub
 
     store_for_sub("user_a", {"GEMINI_API_KEY": "key_a"})
@@ -19,7 +20,8 @@ def test_two_subs_isolated(tmp_path, monkeypatch):
 
 @pytest.mark.integration
 def test_save_credentials_uses_sub_when_public_url_set(tmp_path, monkeypatch):
-    monkeypatch.setenv("IMAGINE_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    monkeypatch.setenv("CREDENTIAL_SECRET", "test-secret-value")
     monkeypatch.setenv("PUBLIC_URL", "https://imagine.example.com")
     from imagine_mcp.credential_state import read_for_sub, save_credentials
 

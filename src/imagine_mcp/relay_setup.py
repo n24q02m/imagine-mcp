@@ -1,4 +1,4 @@
-"""Relay onboarding: resolve config via env -> config.enc -> browser form.
+"""Relay onboarding: resolve config via env -> per-plugin store -> browser form.
 
 Wraps mcp_core.relay primitives. Follows wet-mcp / mnemo-mcp pattern.
 """
@@ -10,8 +10,10 @@ import sys
 from typing import Any
 
 from loguru import logger
+from mcp_core.storage.per_plugin_store import PerPluginStore
 
 SERVER_NAME = "imagine-mcp"
+PLUGIN_NAME = "imagine"
 CREDENTIAL_KEYS: list[str] = [
     "GEMINI_API_KEY",
     "OPENAI_API_KEY",
@@ -23,13 +25,11 @@ RELAY_TIMEOUT_S = 300.0
 
 
 def load_config_from_file() -> dict[str, str] | None:
-    """Try to load config from encrypted config file. Returns None if not found."""
+    """Try to load config from per-plugin store. Returns None if not found."""
     try:
-        from mcp_core.storage.config_file import read_config
-
-        saved = read_config(SERVER_NAME)
+        saved = PerPluginStore(PLUGIN_NAME).load()
         if saved and any(saved.get(k) for k in CREDENTIAL_KEYS):
-            logger.info("Config loaded from file")
+            logger.info("Config loaded from per-plugin store")
             return dict(saved)
         return None
     except Exception:
@@ -48,15 +48,13 @@ def save_credentials(
     config: dict[str, str],
     _context: dict[str, str] | None = None,
 ) -> dict | None:
-    """Persist credentials from the OAuth form to config.enc + env vars.
+    """Persist credentials from the OAuth form to per-plugin store + env vars.
 
     Wired into `run_local_server(on_credentials_saved=save_credentials)`.
     `_context` carries the per-authorize `sub` for future multi-user use;
-    imagine-mcp is single-user by design so the subject is unused here.
+    single-user local relay mode ignores the subject.
     """
-    from mcp_core.storage.config_file import write_config
-
-    write_config(SERVER_NAME, config)
+    PerPluginStore(PLUGIN_NAME).save(config)
     apply_config(config)
     logger.info("Credentials saved via local OAuth form")
     return None
@@ -113,10 +111,8 @@ async def ensure_config(
 
         config = await poll_for_result(relay_url, session, timeout_s=timeout)  # ty: ignore[invalid-argument-type]
 
-        from mcp_core.storage.config_file import write_config
-
-        write_config(SERVER_NAME, config)
-        logger.info("Config saved to encrypted storage")
+        PerPluginStore(PLUGIN_NAME).save(dict(config))
+        logger.info("Config saved to per-plugin store")
 
         apply_config(dict(config))
         return dict(config)
@@ -127,17 +123,16 @@ async def ensure_config(
 
 
 def reset_credentials() -> dict[str, Any]:
-    """Delete encrypted config. Next run will re-prompt via relay.
+    """Delete per-plugin store. Next run will re-prompt via relay.
 
     Returns {"status": "reset"} on success, {"status": "not_found"} if no config.
     """
     try:
-        from mcp_core.storage.config_file import delete_config
-
-        delete_config(SERVER_NAME)
+        store = PerPluginStore(PLUGIN_NAME)
+        if not store.cred_path.exists():
+            return {"status": "not_found", "server": SERVER_NAME}
+        store.clear()
         return {"status": "reset", "server": SERVER_NAME}
-    except FileNotFoundError:
-        return {"status": "not_found", "server": SERVER_NAME}
     except Exception as exc:
         logger.error("reset_credentials failed: {}", exc)
         return {"status": "error", "error": str(exc)}
