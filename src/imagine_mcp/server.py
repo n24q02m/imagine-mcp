@@ -54,6 +54,34 @@ def _providers_configured() -> list[str]:
     return out
 
 
+def _providers_configured_live() -> list[str]:
+    """Like _providers_configured but also checks PerPluginStore.
+
+    env vars may not be populated at startup (no lifespan apply_config call),
+    so this reads the store directly for an accurate live view.
+    """
+    from mcp_core.storage.per_plugin_store import PerPluginStore
+
+    from imagine_mcp.relay_setup import CREDENTIAL_KEYS, PLUGIN_NAME
+
+    saved = PerPluginStore(PLUGIN_NAME).load() or {}
+    _key_to_provider = {
+        "GEMINI_API_KEY": "gemini",
+        "OPENAI_API_KEY": "openai",
+        "XAI_API_KEY": "grok",
+    }
+    seen: set[str] = set()
+    out: list[str] = []
+    for key in CREDENTIAL_KEYS:
+        provider = _key_to_provider.get(key, key)
+        if provider in seen:
+            continue
+        if os.environ.get(key) or saved.get(key):
+            out.append(provider)
+            seen.add(provider)
+    return out
+
+
 def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
     if not key or key not in _VALID_SET_KEYS:
         return {
@@ -161,23 +189,30 @@ def build_app() -> FastMCP:
                     "providers_configured": _providers_configured(),
                 }
             case "relay_status":
+                # Derive providers from live PerPluginStore + env so status
+                # is accurate even when env vars were not populated at startup.
+                _live_providers = _providers_configured_live()
                 return {
-                    "status": (
-                        "configured" if _creds_state() == "CONFIGURED" else "pending"
-                    ),
-                    "providers_configured": _providers_configured(),
+                    "status": "configured" if _live_providers else "pending",
+                    "providers_configured": _live_providers,
                 }
             case "relay_complete":
+                _live_providers = _providers_configured_live()
                 return {
-                    "status": "saved"
-                    if _creds_state() == "CONFIGURED"
-                    else "no_credentials",
-                    "providers_configured": _providers_configured(),
+                    "status": "saved" if _live_providers else "no_credentials",
+                    "providers_configured": _live_providers,
                 }
             case "relay_skip":
+                # Only claim "using env vars" when env vars are actually set.
+                _env_providers = _providers_configured()
+                if not _env_providers:
+                    return {
+                        "status": "needs_setup",
+                        "message": "No env vars set. Run config(action='open_relay') to configure via browser.",
+                    }
                 return {
-                    "status": "skipped",
-                    "message": "Using env vars for credentials.",
+                    "status": "using_env",
+                    "providers": _env_providers,
                 }
             case "relay_reset":
                 return relay_setup.reset_credentials()
