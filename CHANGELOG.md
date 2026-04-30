@@ -2,6 +2,29 @@
 
 <!-- version list -->
 
+## v1.2.0-beta.2 (2026-04-30)
+
+### Bug Fixes
+
+- G6 UX relay_status accuracy and relay_skip honesty
+  ([#47](https://github.com/n24q02m/imagine-mcp/pull/47),
+  [`f87d462`](https://github.com/n24q02m/imagine-mcp/commit/f87d4629d4172618c1dc14a747be52ed4d5b82fa))
+
+- **lint**: Use X | None syntax, remove unused import per ruff UP045/F401
+  ([#45](https://github.com/n24q02m/imagine-mcp/pull/45),
+  [`80d9fc2`](https://github.com/n24q02m/imagine-mcp/commit/80d9fc2ea4d8ae0d759f15bac79e98587bdeff78))
+
+### Features
+
+- **docs**: Add trust model section to README
+  ([#46](https://github.com/n24q02m/imagine-mcp/pull/46),
+  [`68882d4`](https://github.com/n24q02m/imagine-mcp/commit/68882d48f822fb5bff4b9d9a4d3c85166ea83c69))
+
+- **storage**: Migrate to PerPluginStore from mcp-core 1.13.0b1+
+  ([#45](https://github.com/n24q02m/imagine-mcp/pull/45),
+  [`80d9fc2`](https://github.com/n24q02m/imagine-mcp/commit/80d9fc2ea4d8ae0d759f15bac79e98587bdeff78))
+
+
 ## v1.2.0-beta.1 (2026-04-30)
 
 ### Features
