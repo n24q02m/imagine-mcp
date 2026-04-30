@@ -21,6 +21,7 @@ from imagine_mcp.errors import (
     ProviderAPIError,
     ProviderUnsupportedError,
 )
+from imagine_mcp.media import get_ssrf_safe_client
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
@@ -113,7 +114,11 @@ def generate_image(
     img_b64 = data["data"][0].get("b64_json")
     if not img_b64:
         img_url = data["data"][0].get("url")
-        img_b64 = base64.b64encode(httpx.get(img_url, timeout=60).content).decode()
+        img_b64 = base64.b64encode(
+            get_ssrf_safe_client()
+            .get(img_url, timeout=60, follow_redirects=True)
+            .content
+        ).decode()
 
     img_bytes = base64.b64decode(img_b64)
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
@@ -197,7 +202,11 @@ def generate_video(
         )
 
     video_url = data["video_url"]
-    video_bytes = httpx.get(video_url, timeout=120).content
+    video_bytes = (
+        get_ssrf_safe_client()
+        .get(video_url, timeout=120, follow_redirects=True)
+        .content
+    )
 
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
     out_dir.mkdir(parents=True, exist_ok=True)
