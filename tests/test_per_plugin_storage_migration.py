@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import os
-
 
 def test_loads_from_new_path(tmp_path, monkeypatch):
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)

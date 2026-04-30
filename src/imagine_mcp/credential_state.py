@@ -12,7 +12,6 @@ caused multi-daemon path-drift contention.
 from __future__ import annotations
 
 import os
-from typing import Optional
 
 from mcp_core.storage.per_plugin_store import PerPluginStore
 
@@ -39,20 +38,20 @@ def read_for_sub(sub: str) -> dict[str, str]:
 # ---------------------------------------------------------------------------
 
 
-def load_credentials(sub: Optional[str] = None) -> dict:
+def load_credentials(sub: str | None = None) -> dict:
     """Load credentials for optional sub. Returns {} if not found."""
     return PerPluginStore(PLUGIN_NAME, sub).load() or {}
 
 
-def clear_credentials(sub: Optional[str] = None) -> None:
+def clear_credentials(sub: str | None = None) -> None:
     """Remove stored credentials for optional sub."""
     PerPluginStore(PLUGIN_NAME, sub).clear()
 
 
 def save_credentials(
     config: dict[str, str],
-    context: Optional[dict[str, str]] = None,
-) -> Optional[dict]:
+    context: dict[str, str] | None = None,
+) -> dict | None:
     """Sub-aware credentials persistence. Wired into ``run_local_server``.
 
     Multi-user remote mode (``PUBLIC_URL`` set):
