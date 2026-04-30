@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.0-beta.1 (2026-04-30)
+
+### Features
+
+- Route stdio mode to FastMCP direct + multi-target Dockerfile
+  ([#43](https://github.com/n24q02m/imagine-mcp/pull/43),
+  [`f524ef2`](https://github.com/n24q02m/imagine-mcp/commit/f524ef2111e5f317ec9ff5bbec465e3e9401032f))
+
+
 ## v1.1.4 (2026-04-29)
 
 ### Bug Fixes
