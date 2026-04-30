@@ -7,8 +7,9 @@ Modes (parity with wet-mcp / mnemo-mcp / better-code-review-graph):
 - ``http remote relay (multi-user)`` -- same ``run_http`` codepath, activated
   by setting ``PUBLIC_URL`` (and ``MCP_DCR_SERVER_SECRET``). Daemon binds
   ``0.0.0.0:8080`` and scopes LLM API keys per JWT ``sub``.
-- ``stdio proxy`` -- ``run_smart_stdio_proxy``: bridge stdin/stdout to a local
-  HTTP daemon (same backend as http local relay, client-side transport only).
+- ``stdio direct`` -- ``mcp.run(transport="stdio")``: FastMCP stdio server
+  served directly on stdin/stdout (no daemon-spawn bridge). Universal MCP
+  client compatibility (Claude Code, Cursor, VS Code Copilot, etc.).
 """
 
 from __future__ import annotations
@@ -22,10 +23,13 @@ def main() -> None:
     mode = (os.environ.get("MCP_MODE") or "").strip().lower()
 
     if "--stdio" in sys.argv or os.environ.get("MCP_TRANSPORT") == "stdio":
-        from mcp_core.transport import run_smart_stdio_proxy
+        # Stdio mode: run FastMCP stdio server directly. No bridge layer.
+        # Universal MCP client compatibility (Claude Code, Cursor, VS Code Copilot, etc.).
+        # See: ~/projects/.superpower/mcp-core/specs/2026-04-30-multi-mode-stdio-http-architecture.md
+        from imagine_mcp.server import build_app
 
-        daemon_cmd = [sys.executable, "-m", "imagine_mcp"]
-        sys.exit(run_smart_stdio_proxy("imagine-mcp", daemon_cmd))
+        build_app().run(transport="stdio")
+        return
 
     if mode == "remote-relay":
         raise SystemExit(
