@@ -18,6 +18,11 @@ _VIDEO_EXT = {".mp4", ".webm", ".mov", ".avi", ".mkv", ".flv", ".m4v"}
 _IMAGE_MIME_PREFIX = "image/"
 _VIDEO_MIME_PREFIX = "video/"
 
+# ⚡ Bolt: Global httpx.Client singleton enables connection pooling
+# Re-using the client prevents expensive TCP/TLS handshakes on every request,
+# significantly reducing latency for media fetching.
+_CLIENT: httpx.Client | None = None
+
 
 class SSRFSafeTransport(httpx.HTTPTransport):
     """Custom transport that validates redirect locations against SSRF checks."""
@@ -30,7 +35,10 @@ class SSRFSafeTransport(httpx.HTTPTransport):
 
 
 def get_ssrf_safe_client() -> httpx.Client:
-    return httpx.Client(transport=SSRFSafeTransport())
+    global _CLIENT
+    if _CLIENT is None:
+        _CLIENT = httpx.Client(transport=SSRFSafeTransport())
+    return _CLIENT
 
 
 def detect_media_type(url: str) -> MediaType:
@@ -46,9 +54,9 @@ def detect_media_type(url: str) -> MediaType:
         return "video"
 
     try:
-        with get_ssrf_safe_client() as client:
-            resp = client.head(url, follow_redirects=True, timeout=10)
-            resp.raise_for_status()
+        client = get_ssrf_safe_client()
+        resp = client.head(url, follow_redirects=True, timeout=10)
+        resp.raise_for_status()
     except httpx.HTTPError as e:
         raise MediaDetectError(f"HEAD request failed for {url}: {e}") from e
     except InvalidURLError as e:
@@ -78,10 +86,8 @@ def download_to_path(url: str, dest: Path) -> Path:
     """Download URL content to dest path. Returns path."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with (
-            get_ssrf_safe_client() as client,
-            client.stream("GET", url, follow_redirects=True, timeout=60) as resp,
-        ):
+        client = get_ssrf_safe_client()
+        with client.stream("GET", url, follow_redirects=True, timeout=60) as resp:
             resp.raise_for_status()
             with dest.open("wb") as f:
                 for chunk in resp.iter_bytes(chunk_size=65536):
