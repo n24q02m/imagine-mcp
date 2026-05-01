@@ -1,5 +1,6 @@
 import pytest
 
+
 @pytest.fixture(autouse=True)
 def reset_clients():
     """Reset module-level _CLIENT globals before each test to ensure isolation."""
