@@ -112,8 +112,14 @@ def generate_image(
     data = resp.json()
     img_b64 = data["data"][0].get("b64_json")
     if not img_b64:
+        from imagine_mcp.media import get_ssrf_safe_client
+
         img_url = data["data"][0].get("url")
-        img_b64 = base64.b64encode(httpx.get(img_url, timeout=60).content).decode()
+        img_b64 = base64.b64encode(
+            get_ssrf_safe_client()
+            .get(img_url, follow_redirects=True, timeout=60)
+            .content
+        ).decode()
 
     img_bytes = base64.b64decode(img_b64)
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
@@ -196,8 +202,14 @@ def generate_video(
             status_code=500,
         )
 
+    from imagine_mcp.media import get_ssrf_safe_client
+
     video_url = data["video_url"]
-    video_bytes = httpx.get(video_url, timeout=120).content
+    video_bytes = (
+        get_ssrf_safe_client()
+        .get(video_url, follow_redirects=True, timeout=120)
+        .content
+    )
 
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
     out_dir.mkdir(parents=True, exist_ok=True)
