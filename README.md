@@ -29,12 +29,33 @@ mcp-name: io.github.n24q02m/imagine-mcp
 - **Video generation** -- Text-to-video and image-to-video (Gemini Veo 3.1, Grok Imagine Video)
 - **3 providers x 2 tiers** -- Same interface for `gemini` / `openai` / `grok` at `poor` (cheap/fast) or `rich` (high quality); swap via parameter
 - **Leaderboard-ranked models** -- Provider ordering auto-refreshed weekly from Artificial Analysis + LMArena leaderboards
-- **Zero-config onboarding** -- Browser-based credential relay form; no `.env` files or manual credential plumbing
 - **Degraded mode** -- Server starts with zero credentials and surfaces remaining providers as you add keys
 - **Response cache** -- Disk-based caching of `understand` responses with configurable TTL
-- **Smart stdio proxy** -- stdio transport spawns a local HTTP daemon and forwards JSON-RPC frames, sharing credentials across invocations
+- **Dual transport** -- pure stdio with provider env vars (default) or HTTP multi-user with paste-token relay form
+
+## Status
+
+> **2026-05-02 -- Architecture stabilization update**
+>
+> Past months saw significant churn around credential handling and the daemon-bridge auto-spawn pattern. This caused multi-process races, browser tab spam, and inconsistent setup UX across plugins. **As of v<auto>, the architecture is stable**: 2 clean modes (stdio + HTTP), no daemon-bridge layer, no auto-spawn from stdio.
+>
+> Apologies for the instability period. If you encountered issues with prior versions, please update to v<auto>+ and follow the current `docs/setup-manual.md` -- most prior workarounds are no longer needed.
+>
+> **Related plugins from the same author**:
+> - [wet-mcp](https://github.com/n24q02m/wet-mcp) -- Web search + content extraction
+> - [mnemo-mcp](https://github.com/n24q02m/mnemo-mcp) -- Persistent AI memory
+> - [better-notion-mcp](https://github.com/n24q02m/better-notion-mcp) -- Notion API
+> - [better-email-mcp](https://github.com/n24q02m/better-email-mcp) -- Email management
+> - [better-telegram-mcp](https://github.com/n24q02m/better-telegram-mcp) -- Telegram
+> - [better-godot-mcp](https://github.com/n24q02m/better-godot-mcp) -- Godot Engine
+> - [better-code-review-graph](https://github.com/n24q02m/better-code-review-graph) -- Code review knowledge graph
+>
+> All plugins share the same architecture -- install once, learn pattern transfers.
 
 ## Setup
+
+- **Stdio mode** (default) -- env var creds (>=1 of `GEMINI_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`). See [setup-manual.md](docs/setup-manual.md).
+- **HTTP mode** (optional) -- multi-user, browser-based API key setup. See [setup-manual.md](docs/setup-manual.md).
 
 **With AI Agent** -- copy and send this to your AI agent:
 
