@@ -1,8 +1,19 @@
-"""Per-sub LLM key isolation in imagine-mcp remote multi-user mode."""
+"""Per-sub LLM key isolation in imagine-mcp remote multi-user mode.
+
+Multi-user remote is an HTTP-mode deployment property (spec 2026-05-01
+§4.2). Stdio mode never reads from PerPluginStore, so these tests must
+opt into HTTP mode via ``MCP_TRANSPORT=http`` for ``read_for_sub`` to
+return the stored credentials.
+"""
 
 from __future__ import annotations
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _force_http_mode(monkeypatch):
+    monkeypatch.setenv("MCP_TRANSPORT", "http")
 
 
 @pytest.mark.integration
