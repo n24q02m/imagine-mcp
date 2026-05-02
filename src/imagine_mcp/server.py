@@ -261,7 +261,11 @@ def build_app() -> FastMCP:
         doc_file = files("imagine_mcp.docs").joinpath(f"{topic}.md")
         return doc_file.read_text(encoding="utf-8")
 
-    register_open_relay_tool(app, "imagine-mcp", RELAY_SCHEMA)
+    # mcp-core >=1.13: register_open_relay_tool takes public_url (str | None).
+    # In stdio mode PUBLIC_URL is unset → tool returns ``stdio_unsupported``.
+    # In HTTP mode the server's PUBLIC_URL env points at the externally
+    # reachable origin used to construct the ``/authorize`` link.
+    register_open_relay_tool(app, "imagine-mcp", os.environ.get("PUBLIC_URL"))
 
     return app
 
