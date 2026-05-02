@@ -8,11 +8,25 @@ Understand images and/or videos via a multimodal LLM.
 understand(
     media_urls: list[str],       # HTTP(S) URLs -- max 5
     prompt: str,                 # Your question or instruction
-    provider: str = "gemini",    # "gemini" | "openai" | "grok"
+    provider: str | None = None, # "gemini" | "openai" | "grok" (auto-fallback when None)
     tier: str = "poor",          # "poor" | "rich"
     max_tokens: int = 2048,
 ) -> dict
 ```
+
+## Auto-fallback provider
+
+When ``provider`` is omitted (``None``), imagine resolves the first provider
+whose API key is present in the environment, in this priority order:
+
+1. ``XAI_API_KEY`` -> ``grok``
+2. ``OPENAI_API_KEY`` -> ``openai``
+3. ``GEMINI_API_KEY`` -> ``gemini``
+
+Gemini is intentionally last because Google AI Studio accounts can be
+billing-locked at the org level (403 ``PERMISSION_DENIED``) without warning.
+If no key is configured, the call raises ``CredentialMissingError`` listing
+the three env vars.
 
 ## Returns
 

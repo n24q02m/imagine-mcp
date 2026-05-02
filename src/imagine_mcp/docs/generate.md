@@ -8,7 +8,7 @@ Generate an image or video from a text prompt (optionally with a reference image
 generate(
     media_type: "image" | "video",
     prompt: str,
-    provider: str = "gemini",
+    provider: str | None = None,  # auto-fallback when None
     tier: str = "poor",
     reference_image_url: str | None = None,
     job_id: str | None = None,
@@ -17,6 +17,15 @@ generate(
     duration_seconds: int = 8,
 ) -> dict
 ```
+
+## Auto-fallback provider
+
+When ``provider`` is omitted (``None``), imagine resolves the first provider
+whose API key is present in the environment, in priority order
+``XAI_API_KEY`` -> ``OPENAI_API_KEY`` -> ``GEMINI_API_KEY``. Gemini is last
+because Google AI Studio billing-locking can return 403 ``PERMISSION_DENIED``
+without warning. If no key is configured the call raises
+``CredentialMissingError`` listing the three env vars.
 
 ## Image generate
 

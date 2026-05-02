@@ -2,14 +2,26 @@ from __future__ import annotations
 
 import pytest
 
-from imagine_mcp.dispatcher import dispatch_generate, dispatch_understand
+from imagine_mcp.dispatcher import (
+    _default_provider,
+    dispatch_generate,
+    dispatch_understand,
+)
 from imagine_mcp.errors import (
+    CredentialMissingError,
     InvalidMediaTypeError,
     InvalidProviderError,
     InvalidTierError,
     InvalidURLError,
     ProviderUnsupportedError,
 )
+
+
+@pytest.fixture
+def clean_provider_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure no provider API key is leaking from the host environment."""
+    for var in ("XAI_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
 
 
 def test_understand_routes_to_gemini_image(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -146,6 +158,122 @@ def test_generate_rejects_non_http_reference_image_url() -> None:
             provider="gemini",
             tier="poor",
             reference_image_url="file:///etc/passwd",
+        )
+
+
+def test_default_provider_grok_only(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    assert _default_provider() == "grok"
+
+
+def test_default_provider_openai_only(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    assert _default_provider() == "openai"
+
+
+def test_default_provider_priority_grok_over_openai(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    assert _default_provider() == "grok"
+
+
+def test_default_provider_gemini_last_resort(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+    assert _default_provider() == "gemini"
+
+
+def test_default_provider_priority_openai_over_gemini(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+    assert _default_provider() == "openai"
+
+
+def test_default_provider_raises_when_none_set(clean_provider_env: None) -> None:
+    with pytest.raises(CredentialMissingError) as exc_info:
+        _default_provider()
+    msg = str(exc_info.value)
+    assert "XAI_API_KEY" in msg
+    assert "OPENAI_API_KEY" in msg
+    assert "GEMINI_API_KEY" in msg
+
+
+def test_dispatch_understand_resolves_default_provider(
+    clean_provider_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    captured: dict[str, str] = {}
+
+    def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
+        captured["called"] = "grok"
+        return {"text": "ok", "model": "grok-x", "provider": "grok"}
+
+    import imagine_mcp.providers.grok as grok_mod
+
+    monkeypatch.setattr(grok_mod, "understand_image", mock_fn, raising=False)
+    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "image")
+
+    result = dispatch_understand(
+        media_urls=["https://example.com/cat.png"],
+        prompt="describe",
+        provider=None,
+        tier="poor",
+    )
+    assert captured["called"] == "grok"
+    assert result["provider"] == "grok"
+
+
+def test_dispatch_generate_resolves_default_provider(
+    clean_provider_env: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    captured: dict[str, str] = {}
+
+    def mock_fn(
+        prompt: str,
+        tier: str,
+        reference_image_url: str | None,
+        aspect_ratio: str,
+    ) -> dict:
+        captured["called"] = "openai"
+        return {"image": "...", "model": "gpt-image", "provider": "openai"}
+
+    import imagine_mcp.providers.openai as openai_mod
+
+    monkeypatch.setattr(openai_mod, "generate_image", mock_fn, raising=False)
+
+    result = dispatch_generate(
+        media_type="image",
+        prompt="a cat",
+        provider=None,
+        tier="poor",
+    )
+    assert captured["called"] == "openai"
+    assert result["provider"] == "openai"
+
+
+def test_dispatch_understand_no_keys_raises_credential_missing(
+    clean_provider_env: None,
+) -> None:
+    with pytest.raises(CredentialMissingError):
+        dispatch_understand(
+            media_urls=["https://example.com/cat.png"],
+            prompt="describe",
+            provider=None,
+            tier="poor",
         )
 
 
