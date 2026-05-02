@@ -261,7 +261,11 @@ def build_app() -> FastMCP:
         doc_file = files("imagine_mcp.docs").joinpath(f"{topic}.md")
         return doc_file.read_text(encoding="utf-8")
 
-    register_open_relay_tool(app, "imagine-mcp", RELAY_SCHEMA)
+    # mcp-core >=1.13: register_open_relay_tool takes public_url (str | None).
+    # In stdio mode PUBLIC_URL is unset → tool returns ``stdio_unsupported``.
+    # In HTTP mode the server's PUBLIC_URL env points at the externally
+    # reachable origin used to construct the ``/authorize`` link.
+    register_open_relay_tool(app, "imagine-mcp", os.environ.get("PUBLIC_URL"))
 
     return app
 
@@ -271,7 +275,7 @@ async def run_http(port: int = 0) -> None:
 
     Default (``PUBLIC_URL`` unset):
         Local HTTP daemon on 127.0.0.1:<port> via mcp-core's
-        ``run_local_server``. Credential form at ``/authorize`` writes
+        ``run_http_server``. Credential form at ``/authorize`` writes
         keys to the encrypted ``config.enc`` (single-user, single config).
 
     Multi-user remote (``PUBLIC_URL`` set):
@@ -282,7 +286,7 @@ async def run_http(port: int = 0) -> None:
         Refuses to start if ``MCP_DCR_SERVER_SECRET`` is missing -- DCR
         requires a server secret to mint per-user JWTs safely.
     """
-    from mcp_core.transport.local_server import run_local_server
+    from mcp_core.transport.local_server import run_http_server
 
     from imagine_mcp.credential_state import save_credentials
 
@@ -303,7 +307,7 @@ async def run_http(port: int = 0) -> None:
 
     app = build_app()
     logger.info("imagine-mcp {} starting ({})", _get_version(), mode_label)
-    await run_local_server(
+    await run_http_server(
         app,
         server_name="imagine-mcp",
         relay_schema=RELAY_SCHEMA,
@@ -315,12 +319,10 @@ async def run_http(port: int = 0) -> None:
 
 
 def main() -> None:
-    """Sync wrapper for the default ``http local relay`` mode.
+    """Sync wrapper for the HTTP mode entry point.
 
-    Kept as the public entry point so `python -m imagine_mcp` and the
-    ``imagine-mcp`` console_script both resolve to the same thing.
-    Mode dispatch (stdio / remote-relay / local-relay) lives in
-    ``imagine_mcp.__main__``.
+    Kept as the public entry point for legacy callers. Default mode
+    dispatch (stdio / http) lives in ``imagine_mcp.__main__``.
     """
     asyncio.run(run_http())
 

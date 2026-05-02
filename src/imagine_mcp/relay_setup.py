@@ -50,7 +50,7 @@ def save_credentials(
 ) -> dict | None:
     """Persist credentials from the OAuth form to per-plugin store + env vars.
 
-    Wired into `run_local_server(on_credentials_saved=save_credentials)`.
+    Wired into `run_http_server(on_credentials_saved=save_credentials)`.
     `_context` carries the per-authorize `sub` for future multi-user use;
     single-user local relay mode ignores the subject.
     """

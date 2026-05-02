@@ -1,15 +1,17 @@
 """Entry point with mode dispatch.
 
-Modes (parity with wet-mcp / mnemo-mcp / better-code-review-graph):
+Two independent modes (per spec 2026-05-01-stdio-pure-http-multiuser.md):
 
-- ``http local relay`` (default) -- ``run_http``: local HTTP daemon with
-  credential form at ``127.0.0.1:<port>/authorize``.
-- ``http remote relay (multi-user)`` -- same ``run_http`` codepath, activated
-  by setting ``PUBLIC_URL`` (and ``MCP_DCR_SERVER_SECRET``). Daemon binds
-  ``0.0.0.0:8080`` and scopes LLM API keys per JWT ``sub``.
-- ``stdio direct`` -- ``mcp.run(transport="stdio")``: FastMCP stdio server
-  served directly on stdin/stdout (no daemon-spawn bridge). Universal MCP
-  client compatibility (Claude Code, Cursor, VS Code Copilot, etc.).
+- ``stdio`` (default) -- pure local single-user. Reads creds from env vars
+  only; exits 1 if all three of ``GEMINI_API_KEY``/``OPENAI_API_KEY``/
+  ``XAI_API_KEY`` are missing. Universal MCP client compatibility
+  (Claude Code, Cursor, VS Code Copilot, etc.). No daemon, no browser.
+
+- ``http`` (opt-in via ``--http`` flag, ``MCP_TRANSPORT=http`` or
+  ``TRANSPORT_MODE=http`` env var) -- HTTP daemon, always multi-user
+  remote-style. Set ``PUBLIC_URL`` + ``MCP_DCR_SERVER_SECRET`` to bind
+  publicly with per-JWT-sub credential isolation; otherwise serves on
+  127.0.0.1:<port> for local self-host.
 """
 
 from __future__ import annotations
@@ -18,38 +20,48 @@ import asyncio
 import os
 import sys
 
+_STDIO_MISSING_CRED_MSG = """\
+[imagine-mcp] No provider API keys set. Stdio mode requires at least one of:
+  - GEMINI_API_KEY
+  - OPENAI_API_KEY
+  - XAI_API_KEY
+
+Options:
+  1. Set env in plugin config:
+     {"command": "uvx", "args": ["imagine-mcp"], "env": {"GEMINI_API_KEY": "..."}}
+
+  2. Switch to HTTP mode (browser-based setup):
+     See imagine-mcp/docs/setup-manual.md "Method 5: Self-Hosting HTTP Mode"
+
+Documentation: https://github.com/n24q02m/imagine-mcp#setup
+"""
+
 
 def main() -> None:
-    mode = (os.environ.get("MCP_MODE") or "").strip().lower()
+    is_http = (
+        "--http" in sys.argv
+        or os.environ.get("MCP_TRANSPORT") == "http"
+        or os.environ.get("TRANSPORT_MODE") == "http"
+    )
 
-    if "--stdio" in sys.argv or os.environ.get("MCP_TRANSPORT") == "stdio":
-        # Stdio mode: run FastMCP stdio server directly. No bridge layer.
-        # Universal MCP client compatibility (Claude Code, Cursor, VS Code Copilot, etc.).
-        # See: ~/projects/.superpower/mcp-core/specs/2026-04-30-multi-mode-stdio-http-architecture.md
-        from imagine_mcp.server import build_app
-
-        build_app().run(transport="stdio")
-        return
-
-    if mode == "remote-relay":
-        raise SystemExit(
-            "MCP_MODE=remote-relay is deprecated. The unified http daemon "
-            "(`run_http`) now handles both single-user (default) and "
-            "multi-user remote modes; set PUBLIC_URL + MCP_DCR_SERVER_SECRET "
-            "to enable multi-user remote mode."
-        )
-
-    if mode in ("", "local-relay", "http-local-relay"):
+    if is_http:
         from imagine_mcp.server import run_http
 
         asyncio.run(run_http())
         return
 
-    raise SystemExit(
-        f"Unsupported MCP_MODE={mode!r}. Supported: local-relay (default; set "
-        "PUBLIC_URL + MCP_DCR_SERVER_SECRET for multi-user remote mode), or set "
-        "MCP_TRANSPORT=stdio / pass --stdio for stdio proxy."
-    )
+    # Default: stdio. FastMCP stdio server directly on stdin/stdout.
+    # No daemon, no bridge. Env-only creds; exit 1 if all 3 missing
+    # (server has no functional tools without at least one provider).
+    if not any(
+        os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
+    ):
+        sys.stderr.write(_STDIO_MISSING_CRED_MSG)
+        raise SystemExit(1)
+
+    from imagine_mcp.server import build_app
+
+    build_app().run(transport="stdio")
 
 
 if __name__ == "__main__":
