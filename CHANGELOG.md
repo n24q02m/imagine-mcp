@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.2.0-beta.3 (2026-05-02)
+
+### Bug Fixes
+
+- Register_open_relay_tool signature for mcp-core 1.13
+  ([#55](https://github.com/n24q02m/imagine-mcp/pull/55),
+  [`4455b1b`](https://github.com/n24q02m/imagine-mcp/commit/4455b1b78f0444f29f1db287172695100af76270))
+
+- Setup docs + README reflect stdio-pure architecture
+  ([#56](https://github.com/n24q02m/imagine-mcp/pull/56),
+  [`0002916`](https://github.com/n24q02m/imagine-mcp/commit/0002916293855a4bd0af97e72204f1413da84544))
+
+### Features
+
+- Stdio-pure + http-multi-user (drop daemon-bridge)
+  ([#55](https://github.com/n24q02m/imagine-mcp/pull/55),
+  [`4455b1b`](https://github.com/n24q02m/imagine-mcp/commit/4455b1b78f0444f29f1db287172695100af76270))
+
+
 ## v1.2.0-beta.2 (2026-04-30)
 
 ### Bug Fixes
