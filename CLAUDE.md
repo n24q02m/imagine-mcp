@@ -64,11 +64,18 @@ For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/model
 
 3 API keys (all optional — server runs in degraded mode with missing creds):
 
-- `GEMINI_API_KEY` (renamed from `GOOGLE_AI_STUDIO_API_KEY` 2026-04-26 for parity with wet/mnemo/crg)
-- `OPENAI_API_KEY`
 - `XAI_API_KEY`
+- `OPENAI_API_KEY`
+- `GEMINI_API_KEY` (renamed from `GOOGLE_AI_STUDIO_API_KEY` 2026-04-26 for parity with wet/mnemo/crg)
 
-Priority: env var > `config.enc` (via mcp-core) > relay setup > degraded mode.
+Source priority: env var > `config.enc` (via mcp-core) > relay setup > degraded mode.
+
+Auto-fallback provider (when `understand`/`generate` is called without an
+explicit `provider`): the first key present in this order wins —
+`XAI_API_KEY` → `grok`, `OPENAI_API_KEY` → `openai`, `GEMINI_API_KEY` →
+`gemini`. Gemini is last because Google AI Studio accounts can be
+billing-locked at the org level (403 PERMISSION_DENIED) without warning. If
+no key is configured the dispatcher raises `CredentialMissingError`.
 
 ## Install
 

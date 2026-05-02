@@ -115,7 +115,7 @@ def build_app() -> FastMCP:
     def understand(
         media_urls: list[str],
         prompt: str,
-        provider: str = "gemini",
+        provider: str | None = None,
         tier: str = "poor",
         max_tokens: int = 2048,
     ) -> dict[str, Any]:
@@ -136,7 +136,7 @@ def build_app() -> FastMCP:
     def generate(
         media_type: Literal["image", "video"],
         prompt: str,
-        provider: str = "gemini",
+        provider: str | None = None,
         tier: str = "poor",
         reference_image_url: str | None = None,
         job_id: str | None = None,

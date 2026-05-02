@@ -5,11 +5,13 @@ from __future__ import annotations
 import concurrent.futures
 import importlib
 import ipaddress
+import os
 import socket
 from typing import Any
 from urllib.parse import urlparse
 
 from imagine_mcp.errors import (
+    CredentialMissingError,
     InvalidMediaTypeError,
     InvalidProviderError,
     InvalidTierError,
@@ -22,6 +24,17 @@ from imagine_mcp.models import UNSUPPORTED, get_model_id
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
 VALID_MEDIA_TYPES = ["image", "video"]
+
+# Auto-fallback priority when caller does not pin a provider. Order is
+# (XAI, OpenAI, Gemini): Gemini stays last because Google AI Studio
+# accounts can be billing-locked at the org level (403 PERMISSION_DENIED
+# on every :generateContent call) without warning, so we prefer keys
+# that are less prone to silent revocation.
+_DEFAULT_PROVIDER_PRIORITY: tuple[tuple[str, str], ...] = (
+    ("XAI_API_KEY", "grok"),
+    ("OPENAI_API_KEY", "openai"),
+    ("GEMINI_API_KEY", "gemini"),
+)
 
 _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
     ("openai", "video", "understand"): (
@@ -114,6 +127,28 @@ def _validate(provider: str, tier: str) -> None:
         raise InvalidTierError(f"Unknown tier {tier!r}. Valid: {VALID_TIERS}")
 
 
+def _default_provider() -> str:
+    """Return the first provider whose API key is present in the environment.
+
+    Resolution order: XAI_API_KEY -> OPENAI_API_KEY -> GEMINI_API_KEY.
+    Reads ``os.environ`` directly because credentials saved post-startup
+    (via the relay form / config.enc) are written back into ``os.environ``
+    by ``imagine_mcp.credential_state.save_credentials`` and the settings
+    singleton is frozen at import time.
+
+    Raises:
+        CredentialMissingError: when no provider key is configured.
+    """
+    for env_var, provider in _DEFAULT_PROVIDER_PRIORITY:
+        if os.environ.get(env_var):
+            return provider
+    keys = ", ".join(env for env, _ in _DEFAULT_PROVIDER_PRIORITY)
+    raise CredentialMissingError(
+        "No provider API key configured. Set one of: "
+        f"{keys}, or run config(action='open_relay') to configure via browser."
+    )
+
+
 def _load_provider(provider: str) -> Any:
     return importlib.import_module(f"imagine_mcp.providers.{provider}")
 
@@ -129,11 +164,17 @@ def _unsupported(provider: str, media: str, action: str) -> ProviderUnsupportedE
 def dispatch_understand(
     media_urls: list[str],
     prompt: str,
-    provider: str,
+    provider: str | None,
     tier: str,
     max_tokens: int = 2048,
 ) -> dict[str, Any]:
-    """Dispatch understand call to provider."""
+    """Dispatch understand call to provider.
+
+    When ``provider`` is ``None``, auto-resolve via :func:`_default_provider`
+    (first provider whose API key is present in the environment).
+    """
+    if provider is None:
+        provider = _default_provider()
     _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
@@ -164,14 +205,20 @@ def dispatch_understand(
 def dispatch_generate(
     media_type: str,
     prompt: str,
-    provider: str,
+    provider: str | None,
     tier: str,
     reference_image_url: str | None = None,
     job_id: str | None = None,
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
-    """Dispatch generate call to provider."""
+    """Dispatch generate call to provider.
+
+    When ``provider`` is ``None``, auto-resolve via :func:`_default_provider`
+    (first provider whose API key is present in the environment).
+    """
+    if provider is None:
+        provider = _default_provider()
     _validate(provider, tier)
     if media_type not in VALID_MEDIA_TYPES:
         raise InvalidMediaTypeError(
