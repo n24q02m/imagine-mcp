@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.0-beta.4 (2026-05-02)
+
+### Bug Fixes
+
+- Gate PerPluginStore reads behind HTTP mode (stdio = env-only)
+  ([#57](https://github.com/n24q02m/imagine-mcp/pull/57),
+  [`015faaa`](https://github.com/n24q02m/imagine-mcp/commit/015faaad32fa1563f174981e6b30b75fb81013fa))
+
+
 ## v1.2.0-beta.3 (2026-05-02)
 
 ### Bug Fixes
