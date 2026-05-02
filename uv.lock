@@ -531,7 +531,7 @@ wheels = [
 
 [[package]]
 name = "imagine-mcp"
-version = "1.2.0b4"
+version = "1.2.0b5"
 source = { editable = "." }
 dependencies = [
     { name = "diskcache" },

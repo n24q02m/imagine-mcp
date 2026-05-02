@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
+from functools import lru_cache
 from typing import Final, Literal
 
 
@@ -393,6 +394,10 @@ def list_models(
     return rows
 
 
+# Use lru_cache because (action, media, tier) is a tiny bounded set
+# and list_models does an O(N) traversal. This speeds up dispatcher
+# default lookups by replacing the list comprehension with an O(1) hit.
+@lru_cache(maxsize=32)
 def default_provider_for(action: str, media: str, tier: str) -> str:
     """Pick provider with rank 1 for (action, media, tier).
 
