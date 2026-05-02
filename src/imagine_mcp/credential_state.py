@@ -7,15 +7,37 @@ Storage layout:
 
 Replaces legacy mcp_core.storage.config_file (shared config.enc) which
 caused multi-daemon path-drift contention.
+
+Stdio mode pure-env policy (spec 2026-05-01-stdio-pure-http-multiuser §4.1):
+    Stdio = env vars ONLY. PerPluginStore reads are gated behind ``_is_http()``
+    so that a stdio process never silently picks up credentials from a config
+    file written by a previous HTTP-mode session. ``_is_http`` mirrors the
+    detection logic in ``imagine_mcp.__main__`` (``--http`` flag,
+    ``MCP_TRANSPORT=http``, ``TRANSPORT_MODE=http``).
 """
 
 from __future__ import annotations
 
 import os
+import sys
 
 from mcp_core.storage.per_plugin_store import PerPluginStore
 
 PLUGIN_NAME = "imagine"
+
+
+def _is_http() -> bool:
+    """Return True when the current process runs in HTTP mode.
+
+    Mirrors ``imagine_mcp.__main__.main`` so PerPluginStore fallback reads
+    only happen in HTTP mode. In stdio mode, credentials must come from
+    env vars exclusively (per spec 2026-05-01 §4.1 + OQ3).
+    """
+    return (
+        "--http" in sys.argv
+        or os.environ.get("MCP_TRANSPORT") == "http"
+        or os.environ.get("TRANSPORT_MODE") == "http"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +51,14 @@ def store_for_sub(sub: str, config: dict[str, str]) -> None:
 
 
 def read_for_sub(sub: str) -> dict[str, str]:
-    """Read the stored config for ``sub``; ``{}`` if not yet stored."""
+    """Read the stored config for ``sub``; ``{}`` if not yet stored.
+
+    Per-sub reads only make sense in HTTP multi-user mode -- the JWT subject
+    is issued by mcp-core's local OAuth AS, which only runs under
+    ``run_http_server``. Returns ``{}`` in stdio mode (no fallback).
+    """
+    if not _is_http():
+        return {}
     return PerPluginStore(PLUGIN_NAME, sub).load() or {}
 
 
@@ -39,7 +68,13 @@ def read_for_sub(sub: str) -> dict[str, str]:
 
 
 def load_credentials(sub: str | None = None) -> dict:
-    """Load credentials for optional sub. Returns {} if not found."""
+    """Load credentials for optional sub. Returns {} if not found.
+
+    Stdio mode skips PerPluginStore entirely (env-only policy); HTTP mode
+    reads the per-sub or single-user store as before.
+    """
+    if not _is_http():
+        return {}
     return PerPluginStore(PLUGIN_NAME, sub).load() or {}
 
 

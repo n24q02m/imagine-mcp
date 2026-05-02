@@ -1,6 +1,24 @@
-"""Verify migration to PerPluginStore + cred persistence works."""
+"""Verify migration to PerPluginStore + cred persistence works.
+
+These tests validate HTTP-mode credential storage semantics. Stdio mode
+forbids PerPluginStore reads (spec 2026-05-01 §4.1) -- see
+``test_credential_state_stdio_no_fallback.py`` for the stdio-side guard.
+"""
 
 from __future__ import annotations
+
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _force_http_mode(monkeypatch):
+    """Run all tests in this module under HTTP mode.
+
+    ``credential_state.load_credentials`` / ``read_for_sub`` skip the
+    PerPluginStore in stdio mode per spec 2026-05-01 §4.1, so the legacy
+    storage tests must opt in to HTTP mode explicitly.
+    """
+    monkeypatch.setenv("MCP_TRANSPORT", "http")
 
 
 def test_loads_from_new_path(tmp_path, monkeypatch):
