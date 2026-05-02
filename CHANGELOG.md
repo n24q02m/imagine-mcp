@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.0-beta.5 (2026-05-02)
+
+### Bug Fixes
+
+- Imagine auto-fallback provider when default API key missing
+  ([#58](https://github.com/n24q02m/imagine-mcp/pull/58),
+  [`86a0b51`](https://github.com/n24q02m/imagine-mcp/commit/86a0b517029002f880294f282ab0ee1471e96029))
+
+
 ## v1.2.0-beta.4 (2026-05-02)
 
 ### Bug Fixes
