@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.0-beta.6 (2026-05-03)
+
+### Bug Fixes
+
+- HTTP multi-user credential wiring (per-sub contextvar)
+  ([#60](https://github.com/n24q02m/imagine-mcp/pull/60),
+  [`0cd142f`](https://github.com/n24q02m/imagine-mcp/commit/0cd142f43d58e9fa004d3f14aaa92381cce816bd))
+
+
 ## v1.2.0-beta.5 (2026-05-02)
 
 ### Bug Fixes
