@@ -5,7 +5,6 @@ from __future__ import annotations
 import concurrent.futures
 import importlib
 import ipaddress
-import os
 import socket
 from typing import Any
 from urllib.parse import urlparse
@@ -128,19 +127,28 @@ def _validate(provider: str, tier: str) -> None:
 
 
 def _default_provider() -> str:
-    """Return the first provider whose API key is present in the environment.
+    """Return the first provider whose API key is present for this request.
 
     Resolution order: XAI_API_KEY -> OPENAI_API_KEY -> GEMINI_API_KEY.
-    Reads ``os.environ`` directly because credentials saved post-startup
-    (via the relay form / config.enc) are written back into ``os.environ``
-    by ``imagine_mcp.credential_state.save_credentials`` and the settings
-    singleton is frozen at import time.
+
+    Single-user / stdio path: reads ``os.environ`` (credentials saved via the
+    relay form / config.enc are written back into ``os.environ`` by
+    ``imagine_mcp.relay_setup.apply_config``).
+
+    HTTP multi-user path (``auth_scope`` middleware sets ``_current_sub``):
+        Reads the per-sub config from ``~/.imagine-mcp/subs/<sub>/config.json``.
+        ``os.environ`` is intentionally NOT consulted -- isolating users is
+        the whole point of multi-user mode.
 
     Raises:
-        CredentialMissingError: when no provider key is configured.
+        CredentialMissingError: when no provider key is configured for the
+        current request scope.
     """
+    from imagine_mcp.credential_state import credentials_for_current_request
+
+    creds = credentials_for_current_request()
     for env_var, provider in _DEFAULT_PROVIDER_PRIORITY:
-        if os.environ.get(env_var):
+        if creds.get(env_var):
             return provider
     keys = ", ".join(env for env, _ in _DEFAULT_PROVIDER_PRIORITY)
     raise CredentialMissingError(

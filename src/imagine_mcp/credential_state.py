@@ -14,16 +14,75 @@ Stdio mode pure-env policy (spec 2026-05-01-stdio-pure-http-multiuser §4.1):
     file written by a previous HTTP-mode session. ``_is_http`` mirrors the
     detection logic in ``imagine_mcp.__main__`` (``--http`` flag,
     ``MCP_TRANSPORT=http``, ``TRANSPORT_MODE=http``).
+
+Per-request sub contextvar (HTTP multi-user mode):
+    The ``auth_scope`` middleware wired by ``imagine_mcp.server.run_http``
+    sets ``_current_sub`` to the JWT ``sub`` claim for the duration of each
+    MCP request. Tool handlers (``understand`` / ``generate``) and the
+    dispatcher resolve credentials via ``credentials_for_current_request()``
+    which picks the per-sub config when a sub is set, or merges os.environ
+    when running single-user / stdio.
 """
 
 from __future__ import annotations
 
+import contextvars
 import os
 import sys
 
 from mcp_core.storage.per_plugin_store import PerPluginStore
 
 PLUGIN_NAME = "imagine"
+
+# Cloud provider API keys; mirrors ``relay_setup.CREDENTIAL_KEYS`` and the
+# rename to GEMINI_API_KEY (was GOOGLE_AI_STUDIO_API_KEY) finalised 2026-04-26.
+CLOUD_KEYS: tuple[str, ...] = (
+    "XAI_API_KEY",
+    "OPENAI_API_KEY",
+    "GEMINI_API_KEY",
+)
+
+# Per-request JWT sub. Set by ``auth_scope`` middleware in HTTP multi-user
+# mode; ``None`` in stdio + single-user HTTP. ContextVar is asyncio-safe and
+# stays scoped to the request task (ASGI handlers are tasks).
+_current_sub: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "imagine_current_sub", default=None
+)
+
+
+def set_current_sub(sub: str | None) -> None:
+    """Set the JWT sub for the current request scope (testing helper).
+
+    Production code should use ``_current_sub.set()`` directly inside the
+    ``auth_scope`` callback so the matching ``reset(token)`` runs in a
+    ``finally`` block.
+    """
+    _current_sub.set(sub)
+
+
+def get_current_sub() -> str | None:
+    """Return the JWT sub for the current request scope, or ``None``."""
+    return _current_sub.get()
+
+
+def credentials_for_current_request() -> dict[str, str]:
+    """Resolve cloud-provider credentials for the active request.
+
+    Resolution rules:
+
+    * Multi-user HTTP (``_current_sub`` set): return the per-sub config from
+      ``~/.imagine-mcp/subs/<sub>/config.json``. ``os.environ`` is NOT
+      merged -- per-sub isolation is the whole point.
+    * Single-user / stdio (no sub): return cloud keys from ``os.environ``
+      so tool handlers see the same view as the legacy direct-env path.
+
+    Returns a dict mapping ``CLOUD_KEYS`` -> value. Missing/empty keys are
+    omitted so callers can use ``mapping.get(K)`` safely.
+    """
+    sub = _current_sub.get()
+    if sub is None:
+        return {k: v for k, v in os.environ.items() if k in CLOUD_KEYS and v}
+    return read_for_sub(sub)
 
 
 def _is_http() -> bool:

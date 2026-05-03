@@ -25,10 +25,25 @@ from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
+# Per-sub client cache for HTTP multi-user mode (see providers/gemini.py).
+_SUB_CLIENTS: dict[str, Any] = {}
 
 
 def _api_key() -> str:
-    key = settings.xai_api_key or os.environ.get("XAI_API_KEY")
+    """Return XAI_API_KEY for the current request scope.
+
+    Multi-user HTTP requests pull from the per-sub config; single-user /
+    stdio falls back to settings + os.environ.
+    """
+    from imagine_mcp.credential_state import (
+        credentials_for_current_request,
+        get_current_sub,
+    )
+
+    if get_current_sub() is not None:
+        key = credentials_for_current_request().get("XAI_API_KEY")
+    else:
+        key = settings.xai_api_key or os.environ.get("XAI_API_KEY")
     if not key:
         raise CredentialMissingError(
             "xAI (Grok) API key missing. Run config(action='open_relay') for "
@@ -39,6 +54,19 @@ def _api_key() -> str:
 
 def _openai_compat_client() -> Any:
     global _CLIENT
+    from imagine_mcp.credential_state import get_current_sub
+
+    sub = get_current_sub()
+    if sub is not None:
+        cached = _SUB_CLIENTS.get(sub)
+        if cached is not None:
+            return cached
+        from openai import OpenAI
+
+        client = OpenAI(api_key=_api_key(), base_url=_BASE_URL)
+        _SUB_CLIENTS[sub] = client
+        return client
+
     if _CLIENT is None:
         from openai import OpenAI
 
@@ -49,6 +77,7 @@ def _openai_compat_client() -> Any:
 def _reset_client() -> None:
     global _CLIENT
     _CLIENT = None
+    _SUB_CLIENTS.clear()
 
 
 def understand_image(
