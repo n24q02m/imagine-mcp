@@ -270,6 +270,26 @@ def build_app() -> FastMCP:
     return app
 
 
+async def _per_request_sub_scope(claims: dict[str, Any], next_: Any) -> None:
+    """``auth_scope`` middleware: pin JWT sub into a contextvar for the request.
+
+    mcp-core invokes this after Bearer JWT verification with the decoded
+    claims dict. We push ``claims["sub"]`` into ``_current_sub`` so tool
+    handlers (``understand`` / ``generate``) and the dispatcher's auto-fallback
+    (``_default_provider``) can resolve credentials per-user via
+    ``credentials_for_current_request()``. ``contextvars.Context.set`` returns
+    a token that we ``reset()`` in ``finally`` so a request that errors out
+    cannot leak its sub into the next request handled by the same task.
+    """
+    from imagine_mcp.credential_state import _current_sub
+
+    token = _current_sub.set(claims.get("sub"))
+    try:
+        await next_()
+    finally:
+        _current_sub.reset(token)
+
+
 async def run_http(port: int = 0) -> None:
     """Unified HTTP daemon -- single-user (default) or multi-user remote.
 
@@ -285,6 +305,9 @@ async def run_http(port: int = 0) -> None:
         scoped per-sub in ``IMAGINE_DATA_DIR/subs/<sub>/config.json``.
         Refuses to start if ``MCP_DCR_SERVER_SECRET`` is missing -- DCR
         requires a server secret to mint per-user JWTs safely.
+
+        ``auth_scope=_per_request_sub_scope`` is wired only in this branch
+        so single-user mode keeps reading ``os.environ`` unchanged.
     """
     from mcp_core.transport.local_server import run_http_server
 
@@ -315,6 +338,7 @@ async def run_http(port: int = 0) -> None:
         host=host,
         open_browser=not public_url,
         on_credentials_saved=save_credentials,
+        auth_scope=_per_request_sub_scope if public_url else None,
     )
 
 

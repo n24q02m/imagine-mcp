@@ -19,12 +19,46 @@ from imagine_mcp.errors import (
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
+# Per-sub client cache for HTTP multi-user mode. See providers/gemini.py
+# for rationale; module-level ``_CLIENT`` still serves stdio + single-user.
+_SUB_CLIENTS: dict[str, Any] = {}
+
+
+def _resolve_api_key() -> str | None:
+    """Return OPENAI_API_KEY for the current request scope (per-sub or env)."""
+    from imagine_mcp.credential_state import (
+        credentials_for_current_request,
+        get_current_sub,
+    )
+
+    if get_current_sub() is not None:
+        return credentials_for_current_request().get("OPENAI_API_KEY")
+    return settings.openai_api_key or os.environ.get("OPENAI_API_KEY")
 
 
 def _client() -> Any:
     global _CLIENT
+    from imagine_mcp.credential_state import get_current_sub
+
+    sub = get_current_sub()
+    if sub is not None:
+        cached = _SUB_CLIENTS.get(sub)
+        if cached is not None:
+            return cached
+        api_key = _resolve_api_key()
+        if not api_key:
+            raise CredentialMissingError(
+                "OpenAI API key missing. Run config(action='open_relay') for "
+                "browser-based setup, or set OPENAI_API_KEY."
+            )
+        from openai import OpenAI
+
+        client = OpenAI(api_key=api_key)
+        _SUB_CLIENTS[sub] = client
+        return client
+
     if _CLIENT is None:
-        api_key = settings.openai_api_key or os.environ.get("OPENAI_API_KEY")
+        api_key = _resolve_api_key()
         if not api_key:
             raise CredentialMissingError(
                 "OpenAI API key missing. Run config(action='open_relay') for "
@@ -39,6 +73,7 @@ def _client() -> Any:
 def _reset_client() -> None:
     global _CLIENT
     _CLIENT = None
+    _SUB_CLIENTS.clear()
 
 
 def understand_image(
