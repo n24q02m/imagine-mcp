@@ -47,7 +47,7 @@ dependencies = [
     "pillow>=10.0",
     "diskcache>=5.6",
     "loguru>=0.7",
-    "n24q02m-mcp-core>=1.13.0b4",
+    "n24q02m-mcp-core>=1.13.0b7",
     "platformdirs>=4.0",
 ]
 
