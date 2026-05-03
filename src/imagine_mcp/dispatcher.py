@@ -97,15 +97,12 @@ def _validate_url(url: str, param: str) -> None:
             if ip_obj.version == 6 and ip_obj.ipv4_mapped:
                 ip_obj = ip_obj.ipv4_mapped
 
-            if (
-                ip_obj.is_loopback
-                or ip_obj.is_private
-                or ip_obj.is_link_local
-                or ip_obj.is_multicast
-                or ip_obj.is_unspecified
-            ):
+            if not ip_obj.is_global or ip_obj.is_multicast:
+                # `is_global` covers loopback, private, link-local, unspecified, and reserved IPs.
+                # However, some multicast IPs (e.g., global multicast) are considered global,
+                # so we block all multicast as well to ensure security against any local attacks.
                 raise InvalidURLError(
-                    f"Invalid {param}: URL resolves to an internal/private IP."
+                    f"Invalid {param}: URL resolves to a non-public or internal IP."
                 )
     except concurrent.futures.TimeoutError as e:
         raise InvalidURLError(
