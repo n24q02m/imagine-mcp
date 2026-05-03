@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.0-beta.8 (2026-05-03)
+
+### Bug Fixes
+
+- Bump mcp-core to 1.13.0-beta.9 for /login form shell refactor
+  ([#64](https://github.com/n24q02m/imagine-mcp/pull/64),
+  [`ba381d4`](https://github.com/n24q02m/imagine-mcp/commit/ba381d4b034463e8f5c6d4e69838fadb7ce9f830))
+
+
 ## v1.2.0-beta.7 (2026-05-03)
 
 ### Features
