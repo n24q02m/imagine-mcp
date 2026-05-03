@@ -2,6 +2,21 @@
 
 <!-- version list -->
 
+## v1.2.0-beta.7 (2026-05-03)
+
+### Features
+
+- Bump mcp-core to 1.13.0-beta.7 ([#62](https://github.com/n24q02m/imagine-mcp/pull/62),
+  [`b352dcf`](https://github.com/n24q02m/imagine-mcp/commit/b352dcf202645cf50c7aa775938b28afde8f07e8))
+
+- Document MCP_RELAY_PASSWORD edge auth gate ([#63](https://github.com/n24q02m/imagine-mcp/pull/63),
+  [`04fc99e`](https://github.com/n24q02m/imagine-mcp/commit/04fc99ee8f6b5422f102b5768b1f01d90d966b1b))
+
+- Pass MCP_RELAY_PASSWORD env to HTTP container
+  ([#61](https://github.com/n24q02m/imagine-mcp/pull/61),
+  [`ea5fc1b`](https://github.com/n24q02m/imagine-mcp/commit/ea5fc1b656baacbf492c250ab74812dc3caa2414))
+
+
 ## v1.2.0-beta.6 (2026-05-03)
 
 ### Bug Fixes
