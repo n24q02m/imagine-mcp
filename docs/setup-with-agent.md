@@ -6,7 +6,7 @@
 > The previous "Zero-Config Relay" auto-spawn pattern has been removed.
 > If you relied on the relay form to enter your keys, please:
 > 1. Set at least one of `GEMINI_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` directly in plugin config (Option 1), OR
-> 2. Switch to HTTP mode (self-host) for browser-based paste-token setup -- see `setup-manual.md` "Method 5".
+> 2. Switch to HTTP mode (self-host) for browser-based paste-token setup -- see `setup-manual.md` "Method 3: Docker HTTP (recommended)".
 
 ## Method overview
 
@@ -37,66 +37,7 @@ Plugin marketplace install runs the server in **pure stdio mode** with provider 
 
 This installs the server with skill: `/image-describe`.
 
-## Option 2: MCP Direct (Stdio + uvx)
-
-### Claude Code (settings.json)
-
-Add to `.claude/settings.json` or `~/.claude/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "imagine": {
-      "command": "uvx",
-      "args": ["imagine-mcp"],
-      "env": {
-        "GEMINI_API_KEY": "AIza...",
-        "OPENAI_API_KEY": "sk-...",
-        "XAI_API_KEY": "xai-..."
-      }
-    }
-  }
-}
-```
-
-### Codex CLI (config.toml)
-
-Add to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.imagine]
-command = "uvx"
-args = ["imagine-mcp"]
-
-[mcp_servers.imagine.env]
-GEMINI_API_KEY = "AIza..."
-OPENAI_API_KEY = "sk-..."
-XAI_API_KEY = "xai-..."
-```
-
-### OpenCode (opencode.json)
-
-Add to `opencode.json` in your project root:
-
-```json
-{
-  "mcpServers": {
-    "imagine": {
-      "command": "uvx",
-      "args": ["imagine-mcp"],
-      "env": {
-        "GEMINI_API_KEY": "AIza...",
-        "OPENAI_API_KEY": "sk-...",
-        "XAI_API_KEY": "xai-..."
-      }
-    }
-  }
-}
-```
-
-Supply only the keys you have -- any subset works.
-
-## Option 3: Docker (Stdio)
+## Option 2: Docker stdio (fallback)
 
 ```json
 {
@@ -128,7 +69,9 @@ Stdio is the default and works fine for single-user local setups. You may want t
 - **Multi-user team sharing** -- a self-hosted server can serve multiple users, each with their own isolated set of provider keys (per-JWT-sub).
 - **Always-on persistent process for webhooks/agents** -- HTTP servers stay alive between sessions, enabling background work, scheduled agents, or webhook listeners.
 
-## Option 4: HTTP Self-Host (Multi-User Paste-Token)
+## Option 3: Docker HTTP (recommended)
+
+### 3.2. Self-host with docker-compose
 
 Imagine MCP does **not** offer an n24q02m-hosted public instance -- provider API keys are paid per-token. Run your own:
 
@@ -178,7 +121,7 @@ url = "https://imagine.your-domain.com/mcp"
 
 On first use, a browser window opens to the relay form. Each user pastes the API keys they want (any subset of Gemini / OpenAI / xAI), submits, and the keys are stored encrypted under that user's JWT subject.
 
-For full self-host setup details (TLS, tunnel, env reference), see [setup-manual.md](setup-manual.md) "Method 5: Self-Hosting HTTP Mode".
+For full self-host setup details (TLS, tunnel, env reference), see [setup-manual.md](setup-manual.md) "Method 3 (Docker HTTP — Self-host)".
 
 ### Edge auth: relay password
 

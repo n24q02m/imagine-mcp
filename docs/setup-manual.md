@@ -4,7 +4,7 @@
 > The previous "Zero-Config Relay" auto-spawn pattern has been removed.
 > If you relied on the relay form to enter your keys, please:
 > 1. Set at least one of `GEMINI_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` directly in plugin config (Method 1), OR
-> 2. Switch to HTTP mode (Method 5 self-host) for browser-based paste-token setup.
+> 2. Switch to HTTP mode (Method 3 self-host) for browser-based paste-token setup.
 
 ## Method overview
 
@@ -41,59 +41,7 @@ Plugin marketplace install runs the server in **pure stdio mode** with provider 
    ```
 4. Set at least one of `GEMINI_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` in the plugin config when prompted (or in your Claude Code settings).
 
-## Method 2: uvx (Local Stdio with Env Vars)
-
-Add to your MCP client configuration file:
-
-**Claude Code** -- `.claude/settings.json` or `~/.claude/settings.json`:
-```json
-{
-  "mcpServers": {
-    "imagine": {
-      "command": "uvx",
-      "args": ["imagine-mcp"],
-      "env": {
-        "GEMINI_API_KEY": "AIza...",
-        "OPENAI_API_KEY": "sk-...",
-        "XAI_API_KEY": "xai-..."
-      }
-    }
-  }
-}
-```
-
-**Codex CLI** -- `~/.codex/config.toml`:
-```toml
-[mcp_servers.imagine]
-command = "uvx"
-args = ["imagine-mcp"]
-
-[mcp_servers.imagine.env]
-GEMINI_API_KEY = "AIza..."
-OPENAI_API_KEY = "sk-..."
-XAI_API_KEY = "xai-..."
-```
-
-**OpenCode** -- `opencode.json`:
-```json
-{
-  "mcpServers": {
-    "imagine": {
-      "command": "uvx",
-      "args": ["imagine-mcp"],
-      "env": {
-        "GEMINI_API_KEY": "AIza...",
-        "OPENAI_API_KEY": "sk-...",
-        "XAI_API_KEY": "xai-..."
-      }
-    }
-  }
-}
-```
-
-Supply only the keys you have -- any subset works. Restart your MCP client after editing the config.
-
-## Method 3: Docker (Local Stdio)
+## Method 2: Docker stdio (fallback)
 
 ```json
 {
@@ -121,7 +69,7 @@ export XAI_API_KEY="xai-..."
 
 ## Why upgrade to HTTP mode?
 
-Stdio is the default and works fine for single-user local setups. You may want to switch to HTTP mode (Method 5 self-host) when you need any of the following:
+Stdio is the default and works fine for single-user local setups. You may want to switch to HTTP mode (Method 3 self-host) when you need any of the following:
 
 - **claude.ai web compatibility** -- claude.ai (the web UI) supports HTTP MCP servers but cannot spawn local stdio processes.
 - **One server shared across N Claude Code sessions** -- a single HTTP instance serves multiple terminals/IDEs without re-spawning per session.
@@ -130,11 +78,13 @@ Stdio is the default and works fine for single-user local setups. You may want t
 - **Multi-user team sharing** -- a self-hosted server can serve multiple users, each with their own isolated set of provider keys (per-JWT-sub).
 - **Always-on persistent process for webhooks/agents** -- HTTP servers stay alive between sessions, enabling background work, scheduled agents, or webhook listeners.
 
-## Method 4: HTTP Remote (Hosted)
+## Method 3: Docker HTTP (recommended)
 
-Imagine MCP does **not** offer an n24q02m-hosted public instance -- provider API keys (Gemini / OpenAI / xAI) are paid per-token and would be billed to whoever runs the server. Use Method 5 (self-host) below to run your own HTTP instance, or stay on stdio for local single-user usage.
+### 3.1. Hosted (n24q02m.com)
 
-## Method 5: Self-Hosting HTTP Mode
+Imagine MCP does **not** offer an n24q02m-hosted public instance -- provider API keys (Gemini / OpenAI / xAI) are paid per-token and would be billed to whoever runs the server. Use Method 3 (self-host) below to run your own HTTP instance, or stay on stdio for local single-user usage.
+
+### 3.2. Self-host with docker-compose
 
 Host your own multi-user paste-token server. Always multi-user (per-JWT-sub credential isolation). Each user pastes their own provider API keys via a browser form; keys are encrypted to disk and only decrypted for that user's JWT subject.
 
@@ -191,28 +141,6 @@ Share this password out-of-band (Signal/email/SMS) with anyone you invite to use
 
 **Single-user dev exception**: If `PUBLIC_URL=http://localhost:8080`, you can leave `MCP_RELAY_PASSWORD` empty to disable the gate. The server logs a warning if you skip the password with a non-localhost `PUBLIC_URL`.
 
-## Method 6: Build from Source
-
-1. Clone and install:
-   ```bash
-   git clone https://github.com/n24q02m/imagine-mcp.git
-   cd imagine-mcp
-   uv sync --group dev
-   ```
-
-2. Run the dev server (stdio):
-   ```bash
-   GEMINI_API_KEY="AIza..." uv run imagine-mcp
-   ```
-
-3. For HTTP mode (self-host):
-   ```bash
-   TRANSPORT_MODE=http \
-   PUBLIC_URL=http://localhost:8080 \
-   MCP_DCR_SERVER_SECRET=$(openssl rand -hex 32) \
-   uv run imagine-mcp --http
-   ```
-
 ## Test
 
 Once configured, call from your MCP client:
@@ -244,7 +172,7 @@ Expected: `{"text": "This is a cat...", "model": "gemini-3.1-flash-lite-preview"
 
 ### "No provider API keys set" / server exits immediately (stdio)
 
-Stdio mode requires at least one of `GEMINI_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY`. Set one in the plugin `env` block, or switch to HTTP mode (Method 5) for browser-based setup.
+Stdio mode requires at least one of `GEMINI_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY`. Set one in the plugin `env` block, or switch to HTTP mode (Method 3 self-host) for browser-based setup.
 
 ### `CredentialMissingError` on a specific provider call
 
