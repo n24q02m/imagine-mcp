@@ -32,14 +32,30 @@ You can mix any subset. The server runs in degraded mode: providers without a ke
 
 Plugin marketplace install runs the server in **pure stdio mode** with provider env vars. No daemon-bridge, no auto-spawn, no relay form.
 
+### Step 0: Credential prompt
+
+When you run `/plugin install imagine-mcp@n24q02m-plugins`, Claude Code prompts for the optional fields declared in `plugin.json` `userConfig`:
+
+| Field | Required | Sensitive | Notes |
+|:------|:---------|:----------|:------|
+| `XAI_API_KEY` | No | Yes | xAI (Grok) -- recommended default. https://console.x.ai/ |
+| `GEMINI_API_KEY` | No | Yes | Google AI Studio. https://ai.google.dev/ |
+| `OPENAI_API_KEY` | No | Yes | OpenAI. https://platform.openai.com/ |
+
+**At least one** key must be set for the server to dispatch any tool call (it raises `CredentialMissingError` otherwise). All three keys are individually optional; pick the providers you want and skip the rest. Sensitive values are kept in the system keychain (or `~/.claude/.credentials.json` fallback) and persist across `/plugin update`. Claude Code substitutes each value into `mcpServers.imagine.env` via `${user_config.<KEY>}` -- you do not edit `env` manually.
+
+### Steps
+
 1. Get at least one provider API key (see Prerequisites above).
 2. Open Claude Code in your terminal.
-3. Install the plugin:
+3. Install the plugin (Claude Code prompts for `XAI_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` -- press Enter to skip the ones you do not have):
    ```bash
    /plugin marketplace add n24q02m/claude-plugins
    /plugin install imagine-mcp@n24q02m-plugins
    ```
-4. Set at least one of `GEMINI_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` in the plugin config when prompted (or in your Claude Code settings).
+4. Restart Claude Code -- the plugin auto-loads with your keys injected.
+
+> **HTTP transport (Method 3)** is a separate install path; the `userConfig` prompt only covers stdio Method 1.
 
 ## Method 2: Docker stdio (fallback)
 
