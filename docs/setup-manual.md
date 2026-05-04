@@ -6,6 +6,18 @@
 > 1. Set at least one of `GEMINI_API_KEY` / `OPENAI_API_KEY` / `XAI_API_KEY` directly in plugin config (Method 1), OR
 > 2. Switch to HTTP mode (Method 5 self-host) for browser-based paste-token setup.
 
+## Method overview
+
+This plugin supports 3 install methods. Pick the one that matches your use case:
+
+| Priority | Method | Transport | Best for |
+|---|---|---|---|
+| **1. Default** | Plugin install (`uvx`/`npx`) | stdio | Quick local start, single workstation, no OAuth/HTTP needed. |
+| **2. Fallback** | Docker stdio (`docker run -i --rm`) | stdio | Windows/macOS where native uvx/npx hits PATH or Python version issues. |
+| **3. Recommended** | Docker HTTP (`docker run -p 8080:8080`) | HTTP | Multi-device, OAuth/relay-form auth, team self-host, claude.ai web compatibility. |
+
+All MCP servers across this stack share this priority hierarchy. Note: 2 plugins (`better-godot-mcp` and `better-code-review-graph`) only support Method 1 (stdio) -- they need direct host access to project files / repo paths and don't ship Docker / HTTP variants.
+
 ## Prerequisites
 
 - **Python** >= 3.13 (only if running from source; uvx and Docker bundle their own runtime)
