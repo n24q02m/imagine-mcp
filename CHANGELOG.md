@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.0 (2026-05-04)
+
+### Bug Fixes
+
+- Bump mcp-core to 1.13.0 (STABLE) ([#68](https://github.com/n24q02m/imagine-mcp/pull/68),
+  [`7ecd780`](https://github.com/n24q02m/imagine-mcp/commit/7ecd78000c415006b3f15237f719511a29232286))
+
+
 ## v1.2.0-beta.8 (2026-05-03)
 
 ### Bug Fixes
