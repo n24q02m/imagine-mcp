@@ -13,6 +13,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
+from functools import lru_cache
 from typing import Final, Literal
 
 
@@ -393,10 +394,14 @@ def list_models(
     return rows
 
 
+@lru_cache(maxsize=32)
 def default_provider_for(action: str, media: str, tier: str) -> str:
     """Pick provider with rank 1 for (action, media, tier).
 
     Fallback 'gemini' if all unranked.
+
+    Performance: Uses lru_cache to convert O(N log N) list traversal and sorting
+    into an O(1) hit, taking advantage of the small bounded parameter space.
     """
     candidates = list_models(
         filter_fn=lambda e: (
