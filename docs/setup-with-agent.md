@@ -24,17 +24,15 @@ All MCP servers across this stack share this priority hierarchy. Note: 2 plugins
 
 Plugin marketplace install runs the server in **pure stdio mode** with provider env vars. No daemon-bridge, no auto-spawn, no relay form.
 
-### Step 0: Credential prompt
+### Credential prompts at install
 
-When the install command runs, Claude Code prompts for the optional fields declared in `plugin.json` `userConfig`:
+When you run `/plugin install`, Claude Code prompts you for the following credentials (declared in `userConfig` per CC docs). Sensitive values are stored in your system keychain and persist across `/plugin update`:
 
-| Field | Required | Sensitive | Source |
-|:------|:---------|:----------|:-------|
-| `XAI_API_KEY` | No | Yes | https://console.x.ai/ (recommended default) |
-| `GEMINI_API_KEY` | No | Yes | https://aistudio.google.com/apikey |
-| `OPENAI_API_KEY` | No | Yes | https://platform.openai.com/api-keys |
-
-**At least one** key must be set so the server can dispatch tool calls. Claude Code substitutes each value into `mcpServers.imagine.env` via `${user_config.<KEY>}` and stores sensitive values in the system keychain (persists across `/plugin update`). You do not edit `env` manually.
+| Field | Required | Where to obtain |
+|---|---|---|
+| `XAI_API_KEY` | Optional | https://console.x.ai/ (default provider per spec) |
+| `GEMINI_API_KEY` | Optional | https://aistudio.google.com/apikey |
+| `OPENAI_API_KEY` | Optional | https://platform.openai.com/api-keys |
 
 ### Steps
 
@@ -80,6 +78,8 @@ Stdio is the default and works fine for single-user local setups. You may want t
 - **Always-on persistent process for webhooks/agents** -- HTTP servers stay alive between sessions, enabling background work, scheduled agents, or webhook listeners.
 
 ## Option 3: Docker HTTP (recommended)
+
+> **Switching transport vs. setting credentials**: The `userConfig` prompt only configures credentials for stdio mode (Method 1 / Option 1). To switch transport to HTTP, override `mcpServers` in your client settings per the snippets below -- this is a separate path from `userConfig` and is not driven by the install prompt.
 
 ### 3.2. Self-host with docker-compose
 
