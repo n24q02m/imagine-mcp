@@ -97,13 +97,7 @@ def _validate_url(url: str, param: str) -> None:
             if ip_obj.version == 6 and ip_obj.ipv4_mapped:
                 ip_obj = ip_obj.ipv4_mapped
 
-            if (
-                ip_obj.is_loopback
-                or ip_obj.is_private
-                or ip_obj.is_link_local
-                or ip_obj.is_multicast
-                or ip_obj.is_unspecified
-            ):
+            if not ip_obj.is_global or ip_obj.is_multicast:
                 raise InvalidURLError(
                     f"Invalid {param}: URL resolves to an internal/private IP."
                 )

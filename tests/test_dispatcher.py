@@ -296,3 +296,12 @@ def test_understand_rejects_dns_timeout(monkeypatch: pytest.MonkeyPatch) -> None
         )
     duration = time.time() - start
     assert duration < 2.5, f"DNS timeout block took too long: {duration}s"
+
+
+def test_validate_url_blocks_cgnat() -> None:
+    from imagine_mcp.dispatcher import _validate_url
+
+    # 100.64.0.1 is part of Carrier-Grade NAT, which is not considered private by is_private,
+    # but is considered not global by is_global. Our updated validation must block it.
+    with pytest.raises(InvalidURLError, match="URL resolves to an internal/private IP"):
+        _validate_url("http://100.64.0.1/test", "test_param")
