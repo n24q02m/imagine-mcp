@@ -32,17 +32,15 @@ You can mix any subset. The server runs in degraded mode: providers without a ke
 
 Plugin marketplace install runs the server in **pure stdio mode** with provider env vars. No daemon-bridge, no auto-spawn, no relay form.
 
-### Step 0: Credential prompt
+### Credential prompts at install
 
-When you run `/plugin install imagine-mcp@n24q02m-plugins`, Claude Code prompts for the optional fields declared in `plugin.json` `userConfig`:
+When you run `/plugin install`, Claude Code prompts you for the following credentials (declared in `userConfig` per CC docs). Sensitive values are stored in your system keychain and persist across `/plugin update`:
 
-| Field | Required | Sensitive | Notes |
-|:------|:---------|:----------|:------|
-| `XAI_API_KEY` | No | Yes | xAI (Grok) -- recommended default. https://console.x.ai/ |
-| `GEMINI_API_KEY` | No | Yes | Google AI Studio. https://ai.google.dev/ |
-| `OPENAI_API_KEY` | No | Yes | OpenAI. https://platform.openai.com/ |
-
-**At least one** key must be set for the server to dispatch any tool call (it raises `CredentialMissingError` otherwise). All three keys are individually optional; pick the providers you want and skip the rest. Sensitive values are kept in the system keychain (or `~/.claude/.credentials.json` fallback) and persist across `/plugin update`. Claude Code substitutes each value into `mcpServers.imagine.env` via `${user_config.<KEY>}` -- you do not edit `env` manually.
+| Field | Required | Where to obtain |
+|---|---|---|
+| `XAI_API_KEY` | Optional | https://console.x.ai/ (default provider per spec) |
+| `GEMINI_API_KEY` | Optional | https://aistudio.google.com/apikey |
+| `OPENAI_API_KEY` | Optional | https://platform.openai.com/api-keys |
 
 ### Steps
 
@@ -54,8 +52,6 @@ When you run `/plugin install imagine-mcp@n24q02m-plugins`, Claude Code prompts 
    /plugin install imagine-mcp@n24q02m-plugins
    ```
 4. Restart Claude Code -- the plugin auto-loads with your keys injected.
-
-> **HTTP transport (Method 3)** is a separate install path; the `userConfig` prompt only covers stdio Method 1.
 
 ## Method 2: Docker stdio (fallback)
 
@@ -95,6 +91,8 @@ Stdio is the default and works fine for single-user local setups. You may want t
 - **Always-on persistent process for webhooks/agents** -- HTTP servers stay alive between sessions, enabling background work, scheduled agents, or webhook listeners.
 
 ## Method 3: Docker HTTP (recommended)
+
+> **Switching transport vs. setting credentials**: The `userConfig` prompt only configures credentials for stdio mode (Method 1 / Option 1). To switch transport to HTTP, override `mcpServers` in your client settings per the snippets below -- this is a separate path from `userConfig` and is not driven by the install prompt.
 
 ### 3.1. Hosted (n24q02m.com)
 
