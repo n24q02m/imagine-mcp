@@ -1,3 +1,6 @@
 ## 2024-05-18 - Optimize default_provider_for lookups
 **Learning:** `default_provider_for` in `src/imagine_mcp/models.py` performs an O(N log N) filtering and sorting of `MODELS` on every call. Since the parameter space (`action`, `media`, `tier`) is very small and bounded, caching the result yields a ~25x performance improvement. Standard lru_cache works perfectly for this use case.
 **Action:** Use `@functools.lru_cache(maxsize=32)` to optimize functions that perform expensive queries or sorting over static lists when their parameter space is small and bounded.
+## 2024-05-18 - Prevent redundant media type detection in Gemini multimodal
+**Learning:** The dispatcher correctly pre-calculates `media_types` via `detect_media_type` to validate inputs and route the request. However, `understand_multimodal` in the Gemini provider re-calculated this type for every URL in its loop, resulting in a redundant synchronous HEAD request per URL when processing media lacking clear file extensions. This is an N+1 validation problem.
+**Action:** When validating a list of items requires network requests or expensive computation before routing, pass that pre-calculated state down to the execution provider to prevent duplicating the effort.
