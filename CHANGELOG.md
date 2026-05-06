@@ -2,6 +2,33 @@
 
 <!-- version list -->
 
+## v1.3.0-beta.1 (2026-05-06)
+
+### Bug Fixes
+
+- Consolidate setup docs body to 3 methods (drop legacy Method 4/5)
+  ([#70](https://github.com/n24q02m/imagine-mcp/pull/70),
+  [`b667ea7`](https://github.com/n24q02m/imagine-mcp/commit/b667ea784466f7bd69d0dc7bfadac001c2ccaa41))
+
+### Features
+
+- Add explicit Method overview section to setup docs
+  ([#69](https://github.com/n24q02m/imagine-mcp/pull/69),
+  [`73bc4d9`](https://github.com/n24q02m/imagine-mcp/commit/73bc4d9d1142bb6e35d1499c548262f39db7cedc))
+
+- Clarify Method 1/2/3 mutually exclusive (CC scope-by-endpoint)
+  ([#75](https://github.com/n24q02m/imagine-mcp/pull/75),
+  [`8fda3d5`](https://github.com/n24q02m/imagine-mcp/commit/8fda3d5da6228e9687b08c8e1f29fb01086fde01))
+
+- Declare userConfig schema and document install prompt
+  ([#71](https://github.com/n24q02m/imagine-mcp/pull/71),
+  [`f2285df`](https://github.com/n24q02m/imagine-mcp/commit/f2285df53a40be80ba3023a3fd6183810178685b))
+
+- Document userConfig credential prompts per plugin
+  ([#74](https://github.com/n24q02m/imagine-mcp/pull/74),
+  [`e8bf3d1`](https://github.com/n24q02m/imagine-mcp/commit/e8bf3d1e6bfc3efbdb921d99c844dcb537fcbace))
+
+
 ## v1.2.0 (2026-05-04)
 
 ### Bug Fixes
