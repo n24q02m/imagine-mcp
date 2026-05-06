@@ -10,6 +10,7 @@ Verified 2026-04-18 from official docs; rank baseline 2026-04-24 from manual rev
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
@@ -393,6 +394,8 @@ def list_models(
     return rows
 
 
+# Use lru_cache to optimize O(N log N) list traversal into O(1) hits.
+@functools.lru_cache(maxsize=32)
 def default_provider_for(action: str, media: str, tier: str) -> str:
     """Pick provider with rank 1 for (action, media, tier).
 
