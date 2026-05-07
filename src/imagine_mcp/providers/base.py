@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Protocol, TypedDict, Unpack
+
+
+class VideoOptions(TypedDict, total=False):
+    reference_image_url: str | None
+    job_id: str | None
+    aspect_ratio: str
+    duration_seconds: int
 
 
 class ImagineProvider(Protocol):
@@ -26,8 +33,5 @@ class ImagineProvider(Protocol):
         self,
         prompt: str,
         tier: str,
-        reference_image_url: str | None = None,
-        job_id: str | None = None,
-        aspect_ratio: str = "16:9",
-        duration_seconds: int = 8,
+        **kwargs: Unpack[VideoOptions],
     ) -> dict[str, Any]: ...

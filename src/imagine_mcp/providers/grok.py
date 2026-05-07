@@ -10,7 +10,7 @@ import base64
 import os
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Unpack
 
 import httpx
 import platformdirs
@@ -22,6 +22,7 @@ from imagine_mcp.errors import (
     ProviderUnsupportedError,
 )
 from imagine_mcp.models import get_model_id
+from imagine_mcp.providers.base import VideoOptions
 
 _CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
@@ -168,11 +169,13 @@ def generate_image(
 def generate_video(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    **kwargs: Unpack[VideoOptions],
 ) -> dict[str, Any]:
+    reference_image_url = kwargs.get("reference_image_url")
+    job_id = kwargs.get("job_id")
+    aspect_ratio = kwargs.get("aspect_ratio", "16:9")
+    duration_seconds = kwargs.get("duration_seconds", 8)
+
     model = get_model_id("grok", "generate", "video", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
 

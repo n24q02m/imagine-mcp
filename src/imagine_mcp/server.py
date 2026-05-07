@@ -150,10 +150,10 @@ def build_app() -> FastMCP:
             prompt,
             provider,
             tier,
-            reference_image_url,
-            job_id,
-            aspect_ratio,
-            duration_seconds,
+            reference_image_url=reference_image_url,
+            job_id=job_id,
+            aspect_ratio=aspect_ratio,
+            duration_seconds=duration_seconds,
         )
 
     @app.tool(

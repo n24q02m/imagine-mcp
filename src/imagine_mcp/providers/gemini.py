@@ -6,13 +6,14 @@ import base64
 import os
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Unpack
 
 import platformdirs
 
 from imagine_mcp.config import settings
 from imagine_mcp.errors import CredentialMissingError, ProviderAPIError
 from imagine_mcp.models import get_model_id
+from imagine_mcp.providers.base import VideoOptions
 
 _CLIENT: Any = None
 # Per-sub client cache for HTTP multi-user mode. Keyed by JWT sub so each
@@ -191,11 +192,12 @@ def generate_image(
 def generate_video(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    **kwargs: Unpack[VideoOptions],
 ) -> dict[str, Any]:
+    job_id = kwargs.get("job_id")
+    aspect_ratio = kwargs.get("aspect_ratio", "16:9")
+    duration_seconds = kwargs.get("duration_seconds", 8)
+
     from google.genai import types
 
     model = get_model_id("gemini", "generate", "video", tier)
