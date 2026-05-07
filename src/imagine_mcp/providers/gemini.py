@@ -36,8 +36,16 @@ def _api_key() -> str:
     )
 
     if get_current_sub() is not None:
-        return credentials_for_current_request().get("GEMINI_API_KEY")
-    return settings.gemini_api_key or os.environ.get("GEMINI_API_KEY")
+        key = credentials_for_current_request().get("GEMINI_API_KEY")
+    else:
+        key = settings.gemini_api_key or os.environ.get("GEMINI_API_KEY")
+
+    if not key:
+        raise CredentialMissingError(
+            "Gemini API key missing. Run config(action='open_relay') for "
+            "browser-based setup, or set GEMINI_API_KEY."
+        )
+    return key
 
 
 def _client() -> Any:
@@ -52,22 +60,12 @@ def _client() -> Any:
         if cached is not None:
             return cached
         api_key = _api_key()
-        if not api_key:
-            raise CredentialMissingError(
-                "Gemini API key missing. Run config(action='open_relay') for "
-                "browser-based setup, or set GEMINI_API_KEY."
-            )
         client = genai.Client(api_key=api_key)
         _SUB_CLIENTS[sub] = client
         return client
 
     if _CLIENT is None:
         api_key = _api_key()
-        if not api_key:
-            raise CredentialMissingError(
-                "Gemini API key missing. Run config(action='open_relay') for "
-                "browser-based setup, or set GEMINI_API_KEY."
-            )
         _CLIENT = genai.Client(api_key=api_key)
     return _CLIENT
 

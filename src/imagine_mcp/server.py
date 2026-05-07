@@ -1,4 +1,4 @@
-"""FastMCP server exposing understand, generate, config, help tools."""
+"""FastMCP server definition and tool registration."""
 
 from __future__ import annotations
 
@@ -13,91 +13,109 @@ from fastmcp import FastMCP
 from loguru import logger
 from mcp_core.relay.tool_helpers import register_open_relay_tool
 
+from imagine_mcp import __version__
 from imagine_mcp.config import settings
 from imagine_mcp.dispatcher import dispatch_generate, dispatch_understand
-from imagine_mcp.relay_schema import RELAY_SCHEMA
 
 VALID_HELP_TOPICS = {"understand", "generate", "config"}
 
-_VALID_SET_KEYS = {
-    "log_level",
-    "default_provider",
-    "default_tier",
-    "cache_ttl_seconds",
+RELAY_SCHEMA = {
+    "XAI_API_KEY": {
+        "title": "xAI (Grok) API Key",
+        "description": "Used for Grok understand/generate tools.",
+        "type": "string",
+        "secret": True,
+    },
+    "OPENAI_API_KEY": {
+        "title": "OpenAI API Key",
+        "description": "Used for OpenAI understand/generate tools.",
+        "type": "string",
+        "secret": True,
+    },
+    "GEMINI_API_KEY": {
+        "title": "Google Gemini API Key",
+        "description": "Used for Gemini understand/generate tools.",
+        "type": "string",
+        "secret": True,
+    },
 }
 
 
 def _get_version() -> str:
-    from imagine_mcp import __version__
-
     return __version__
 
 
-def _creds_state() -> str:
-    # Read from os.environ -- settings singleton is frozen at import time
-    # and does not observe post-startup relay-saved credentials.
-    if any(
-        os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
-    ):
-        return "CONFIGURED"
-    return "NEEDS_SETUP"
-
-
 def _providers_configured() -> list[str]:
-    out: list[str] = []
-    if os.environ.get("GEMINI_API_KEY"):
-        out.append("gemini")
-    if os.environ.get("OPENAI_API_KEY"):
-        out.append("openai")
-    if os.environ.get("XAI_API_KEY"):
-        out.append("grok")
-    return out
+    """Return list of providers with API keys in env or config."""
+    from imagine_mcp.credential_state import credentials_for_current_request
+
+    creds = credentials_for_current_request()
+    found = []
+    if creds.get("XAI_API_KEY"):
+        found.append("grok")
+    if creds.get("OPENAI_API_KEY"):
+        found.append("openai")
+    if creds.get("GEMINI_API_KEY"):
+        found.append("gemini")
+    return found
 
 
 def _providers_configured_live() -> list[str]:
-    """Like _providers_configured but also checks PerPluginStore.
+    """Derive configured providers from live state + env."""
+    from imagine_mcp.credential_state import (
+        CLOUD_KEYS,
+        credentials_for_current_request,
+        load_credentials,
+    )
 
-    env vars may not be populated at startup (no lifespan apply_config call),
-    so this reads the store directly for an accurate live view.
-    """
+    # We check env + live sub config via credentials_for_current_request
+    found = set()
+    creds = credentials_for_current_request()
+    for key in CLOUD_KEYS:
+        if creds.get(key):
+            provider = "grok" if "XAI" in key else key.split("_")[0].lower()
+            found.add(provider)
+
+    # Then check store for single-user mode (multi-user sub was already checked above)
+    # Stdio mode pure-env policy check is bypassed here for status accuracy.
+    from imagine_mcp.credential_state import PLUGIN_NAME
     from mcp_core.storage.per_plugin_store import PerPluginStore
 
-    from imagine_mcp.relay_setup import CREDENTIAL_KEYS, PLUGIN_NAME
+    store_creds = PerPluginStore(PLUGIN_NAME).load() or {}
+    for key in CLOUD_KEYS:
+        if store_creds.get(key):
+            provider = "grok" if "XAI" in key else key.split("_")[0].lower()
+            found.add(provider)
 
-    saved = PerPluginStore(PLUGIN_NAME).load() or {}
-    _key_to_provider = {
-        "GEMINI_API_KEY": "gemini",
-        "OPENAI_API_KEY": "openai",
-        "XAI_API_KEY": "grok",
-    }
-    seen: set[str] = set()
-    out: list[str] = []
-    for key in CREDENTIAL_KEYS:
-        provider = _key_to_provider.get(key, key)
-        if provider in seen:
-            continue
-        if os.environ.get(key) or saved.get(key):
-            out.append(provider)
-            seen.add(provider)
-    return out
+    return sorted(found)
+
+
+def _creds_state() -> str:
+    return "configured" if _providers_configured_live() else "pending"
 
 
 def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
-    if not key or key not in _VALID_SET_KEYS:
-        return {
-            "status": "error",
-            "message": f"Invalid key. Valid: {sorted(_VALID_SET_KEYS)}",
-        }
-    return {
-        "status": "ok",
-        "message": f"Set {key}={value} (runtime only; persistent via mcp-core).",
-    }
+    if not key:
+        return {"status": "error", "message": "Missing key."}
+    if key == "default_provider":
+        settings.default_provider = value  # type: ignore
+    elif key == "default_tier":
+        settings.default_tier = value  # type: ignore
+    elif key == "cache_ttl_seconds":
+        try:
+            settings.cache_ttl_seconds = int(value or "3600")
+        except ValueError:
+            return {"status": "error", "message": "Invalid integer for TTL."}
+    else:
+        return {"status": "error", "message": f"Unknown key {key!r}."}
+    return {"status": "ok", "message": f"Set {key}={value}"}
 
 
 def build_app() -> FastMCP:
-    """Create FastMCP app with 4 tools registered."""
-    app: FastMCP = FastMCP(
-        "imagine",
+    """Build and return the FastMCP application."""
+    app = FastMCP(
+        "imagine-mcp",
+        version=_get_version(),
         instructions=(
             "Image/video understanding and generation across Gemini, OpenAI, Grok. "
             "4 tools: understand, generate, config, help. "
@@ -150,10 +168,10 @@ def build_app() -> FastMCP:
             prompt,
             provider,
             tier,
-            reference_image_url,
-            job_id,
-            aspect_ratio,
-            duration_seconds,
+            reference_image_url=reference_image_url,
+            job_id=job_id,
+            aspect_ratio=aspect_ratio,
+            duration_seconds=duration_seconds,
         )
 
     @app.tool(
@@ -262,23 +280,23 @@ def build_app() -> FastMCP:
         return doc_file.read_text(encoding="utf-8")
 
     # mcp-core >=1.13: register_open_relay_tool takes public_url (str | None).
-    # In stdio mode PUBLIC_URL is unset → tool returns ``stdio_unsupported``.
+    # In stdio mode PUBLIC_URL is unset → tool returns `stdio_unsupported`.
     # In HTTP mode the server's PUBLIC_URL env points at the externally
-    # reachable origin used to construct the ``/authorize`` link.
+    # reachable origin used to construct the `/authorize` link.
     register_open_relay_tool(app, "imagine-mcp", os.environ.get("PUBLIC_URL"))
 
     return app
 
 
 async def _per_request_sub_scope(claims: dict[str, Any], next_: Any) -> None:
-    """``auth_scope`` middleware: pin JWT sub into a contextvar for the request.
+    """`auth_scope` middleware: pin JWT sub into a contextvar for the request.
 
     mcp-core invokes this after Bearer JWT verification with the decoded
-    claims dict. We push ``claims["sub"]`` into ``_current_sub`` so tool
-    handlers (``understand`` / ``generate``) and the dispatcher's auto-fallback
-    (``_default_provider``) can resolve credentials per-user via
-    ``credentials_for_current_request()``. ``contextvars.Context.set`` returns
-    a token that we ``reset()`` in ``finally`` so a request that errors out
+    claims dict. We push `claims["sub"]` into `_current_sub` so tool
+    handlers (`understand` / `generate`) and the dispatcher's auto-fallback
+    (`_default_provider`) can resolve credentials per-user via
+    `credentials_for_current_request()`. `contextvars.Context.set` returns
+    a token that we `reset()` in `finally` so a request that errors out
     cannot leak its sub into the next request handled by the same task.
     """
     from imagine_mcp.credential_state import _current_sub
@@ -293,21 +311,21 @@ async def _per_request_sub_scope(claims: dict[str, Any], next_: Any) -> None:
 async def run_http(port: int = 0) -> None:
     """Unified HTTP daemon -- single-user (default) or multi-user remote.
 
-    Default (``PUBLIC_URL`` unset):
+    Default (`PUBLIC_URL` unset):
         Local HTTP daemon on 127.0.0.1:<port> via mcp-core's
-        ``run_http_server``. Credential form at ``/authorize`` writes
-        keys to the encrypted ``config.enc`` (single-user, single config).
+        `run_http_server`. Credential form at `/authorize` writes
+        keys to the encrypted `config.enc` (single-user, single config).
 
-    Multi-user remote (``PUBLIC_URL`` set):
-        Bind ``0.0.0.0:8080`` so the daemon is reachable behind a reverse
-        proxy. Each authorize session carries a fresh ``sub`` UUID
-        generated by ``mcp_core.auth.local_oauth_app``; LLM API keys are
-        scoped per-sub in ``IMAGINE_DATA_DIR/subs/<sub>/config.json``.
-        Refuses to start if ``MCP_DCR_SERVER_SECRET`` is missing -- DCR
+    Multi-user remote (`PUBLIC_URL` set):
+        Bind `0.0.0.0:8080` so the daemon is reachable behind a reverse
+        proxy. Each authorize session carries a fresh `sub` UUID
+        generated by `mcp_core.auth.local_oauth_app`; LLM API keys are
+        scoped per-sub in `IMAGINE_DATA_DIR/subs/<sub>/config.json`.
+        Refuses to start if `MCP_DCR_SERVER_SECRET` is missing -- DCR
         requires a server secret to mint per-user JWTs safely.
 
-        ``auth_scope=_per_request_sub_scope`` is wired only in this branch
-        so single-user mode keeps reading ``os.environ`` unchanged.
+        `auth_scope=_per_request_sub_scope` is wired only in this branch
+        so single-user mode keeps reading `os.environ` unchanged.
     """
     from mcp_core.transport.local_server import run_http_server
 
@@ -346,7 +364,7 @@ def main() -> None:
     """Sync wrapper for the HTTP mode entry point.
 
     Kept as the public entry point for legacy callers. Default mode
-    dispatch (stdio / http) lives in ``imagine_mcp.__main__``.
+    dispatch (stdio / http) lives in `imagine_mcp.__main__`.
     """
     asyncio.run(run_http())
 
