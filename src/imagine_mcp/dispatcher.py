@@ -46,7 +46,7 @@ _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
         "Use provider='gemini' (Veo 3.1) or 'grok' (Grok Imagine)."
     ),
     ("grok", "video", "understand"): (
-        "Grok production (4.20-0309-v2) is image-only. "
+        "Grok production (grok-3-vision) is image-only. "
         "Use provider='gemini' for video understanding."
     ),
 }

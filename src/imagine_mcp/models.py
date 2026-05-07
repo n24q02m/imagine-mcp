@@ -35,7 +35,7 @@ Media = Literal["image", "video"]
 Tier = Literal["poor", "rich"]
 CostTier = Literal["low", "medium", "high"]
 
-_BASELINE_DATE = date(2026, 4, 24)
+_BASELINE_DATE = date(2026, 5, 2)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,7 +81,7 @@ MODELS: Final[list[ModelEntry]] = [
         "understand",
         "image",
         "poor",
-        "grok-4.20-0309-non-reasoning",
+        "grok-3-vision",
         quality_rank=3,
         cost_tier="low",
         last_verified=_BASELINE_DATE,
@@ -114,7 +114,7 @@ MODELS: Final[list[ModelEntry]] = [
         "understand",
         "image",
         "rich",
-        "grok-4.20-0309-reasoning",
+        "grok-3-vision",
         quality_rank=3,
         cost_tier="high",
         last_verified=_BASELINE_DATE,
@@ -152,7 +152,7 @@ MODELS: Final[list[ModelEntry]] = [
         quality_rank=None,
         cost_tier="low",
         last_verified=_BASELINE_DATE,
-        notes="Prod 4.20-0309-v2 image-only.",
+        notes="Prod grok-3-vision image-only.",
     ),
     ModelEntry(
         "gemini",

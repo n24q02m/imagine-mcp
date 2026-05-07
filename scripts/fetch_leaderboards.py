@@ -74,10 +74,8 @@ MODEL_ALIASES: dict[str, str] = {
     "gpt-image-1.5": "gpt-image-1.5",
     "gpt-image-1-mini": "gpt-image-1-mini",
     # Grok understand
-    "Grok 4.20 Reasoning": "grok-4.20-0309-reasoning",
-    "grok-4.20-0309-reasoning": "grok-4.20-0309-reasoning",
-    "Grok 4.20": "grok-4.20-0309-non-reasoning",
-    "grok-4.20-0309-non-reasoning": "grok-4.20-0309-non-reasoning",
+    "Grok 3 Vision": "grok-3-vision",
+    "grok-3-vision": "grok-3-vision",
     # Grok generate
     "Aurora": "grok-imagine-image",
     "grok-imagine-image": "grok-imagine-image",

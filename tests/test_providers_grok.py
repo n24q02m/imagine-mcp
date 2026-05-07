@@ -15,18 +15,14 @@ def test_understand_video_raises() -> None:
 
 def test_understand_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_client = MagicMock()
-    msg = MagicMock()
-    msg.content = "a parrot"
-    choice = MagicMock()
-    choice.message = msg
     resp = MagicMock()
-    resp.choices = [choice]
-    fake_client.chat.completions.create.return_value = resp
+    resp.output_text = "a parrot"
+    fake_client.responses.create.return_value = resp
     monkeypatch.setattr(provider, "_openai_compat_client", lambda: fake_client)
 
     result = provider.understand_image(
         url="https://example.com/parrot.png", prompt="describe", tier="rich"
     )
     assert result["text"] == "a parrot"
-    assert result["model"] == "grok-4.20-0309-reasoning"
+    assert result["model"] == "grok-3-vision"
     assert result["provider"] == "grok"
