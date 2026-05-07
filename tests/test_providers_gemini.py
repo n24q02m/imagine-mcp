@@ -54,3 +54,45 @@ def test_understand_image_live() -> None:
         tier="poor",
     )
     assert "cat" in result["text"].lower()
+
+
+def test_understand_multimodal_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    fake_response = MagicMock()
+    fake_response.text = "mixed content"
+    fake_client.models.generate_content.return_value = fake_response
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    # Use a mock for detect_media_type to verify it is NOT called when media_types is provided
+    mock_detect = MagicMock()
+    monkeypatch.setattr("imagine_mcp.media.detect_media_type", mock_detect)
+
+    urls = ["https://example.com/cat.png", "https://example.com/dog.mp4"]
+    media_types = ["image", "video"]
+    result = gemini.understand_multimodal(
+        urls=urls, prompt="describe both", tier="poor", media_types=media_types
+    )
+
+    assert result["text"] == "mixed content"
+    assert result["multimodal"] is True
+    assert mock_detect.call_count == 0
+
+
+def test_understand_multimodal_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    fake_response = MagicMock()
+    fake_response.text = "mixed content fallback"
+    fake_client.models.generate_content.return_value = fake_response
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    # Use a mock for detect_media_type to verify it IS called when media_types is NOT provided
+    mock_detect = MagicMock(return_value="image")
+    monkeypatch.setattr("imagine_mcp.media.detect_media_type", mock_detect)
+
+    urls = ["https://example.com/cat.png", "https://example.com/dog.png"]
+    result = gemini.understand_multimodal(
+        urls=urls, prompt="describe both", tier="poor"
+    )
+
+    assert result["text"] == "mixed content fallback"
+    assert mock_detect.call_count == 2

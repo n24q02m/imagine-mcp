@@ -119,7 +119,11 @@ def understand_video(
 
 
 def understand_multimodal(
-    urls: list[str], prompt: str, tier: str, max_tokens: int = 2048
+    urls: list[str],
+    prompt: str,
+    tier: str,
+    max_tokens: int = 2048,
+    media_types: list[str] | None = None,
 ) -> dict[str, Any]:
     """Gemini native multimodal: mixed image+video URLs in a single call."""
     from google.genai import types
@@ -128,8 +132,8 @@ def understand_multimodal(
 
     model = get_model_id("gemini", "understand", "image", tier)
     parts: list[Any] = [prompt]
-    for u in urls:
-        mt = detect_media_type(u)
+    for i, u in enumerate(urls):
+        mt = media_types[i] if media_types else detect_media_type(u)
         mime = "image/png" if mt == "image" else "video/mp4"
         parts.append(types.Part.from_uri(file_uri=u, mime_type=mime))
     resp = _client().models.generate_content(
