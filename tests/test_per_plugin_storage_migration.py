@@ -114,3 +114,14 @@ def test_relay_setup_reset_not_found(tmp_path, monkeypatch):
     importlib.reload(rs)
     result = rs.reset_credentials()
     assert result["status"] == "not_found"
+
+
+def test_relay_setup_reset_error(monkeypatch):
+    import imagine_mcp.relay_setup as rs
+    def mock_init(*args, **kwargs):
+        raise Exception("forced failure")
+
+    monkeypatch.setattr(rs, "PerPluginStore", mock_init)
+    result = rs.reset_credentials()
+    assert result["status"] == "error"
+    assert result["error"] == "forced failure"
