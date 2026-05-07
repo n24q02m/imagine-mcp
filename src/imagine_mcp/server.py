@@ -66,9 +66,9 @@ def _providers_configured_live() -> list[str]:
         os.environ["TRANSPORT_MODE"] = "http"
 
     try:
-        from imagine_mcp.credential_state import CLOUD_KEYS, read_for_sub
+        from imagine_mcp.credential_state import CLOUD_KEYS, load_credentials
 
-        creds = read_for_sub(None)
+        creds = load_credentials(None)
         # Merge with os.environ for single-user
         env_creds = {k: v for k, v in os.environ.items() if k in CLOUD_KEYS and v}
         creds.update(env_creds)
