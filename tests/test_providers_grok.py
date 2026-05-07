@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+import base64
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -30,3 +31,38 @@ def test_understand_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result["text"] == "a parrot"
     assert result["model"] == "grok-4.20-0309-reasoning"
     assert result["provider"] == "grok"
+
+
+def test_video_status_pending(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_resp = MagicMock()
+    fake_resp.status_code = 200
+    fake_resp.json.return_value = {"status": "pending", "eta_seconds": 10}
+
+    with patch("httpx.get", return_value=fake_resp):
+        monkeypatch.setattr(provider, "_api_key", lambda: "fake-key")
+        result = provider.video_status("poor", "job-123")
+        assert result["status"] == "pending"
+        assert result["job_id"] == "job-123"
+
+
+def test_edit_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_img_resp = MagicMock()
+    fake_img_resp.status_code = 200
+    fake_img_resp.content = b"fake-image-content"
+
+    fake_edit_resp = MagicMock()
+    fake_edit_resp.status_code = 200
+    fake_edit_resp.json.return_value = {
+        "data": [{"b64_json": base64.b64encode(b"edited-image").decode()}]
+    }
+
+    mock_ssrf_client = MagicMock()
+    mock_ssrf_client.get.return_value = fake_img_resp
+
+    with patch("httpx.post", return_value=fake_edit_resp), patch(
+        "imagine_mcp.media.get_ssrf_safe_client", return_value=mock_ssrf_client
+    ):
+        monkeypatch.setattr(provider, "_api_key", lambda: "fake-key")
+        result = provider.edit("rich", "https://example.com/orig.png", "add a hat")
+        assert "image_path" in result
+        assert result["model"] == "grok-imagine-image-pro"
