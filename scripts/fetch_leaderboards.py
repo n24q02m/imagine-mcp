@@ -66,10 +66,10 @@ MODEL_ALIASES: dict[str, str] = {
     "Veo 3.1": "veo-3.1-generate-preview",
     "veo-3.1-generate-preview": "veo-3.1-generate-preview",
     # OpenAI understand
-    "GPT-5.4": "gpt-5.4",
-    "gpt-5.4": "gpt-5.4",
-    "GPT-5.4 Mini": "gpt-5.4-mini",
-    "gpt-5.4-mini": "gpt-5.4-mini",
+    "GPT-4o": "gpt-4o",
+    "gpt-4o": "gpt-4o",
+    "GPT-4o Mini": "gpt-4o-mini",
+    "gpt-4o-mini": "gpt-4o-mini",
     # OpenAI generate image
     "gpt-image-1.5": "gpt-image-1.5",
     "gpt-image-1-mini": "gpt-image-1-mini",

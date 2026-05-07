@@ -41,8 +41,8 @@ For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/model
 | gemini | generate | image | rich | `gemini-3-pro-image-preview` (Nano Banana Pro; cross-gen) |
 | gemini | generate | video | poor | `veo-3.1-lite-generate-preview` |
 | gemini | generate | video | rich | `veo-3.1-generate-preview` |
-| openai | understand | image | poor | `gpt-5.4-mini` |
-| openai | understand | image | rich | `gpt-5.4` |
+| openai | understand | image | poor | `gpt-4o-mini` |
+| openai | understand | image | rich | `gpt-4o` |
 | openai | understand | video | — | Not supported (extract frames or use gemini) |
 | openai | generate | image | poor | `gpt-image-1-mini` |
 | openai | generate | image | rich | `gpt-image-1.5` (cross-gen; no gpt-image-1.5-mini) |
