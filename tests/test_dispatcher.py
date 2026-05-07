@@ -305,3 +305,53 @@ def test_validate_url_blocks_cgnat() -> None:
     # but is considered not global by is_global. Our updated validation must block it.
     with pytest.raises(InvalidURLError, match="URL resolves to an internal/private IP"):
         _validate_url("http://100.64.0.1/test", "test_param")
+
+
+def test_understand_parallel_validation_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Stub detect_media_type to avoid real network calls
+    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "image")
+
+    # Stub provider
+    def mock_multimodal(
+        urls: list[str], prompt: str, tier: str, max_tokens: int = 2048
+    ) -> dict:
+        return {"text": "ok", "provider": "gemini"}
+
+    import imagine_mcp.providers.gemini as gemini_mod
+
+    monkeypatch.setattr(
+        gemini_mod, "understand_multimodal", mock_multimodal, raising=False
+    )
+
+    # Use multiple valid URLs
+    urls = [
+        "https://example.com/1.png",
+        "https://example.com/2.png",
+        "https://example.com/3.png",
+    ]
+
+    result = dispatch_understand(
+        media_urls=urls, prompt="describe", provider="gemini", tier="poor"
+    )
+    assert result["provider"] == "gemini"
+
+
+def test_understand_parallel_validation_error_propagation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Stub detect_media_type
+    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "image")
+
+    # One invalid URL among valid ones
+    urls = [
+        "https://example.com/1.png",
+        "file:///etc/passwd",
+        "https://example.com/3.png",
+    ]
+
+    with pytest.raises(InvalidURLError, match=r"media_urls\[1\]"):
+        dispatch_understand(
+            media_urls=urls, prompt="describe", provider="gemini", tier="poor"
+        )

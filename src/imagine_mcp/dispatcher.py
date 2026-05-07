@@ -55,7 +55,12 @@ _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
 _ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
 
 _DNS_RESOLVER_POOL = concurrent.futures.ThreadPoolExecutor(
-    max_workers=4, thread_name_prefix="dns_resolver"
+    max_workers=16, thread_name_prefix="dns_resolver"
+)
+
+# Pool for parallelizing high-level dispatch tasks like validation and media detection
+_DISPATCH_POOL = concurrent.futures.ThreadPoolExecutor(
+    max_workers=16, thread_name_prefix="dispatch_worker"
 )
 
 
@@ -180,10 +185,16 @@ def dispatch_understand(
     _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
-    for i, u in enumerate(media_urls):
-        _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    def _validate_and_detect(indexed_url: tuple[int, str]) -> str:
+        i, u = indexed_url
+        _validate_url(u, f"media_urls[{i}]")
+        return detect_media_type(u)
+
+    # Parallelize DNS validation and media detection to avoid N+1 sequential blocking.
+    # We use a separate pool (_DISPATCH_POOL) to avoid deadlocks with _DNS_RESOLVER_POOL
+    # which is used internally by _validate_url.
+    media_types = list(_DISPATCH_POOL.map(_validate_and_detect, enumerate(media_urls)))
     has_video = "video" in media_types
 
     if has_video:
