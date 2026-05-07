@@ -62,10 +62,12 @@ def _providers_configured() -> list[str]:
 
 def _providers_configured_live() -> list[str]:
     """Derive configured providers from live state + env."""
+    from mcp_core.storage.per_plugin_store import PerPluginStore
+
     from imagine_mcp.credential_state import (
         CLOUD_KEYS,
+        PLUGIN_NAME,
         credentials_for_current_request,
-        load_credentials,
     )
 
     # We check env + live sub config via credentials_for_current_request
@@ -78,9 +80,6 @@ def _providers_configured_live() -> list[str]:
 
     # Then check store for single-user mode (multi-user sub was already checked above)
     # Stdio mode pure-env policy check is bypassed here for status accuracy.
-    from imagine_mcp.credential_state import PLUGIN_NAME
-    from mcp_core.storage.per_plugin_store import PerPluginStore
-
     store_creds = PerPluginStore(PLUGIN_NAME).load() or {}
     for key in CLOUD_KEYS:
         if store_creds.get(key):
