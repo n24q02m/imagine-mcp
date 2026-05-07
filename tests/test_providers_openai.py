@@ -8,6 +8,19 @@ from imagine_mcp.errors import ProviderUnsupportedError
 from imagine_mcp.providers import openai as provider
 
 
+@pytest.fixture
+def mock_media_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mock get_ssrf_safe_client to avoid real network calls."""
+    mock_resp = MagicMock()
+    mock_resp.content = b"fake-image-bytes"
+    mock_resp.headers = {"content-type": "image/png"}
+
+    mock_client = MagicMock()
+    mock_client.get.return_value = mock_resp
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: mock_client)
+
+
 def test_understand_video_raises() -> None:
     with pytest.raises(ProviderUnsupportedError):
         provider.understand_video("https://example.com/x.mp4", "describe", "poor")
@@ -18,7 +31,9 @@ def test_generate_video_raises() -> None:
         provider.generate_video("a dog", "poor")
 
 
-def test_understand_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_understand_image_mocked(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fake = MagicMock()
     fake.responses.create.return_value = MagicMock(output_text="a dog")
     monkeypatch.setattr(provider, "_client", lambda: fake)
