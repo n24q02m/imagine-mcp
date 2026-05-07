@@ -67,6 +67,7 @@ def _providers_configured_live() -> list[str]:
 
     try:
         from imagine_mcp.credential_state import CLOUD_KEYS, read_for_sub
+
         creds = read_for_sub(None)
         # Merge with os.environ for single-user
         env_creds = {k: v for k, v in os.environ.items() if k in CLOUD_KEYS and v}
