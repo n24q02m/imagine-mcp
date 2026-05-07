@@ -55,6 +55,7 @@ def test_understand_image_live() -> None:
     )
     assert "cat" in result["text"].lower()
 
+
 def test_edit_implementation(monkeypatch, tmp_path):
     fake_client = MagicMock()
     fake_resp = MagicMock()
@@ -71,23 +72,26 @@ def test_edit_implementation(monkeypatch, tmp_path):
         prompt="make it blue",
         tier="poor",
         reference_image_url="http://example.com/img.png",
-        aspect_ratio="16:9"
+        aspect_ratio="16:9",
     )
 
     assert "image_path" in res
     assert res["provider"] == "gemini"
 
     # Verify generate_content call
-    _ , kwargs = fake_client.models.generate_content.call_args
+    _, kwargs = fake_client.models.generate_content.call_args
     assert kwargs["model"] == "gemini-3.1-flash-image-preview"
     assert len(kwargs["contents"]) == 2
     assert kwargs["config"].response_modalities == ["IMAGE"]
     assert kwargs["config"].image_config.aspect_ratio == "16:9"
 
     # 2. Test edit function
-    res_edit = gemini.edit(tier="poor", image_url="http://example.com/img.png", prompt="make it blue")
+    res_edit = gemini.edit(
+        tier="poor", image_url="http://example.com/img.png", prompt="make it blue"
+    )
     assert "image_path" in res_edit
     assert res_edit["provider"] == "gemini"
+
 
 def test_video_status(monkeypatch):
     fake_client = MagicMock()

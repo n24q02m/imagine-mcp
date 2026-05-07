@@ -174,7 +174,10 @@ def generate_image(
     resp = _client().models.generate_content(
         model=model,
         contents=contents,
-        config=types.GenerateContentConfig(response_modalities=["IMAGE"], image_config=types.ImageConfig(aspect_ratio=aspect_ratio)),
+        config=types.GenerateContentConfig(
+            response_modalities=["IMAGE"],
+            image_config=types.ImageConfig(aspect_ratio=aspect_ratio),
+        ),
     )
     image_data: bytes | None = None
     for part in resp.candidates[0].content.parts:
