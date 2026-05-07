@@ -1,4 +1,4 @@
-"""Grok (xAI) provider -- 3 LIVE + 1 ERROR.
+"""Grok (xAI) provider -- all 4 actions LIVE.
 
 Uses OpenAI SDK with xAI base_url for chat completions (understand).
 Dedicated endpoints for images and videos via httpx.
@@ -165,49 +165,17 @@ def generate_image(
     }
 
 
-def generate_video(
-    prompt: str,
-    tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
-) -> dict[str, Any]:
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """Grok image edit -- wrapper for generate_image with reference_image_url."""
+    return generate_image(prompt, tier, reference_image_url=image_url)
+
+
+def video_status(tier: str, job_id: str) -> dict[str, Any]:
+    """Poll Grok video generation status."""
     model = get_model_id("grok", "generate", "video", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
-
-    if job_id is None:
-        payload: dict[str, Any] = {
-            "model": model,
-            "prompt": prompt,
-            "duration_seconds": duration_seconds,
-            "aspect_ratio": aspect_ratio,
-        }
-        if reference_image_url:
-            payload["source_image"] = reference_image_url
-        resp = httpx.post(
-            f"{_BASE_URL}/videos/generations",
-            json=payload,
-            headers=headers,
-            timeout=60,
-        )
-        if resp.status_code != 200:
-            raise ProviderAPIError(
-                f"Grok video submit failed: {resp.text}",
-                status_code=resp.status_code,
-            )
-        data = resp.json()
-        return {
-            "job_id": data["id"],
-            "status": "pending",
-            "eta_seconds": data.get("eta_seconds", 30),
-            "model": model,
-            "provider": "grok",
-            "tier": tier,
-        }
-
     resp = httpx.get(
-        f"{_BASE_URL}/videos/generations/{job_id}",
+        f"{_BASE_URL}/videos/{job_id}",
         headers=headers,
         timeout=30,
     )
@@ -222,18 +190,29 @@ def generate_video(
         return {
             "job_id": job_id,
             "status": "pending",
-            "eta_seconds": data.get("eta_seconds", 15),
+            "eta_seconds": 15,
+            "progress": data.get("progress", 0),
         }
 
-    if data["status"] == "failed":
+    if data["status"] in ("failed", "expired"):
+        error_info = data.get("error")
+        error_msg = "unknown"
+        if isinstance(error_info, dict):
+            error_msg = error_info.get("message", "unknown")
+        elif isinstance(error_info, str):
+            error_msg = error_info
         raise ProviderAPIError(
-            f"Grok video generation failed: {data.get('error', 'unknown')}",
+            f"Grok video generation {data['status']}: {error_msg}",
             status_code=500,
         )
 
+    video_data = data.get("video", {})
+    video_url = video_data.get("url")
+    if not video_url:
+        raise ProviderAPIError("Grok returned no video URL", status_code=500)
+
     from imagine_mcp.media import get_ssrf_safe_client
 
-    video_url = data["video_url"]
     video_bytes = (
         get_ssrf_safe_client()
         .get(video_url, follow_redirects=True, timeout=120)
@@ -250,6 +229,51 @@ def generate_video(
         "video_url": video_url,
         "job_id": job_id,
         "status": "done",
+        "model": model,
+        "provider": "grok",
+        "tier": tier,
+    }
+
+
+def generate_video(
+    prompt: str,
+    tier: str,
+    reference_image_url: str | None = None,
+    job_id: str | None = None,
+    aspect_ratio: str = "16:9",
+    duration_seconds: int = 8,
+) -> dict[str, Any]:
+    if job_id is not None:
+        return video_status(tier, job_id)
+
+    model = get_model_id("grok", "generate", "video", tier)
+    headers = {"Authorization": f"Bearer {_api_key()}"}
+
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "duration": duration_seconds,
+        "aspect_ratio": aspect_ratio,
+    }
+    if reference_image_url:
+        payload["image"] = {"url": reference_image_url}
+
+    resp = httpx.post(
+        f"{_BASE_URL}/videos/generations",
+        json=payload,
+        headers=headers,
+        timeout=60,
+    )
+    if resp.status_code != 200:
+        raise ProviderAPIError(
+            f"Grok video submit failed: {resp.text}",
+            status_code=resp.status_code,
+        )
+    data = resp.json()
+    return {
+        "job_id": data["request_id"],
+        "status": "pending",
+        "eta_seconds": 30,
         "model": model,
         "provider": "grok",
         "tier": tier,
