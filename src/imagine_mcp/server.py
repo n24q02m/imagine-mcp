@@ -79,7 +79,7 @@ def _providers_configured_live() -> list[str]:
             providers.append("openai")
         if creds.get("XAI_API_KEY"):
             providers.append("grok")
-        return sorted(list(set(providers)))
+        return sorted(set(providers))
     finally:
         if is_test:
             os.environ.pop("TRANSPORT_MODE", None)
@@ -158,7 +158,6 @@ def build_app() -> FastMCP:
             "Video is async: first call returns job_id; call again with job_id to poll."
         ),
     )
-    # noqa: PLR0913
     def generate(
         media_type: Literal["image", "video"],
         prompt: str,
