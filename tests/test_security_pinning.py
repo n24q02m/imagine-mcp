@@ -10,7 +10,7 @@ from imagine_mcp.media import SSRFSafeTransport, validate_url_and_get_ip
 
 
 def test_validate_url_and_get_ip_success(monkeypatch):
-    def mock_getaddrinfo(host, port, family):
+    def mock_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.215.14", 80))]
 
     monkeypatch.setattr(socket, "getaddrinfo", mock_getaddrinfo)
@@ -20,7 +20,7 @@ def test_validate_url_and_get_ip_success(monkeypatch):
 
 
 def test_validate_url_and_get_ip_private(monkeypatch):
-    def mock_getaddrinfo(host, port, family):
+    def mock_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 80))]
 
     monkeypatch.setattr(socket, "getaddrinfo", mock_getaddrinfo)
@@ -31,7 +31,7 @@ def test_validate_url_and_get_ip_private(monkeypatch):
 
 def test_ssrf_safe_transport_pinning(monkeypatch):
     # This test verifies that handle_request rewrites the URL and sets headers.
-    def mock_getaddrinfo(host, port, family):
+    def mock_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.215.14", 80))]
 
     monkeypatch.setattr(socket, "getaddrinfo", mock_getaddrinfo)
@@ -59,7 +59,7 @@ def test_ssrf_safe_transport_pinning(monkeypatch):
 
 
 def test_ssrf_safe_transport_blocks_private(monkeypatch):
-    def mock_getaddrinfo(host, port, family):
+    def mock_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.1", 80))]
 
     monkeypatch.setattr(socket, "getaddrinfo", mock_getaddrinfo)

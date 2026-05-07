@@ -77,6 +77,7 @@ def validate_url_and_get_ip(url: str, param: str) -> str:
     try:
         # Wrap the blocking getaddrinfo in a thread with a short timeout
         # to prevent DoS attacks via malicious DNS servers.
+        # Note: parsed.port may be None, which is fine for getaddrinfo.
         future = _DNS_RESOLVER_POOL.submit(
             socket.getaddrinfo, hostname, parsed.port, socket.AF_INET
         )
@@ -84,7 +85,9 @@ def validate_url_and_get_ip(url: str, param: str) -> str:
         addr_info = future.result(timeout=2.0)
 
         for res in addr_info:
-            ip_str = res[4][0]
+            # res[4] is the sockaddr tuple. The first element is the IP string.
+            # Explicitly stringify to satisfy type checkers.
+            ip_str = str(res[4][0])
             ip_obj = ipaddress.ip_address(ip_str)
 
             # Extract underlying IPv4 if it's an IPv4-mapped IPv6 address (e.g. ::ffff:127.0.0.1)
