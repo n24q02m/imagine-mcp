@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 
-from imagine_mcp.errors import MediaDetectError
+from imagine_mcp.errors import InvalidURLError, MediaDetectError
 from imagine_mcp.media import _extract_extension, detect_media_type
 
 
@@ -75,6 +76,28 @@ def test_detect_ambiguous_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
     with pytest.raises(MediaDetectError):
         detect_media_type("https://example.com/unknown-bin")
+
+
+def test_detect_media_type_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class MockClient:
+        def head(self, url, **kw):
+            raise httpx.HTTPError("Mocked HTTP Error")
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+    with pytest.raises(MediaDetectError, match="HEAD request failed for"):
+        detect_media_type("https://example.com/no-extension")
+
+
+def test_detect_media_type_invalid_url_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class MockClient:
+        def head(self, url, **kw):
+            raise InvalidURLError("Mocked Invalid URL Error")
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+    with pytest.raises(
+        MediaDetectError, match="HEAD request failed due to invalid redirect"
+    ):
+        detect_media_type("https://example.com/no-extension")
 
 
 def test_extract_extension() -> None:
