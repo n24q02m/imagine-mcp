@@ -1,9 +1,12 @@
 from __future__ import annotations
-import pytest
-import httpx
+
 import socket
-from imagine_mcp.media import SSRFSafeTransport, validate_url_and_get_ip
+
+import httpx
+import pytest
+
 from imagine_mcp.errors import InvalidURLError
+from imagine_mcp.media import SSRFSafeTransport, validate_url_and_get_ip
 
 
 def test_validate_url_and_get_ip_success(monkeypatch):
