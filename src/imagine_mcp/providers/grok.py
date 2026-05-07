@@ -21,7 +21,7 @@ from imagine_mcp.errors import (
     ProviderAPIError,
     ProviderUnsupportedError,
 )
-from imagine_mcp.models import get_model_id
+from imagine_mcp.models import GenerateParams, get_model_id
 
 _CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
@@ -117,9 +117,12 @@ def understand_video(
 def generate_image(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    aspect_ratio: str = "1:1",
+    params: GenerateParams | None = None,
 ) -> dict[str, Any]:
+    params = params or GenerateParams()
+    reference_image_url = params.reference_image_url
+    # aspect_ratio = params.aspect_ratio or "1:1" # Grok API might not use this yet for images
+
     model = get_model_id("grok", "generate", "image", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
     payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
@@ -168,11 +171,14 @@ def generate_image(
 def generate_video(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    params: GenerateParams | None = None,
 ) -> dict[str, Any]:
+    params = params or GenerateParams()
+    reference_image_url = params.reference_image_url
+    job_id = params.job_id
+    aspect_ratio = params.aspect_ratio or "16:9"
+    duration_seconds = params.duration_seconds or 8
+
     model = get_model_id("grok", "generate", "video", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
 
