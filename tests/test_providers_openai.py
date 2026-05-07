@@ -73,11 +73,15 @@ def test_generate_image_routes_to_edit(monkeypatch):
     monkeypatch.setattr(provider, "edit", mock_edit)
 
     result = provider.generate_image(
-        prompt="add a hat", tier="rich", reference_image_url="https://example.com/fox.png"
+        prompt="add a hat",
+        tier="rich",
+        reference_image_url="https://example.com/fox.png",
     )
 
     assert result == {"status": "edited"}
-    mock_edit.assert_called_once_with("rich", "https://example.com/fox.png", "add a hat")
+    mock_edit.assert_called_once_with(
+        "rich", "https://example.com/fox.png", "add a hat"
+    )
 
 
 def test_video_status_raises_unsupported():
