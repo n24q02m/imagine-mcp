@@ -85,10 +85,22 @@ def understand_image(
 ) -> dict[str, Any]:
     from google.genai import types
 
+    from imagine_mcp.media import get_ssrf_safe_client
+
+    client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
-    resp = _client().models.generate_content(
+
+    # Download image securely to prevent backend SSRF
+    img_data = (
+        get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60).content
+    )
+
+    resp = client.models.generate_content(
         model=model,
-        contents=[prompt, types.Part.from_uri(file_uri=url, mime_type="image/png")],
+        contents=[
+            prompt,
+            types.Part.from_bytes(data=img_data, mime_type="image/png"),
+        ],
         config=types.GenerateContentConfig(max_output_tokens=max_tokens),
     )
     return {
@@ -104,12 +116,28 @@ def understand_video(
 ) -> dict[str, Any]:
     from google.genai import types
 
+    from imagine_mcp.media import download_to_path
+
+    client = _client()
     model = get_model_id("gemini", "understand", "video", tier)
-    resp = _client().models.generate_content(
-        model=model,
-        contents=[prompt, types.Part.from_uri(file_uri=url, mime_type="video/mp4")],
-        config=types.GenerateContentConfig(max_output_tokens=max_tokens),
-    )
+
+    # Download video securely and upload to Gemini
+    tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
+    download_to_path(url, tmp_path)
+
+    try:
+        gfile = client.files.upload(file=tmp_path)
+        resp = client.models.generate_content(
+            model=model,
+            contents=[prompt, gfile],
+            config=types.GenerateContentConfig(max_output_tokens=max_tokens),
+        )
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()
+
     return {
         "text": resp.text,
         "model": model,
@@ -124,19 +152,48 @@ def understand_multimodal(
     """Gemini native multimodal: mixed image+video URLs in a single call."""
     from google.genai import types
 
-    from imagine_mcp.media import detect_media_type
+    from imagine_mcp.media import (
+        detect_media_type,
+        download_to_path,
+        get_ssrf_safe_client,
+    )
 
+    client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
     parts: list[Any] = [prompt]
-    for u in urls:
-        mt = detect_media_type(u)
-        mime = "image/png" if mt == "image" else "video/mp4"
-        parts.append(types.Part.from_uri(file_uri=u, mime_type=mime))
-    resp = _client().models.generate_content(
-        model=model,
-        contents=parts,
-        config=types.GenerateContentConfig(max_output_tokens=max_tokens),
-    )
+    tmp_files: list[Path] = []
+
+    tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        for u in urls:
+            mt = detect_media_type(u)
+            if mt == "image":
+                img_data = (
+                    get_ssrf_safe_client()
+                    .get(u, follow_redirects=True, timeout=60)
+                    .content
+                )
+                parts.append(
+                    types.Part.from_bytes(data=img_data, mime_type="image/png")
+                )
+            else:
+                tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
+                download_to_path(u, tmp_path)
+                tmp_files.append(tmp_path)
+                parts.append(client.files.upload(file=tmp_path))
+
+        resp = client.models.generate_content(
+            model=model,
+            contents=parts,
+            config=types.GenerateContentConfig(max_output_tokens=max_tokens),
+        )
+    finally:
+        for f in tmp_files:
+            if f.exists():
+                f.unlink()
+
     return {
         "text": resp.text,
         "model": model,
@@ -154,14 +211,21 @@ def generate_image(
 ) -> dict[str, Any]:
     from google.genai import types
 
+    from imagine_mcp.media import get_ssrf_safe_client
+
+    client = _client()
     model = get_model_id("gemini", "generate", "image", tier)
     contents: list[Any] = [prompt]
-    if reference_image_url:
-        contents.append(
-            types.Part.from_uri(file_uri=reference_image_url, mime_type="image/png")
-        )
 
-    resp = _client().models.generate_content(
+    if reference_image_url:
+        img_data = (
+            get_ssrf_safe_client()
+            .get(reference_image_url, follow_redirects=True, timeout=60)
+            .content
+        )
+        contents.append(types.Part.from_bytes(data=img_data, mime_type="image/png"))
+
+    resp = client.models.generate_content(
         model=model,
         contents=contents,
         config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
@@ -202,6 +266,8 @@ def generate_video(
     client = _client()
 
     if job_id is None:
+        # Original code did not use reference_image_url here.
+        # Keeping it consistent for now but ensuring we don't pass it to the backend.
         op = client.models.generate_videos(
             model=model,
             prompt=prompt,
