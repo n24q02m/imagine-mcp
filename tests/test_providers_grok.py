@@ -30,3 +30,57 @@ def test_understand_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result["text"] == "a parrot"
     assert result["model"] == "grok-4.20-0309-reasoning"
     assert result["provider"] == "grok"
+
+
+def test_generate_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+
+    # Mock response object
+    img_obj = MagicMock()
+    img_obj.b64_json = "ZmFrZSBiYXNlNjQ="  # "fake base64"
+    img_obj.url = None
+
+    resp = MagicMock()
+    resp.data = [img_obj]
+
+    fake_client.images.generate.return_value = resp
+    monkeypatch.setattr(provider, "_openai_compat_client", lambda: fake_client)
+
+    # Mock file writing to avoid side effects
+    monkeypatch.setattr("pathlib.Path.mkdir", MagicMock())
+    monkeypatch.setattr("pathlib.Path.write_bytes", MagicMock())
+
+    result = provider.generate_image(
+        prompt="a cool image", tier="rich", aspect_ratio="16:9"
+    )
+
+    assert result["model"] == "flux-pro"
+    assert result["provider"] == "grok"
+    assert result["tier"] == "rich"
+    assert result["image_base64"] == "ZmFrZSBiYXNlNjQ="
+
+    # Verify extra_body parameters
+    _, kwargs = fake_client.images.generate.call_args
+    assert kwargs["extra_body"]["aspect_ratio"] == "16:9"
+    assert kwargs["extra_body"]["quality"] == "high"
+
+
+def test_generate_alias_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    img_obj = MagicMock()
+    img_obj.b64_json = "YWxpYXM="
+    img_obj.url = None
+    resp = MagicMock()
+    resp.data = [img_obj]
+    fake_client.images.generate.return_value = resp
+    monkeypatch.setattr(provider, "_openai_compat_client", lambda: fake_client)
+    monkeypatch.setattr("pathlib.Path.mkdir", MagicMock())
+    monkeypatch.setattr("pathlib.Path.write_bytes", MagicMock())
+
+    # Test the generate(tier, prompt, **kwargs) entry point
+    result = provider.generate(tier="poor", prompt="alias test", aspect_ratio="3:2")
+
+    assert result["model"] == "flux-schnell"
+    assert result["image_base64"] == "YWxpYXM="
+    _, kwargs = fake_client.images.generate.call_args
+    assert kwargs["extra_body"]["aspect_ratio"] == "3:2"

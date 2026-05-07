@@ -80,6 +80,71 @@ def _reset_client() -> None:
     _SUB_CLIENTS.clear()
 
 
+def generate(tier: str, prompt: str, **kwargs: Any) -> dict[str, Any]:
+    """Public entry point for image generation (alias for generate_image)."""
+    return generate_image(prompt, tier, **kwargs)
+
+
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """Edit an image using a prompt."""
+    model = get_model_id("grok", "generate", "image", tier)
+    quality = "high" if tier == "rich" else "low"
+
+    try:
+        # Use requests/httpx directly for edit as OpenAI SDK support might vary for xAI specific edit format
+        headers = {"Authorization": f"Bearer {_api_key()}"}
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "image": {"url": image_url, "type": "image_url"},
+            "quality": quality,
+        }
+        resp = httpx.post(
+            f"{_BASE_URL}/images/edits",
+            json=payload,
+            headers=headers,
+            timeout=120,
+        )
+        if resp.status_code != 200:
+            raise ProviderAPIError(
+                f"Grok image edit failed: {resp.text}",
+                status_code=resp.status_code,
+            )
+        data = resp.json()
+        img_url = data["data"][0].get("url")
+        img_b64 = data["data"][0].get("b64_json")
+    except Exception as e:
+        if isinstance(e, ProviderAPIError):
+            raise
+        raise ProviderAPIError(f"Grok image edit failed: {e}") from e
+
+    if not img_b64:
+        from imagine_mcp.media import get_ssrf_safe_client
+
+        if not img_url:
+            raise ProviderAPIError("Grok returned no image data (base64 or URL).")
+
+        img_b64 = base64.b64encode(
+            get_ssrf_safe_client()
+            .get(img_url, follow_redirects=True, timeout=60)
+            .content
+        ).decode()
+
+    img_bytes = base64.b64decode(img_b64)
+    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{uuid.uuid4().hex}.png"
+    out_path.write_bytes(img_bytes)
+
+    return {
+        "image_path": str(out_path),
+        "image_base64": img_b64,
+        "model": model,
+        "provider": "grok",
+        "tier": tier,
+    }
+
+
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
@@ -121,29 +186,33 @@ def generate_image(
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
     model = get_model_id("grok", "generate", "image", tier)
-    headers = {"Authorization": f"Bearer {_api_key()}"}
-    payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
+    quality = "high" if tier == "rich" else "low"
+
+    extra_body: dict[str, Any] = {
+        "aspect_ratio": aspect_ratio,
+        "quality": quality,
+    }
     if reference_image_url:
-        payload["reference_image"] = reference_image_url
+        extra_body["reference_image"] = reference_image_url
 
-    resp = httpx.post(
-        f"{_BASE_URL}/images/generations",
-        json=payload,
-        headers=headers,
-        timeout=120,
-    )
-    if resp.status_code != 200:
-        raise ProviderAPIError(
-            f"Grok image generate failed: {resp.text}",
-            status_code=resp.status_code,
+    try:
+        resp = _openai_compat_client().images.generate(
+            model=model,
+            prompt=prompt,
+            n=1,
+            extra_body=extra_body,
         )
+    except Exception as e:
+        raise ProviderAPIError(f"Grok image generate failed: {e}") from e
 
-    data = resp.json()
-    img_b64 = data["data"][0].get("b64_json")
+    img_b64 = resp.data[0].b64_json
     if not img_b64:
         from imagine_mcp.media import get_ssrf_safe_client
 
-        img_url = data["data"][0].get("url")
+        img_url = resp.data[0].url
+        if not img_url:
+            raise ProviderAPIError("Grok returned no image data (base64 or URL).")
+
         img_b64 = base64.b64encode(
             get_ssrf_safe_client()
             .get(img_url, follow_redirects=True, timeout=60)
