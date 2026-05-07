@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import concurrent.futures
 import importlib
 import ipaddress
 import socket
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from typing import Any
 from urllib.parse import urlparse
 
@@ -54,7 +54,7 @@ _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
 
 _ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
 
-_DNS_RESOLVER_POOL = concurrent.futures.ThreadPoolExecutor(
+_DNS_RESOLVER_POOL = ThreadPoolExecutor(
     max_workers=4, thread_name_prefix="dns_resolver"
 )
 
@@ -101,7 +101,7 @@ def _validate_url(url: str, param: str) -> None:
                 raise InvalidURLError(
                     f"Invalid {param}: URL resolves to an internal/private IP."
                 )
-    except concurrent.futures.TimeoutError as e:
+    except TimeoutError as e:
         raise InvalidURLError(
             f"Invalid {param}: DNS resolution timed out for {hostname!r}."
         ) from e
