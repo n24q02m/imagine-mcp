@@ -1,4 +1,4 @@
-"""Gemini provider -- all 4 actions LIVE using google-genai SDK."""
+"""Gemini (Google) provider -- 4 LIVE."""
 
 from __future__ import annotations
 
@@ -6,29 +6,30 @@ import base64
 import os
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import platformdirs
 
 from imagine_mcp.config import settings
-from imagine_mcp.errors import CredentialMissingError, ProviderAPIError
+from imagine_mcp.errors import (
+    CredentialMissingError,
+    ProviderAPIError,
+)
 from imagine_mcp.models import get_model_id
 
+if TYPE_CHECKING:
+    from typing import Unpack
+
+    from imagine_mcp.providers.base import GenerateOptions
+
 _CLIENT: Any = None
-# Per-sub client cache for HTTP multi-user mode. Keyed by JWT sub so each
-# user gets a client wired to their own ``GEMINI_API_KEY``. Single-user /
-# stdio mode still uses the module-level ``_CLIENT`` above.
+# Per-sub client cache for HTTP multi-user mode. Standard stdio or
+# single-user-HTTP (no auth_scope middleware) still uses module-level _CLIENT.
 _SUB_CLIENTS: dict[str, Any] = {}
 
 
-def _resolve_api_key() -> str | None:
-    """Return the GEMINI_API_KEY for the current request scope.
-
-    Multi-user HTTP path uses the per-sub config from PerPluginStore. The
-    settings singleton is read first (frozen at import) for backwards
-    compatibility, then ``credentials_for_current_request()`` which falls
-    back to ``os.environ`` when no sub is active.
-    """
+def _api_key() -> str:
+    """Return GEMINI_API_KEY for the current request scope."""
     from imagine_mcp.credential_state import (
         credentials_for_current_request,
         get_current_sub,
@@ -41,6 +42,8 @@ def _resolve_api_key() -> str | None:
 
 def _client() -> Any:
     global _CLIENT
+    from google import genai
+
     from imagine_mcp.credential_state import get_current_sub
 
     sub = get_current_sub()
@@ -48,27 +51,23 @@ def _client() -> Any:
         cached = _SUB_CLIENTS.get(sub)
         if cached is not None:
             return cached
-        api_key = _resolve_api_key()
+        api_key = _api_key()
         if not api_key:
             raise CredentialMissingError(
                 "Gemini API key missing. Run config(action='open_relay') for "
                 "browser-based setup, or set GEMINI_API_KEY."
             )
-        from google import genai
-
         client = genai.Client(api_key=api_key)
         _SUB_CLIENTS[sub] = client
         return client
 
     if _CLIENT is None:
-        api_key = _resolve_api_key()
+        api_key = _api_key()
         if not api_key:
             raise CredentialMissingError(
                 "Gemini API key missing. Run config(action='open_relay') for "
                 "browser-based setup, or set GEMINI_API_KEY."
             )
-        from google import genai
-
         _CLIENT = genai.Client(api_key=api_key)
     return _CLIENT
 
@@ -149,9 +148,10 @@ def understand_multimodal(
 def generate_image(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    aspect_ratio: str = "1:1",
+    **kwargs: Unpack[GenerateOptions],
 ) -> dict[str, Any]:
+    reference_image_url = kwargs.get("reference_image_url")
+
     from google.genai import types
 
     model = get_model_id("gemini", "generate", "image", tier)
@@ -191,11 +191,12 @@ def generate_image(
 def generate_video(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    **kwargs: Unpack[GenerateOptions],
 ) -> dict[str, Any]:
+    job_id = kwargs.get("job_id")
+    aspect_ratio = kwargs.get("aspect_ratio", "16:9")
+    duration_seconds = kwargs.get("duration_seconds", 8)
+
     from google.genai import types
 
     model = get_model_id("gemini", "generate", "video", tier)

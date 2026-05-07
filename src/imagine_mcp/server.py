@@ -133,7 +133,7 @@ def build_app() -> FastMCP:
             "Video is async: first call returns job_id; call again with job_id to poll."
         ),
     )
-    def generate(
+    def generate(  # noqa: PLR0913
         media_type: Literal["image", "video"],
         prompt: str,
         provider: str | None = None,
