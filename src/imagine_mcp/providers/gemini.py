@@ -146,6 +146,16 @@ def understand_multimodal(
     }
 
 
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """Gemini image edit (inpainting/editing)."""
+    return generate_image(prompt, tier, reference_image_url=image_url)
+
+
+def video_status(tier: str, job_id: str) -> dict[str, Any]:
+    """Poll Gemini video job status."""
+    return generate_video(prompt="", tier=tier, job_id=job_id)
+
+
 def generate_image(
     prompt: str,
     tier: str,
@@ -164,7 +174,7 @@ def generate_image(
     resp = _client().models.generate_content(
         model=model,
         contents=contents,
-        config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
+        config=types.GenerateContentConfig(response_modalities=["IMAGE"], image_config=types.ImageConfig(aspect_ratio=aspect_ratio)),
     )
     image_data: bytes | None = None
     for part in resp.candidates[0].content.parts:
