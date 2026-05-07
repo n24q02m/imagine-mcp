@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 log = logging.getLogger("refresh_ranks")
 
@@ -119,6 +119,51 @@ def _infer_provider_from_id(model_id: str) -> str | None:
     return None
 
 
+def _parse_row(
+    cells: list[Tag], rank_i: int, name_i: int, provider_i: int, score_i: int, url: str
+) -> LBRow | None:
+    """Parse a single row from the leaderboard table."""
+    if len(cells) <= rank_i:
+        return None
+
+    rank_match = re.search(r"\d+", cells[rank_i].get_text())
+    if not rank_match:
+        return None
+    rank = int(rank_match.group())
+
+    name_cell = cells[name_i]
+    link = name_cell.find("a")
+    display = link.get_text(strip=True) if link else name_cell.get_text(strip=True)
+    # Strip trailing "provider . type" annotations LMArena embeds
+    display = re.split(r"\s*·\s*|\s+xAI\s+|\s+OpenAI\s+|\s+Google\s+", display)[
+        0
+    ].strip()
+
+    model_id = resolve_alias(display)
+    if not model_id:
+        log.info("unknown alias (skip): %r in %s", display, url)
+        return None
+
+    provider: str | None = None
+    if provider_i >= 0:
+        provider_raw = cells[provider_i].get_text(strip=True)
+        if provider_raw:
+            provider = _normalize_provider(provider_raw)
+    if not provider:
+        provider = _infer_provider_from_id(model_id)
+    if not provider:
+        return None
+
+    score: float | None = None
+    if score_i >= 0:
+        score_match = re.search(r"[\d.]+", cells[score_i].get_text())
+        if score_match:
+            with contextlib.suppress(ValueError):
+                score = float(score_match.group())
+
+    return LBRow(rank=rank, model_id=model_id, provider=provider, score=score)
+
+
 def parse_leaderboard(url: str, html: str) -> list[LBRow]:
     """Extract ranked rows filtered to {gemini, openai, grok}."""
     soup = BeautifulSoup(html, "html.parser")
@@ -152,46 +197,16 @@ def parse_leaderboard(url: str, html: str) -> list[LBRow]:
 
     rows: list[LBRow] = []
     for tr in tbody.find_all("tr"):
-        cells = tr.find_all("td")
-        if len(cells) <= rank_i:
-            continue
-
-        rank_match = re.search(r"\d+", cells[rank_i].get_text())
-        if not rank_match:
-            continue
-        rank = int(rank_match.group())
-
-        name_cell = cells[name_i]
-        link = name_cell.find("a")
-        display = link.get_text(strip=True) if link else name_cell.get_text(strip=True)
-        # Strip trailing "provider . type" annotations LMArena embeds
-        display = re.split(r"\s*·\s*|\s+xAI\s+|\s+OpenAI\s+|\s+Google\s+", display)[
-            0
-        ].strip()
-
-        model_id = resolve_alias(display)
-        if not model_id:
-            log.info("unknown alias (skip): %r in %s", display, url)
-            continue
-
-        provider: str | None = None
-        if provider_i >= 0:
-            provider_raw = cells[provider_i].get_text(strip=True)
-            if provider_raw:
-                provider = _normalize_provider(provider_raw)
-        if not provider:
-            provider = _infer_provider_from_id(model_id)
-        if not provider:
-            continue
-
-        score: float | None = None
-        if score_i >= 0:
-            score_match = re.search(r"[\d.]+", cells[score_i].get_text())
-            if score_match:
-                with contextlib.suppress(ValueError):
-                    score = float(score_match.group())
-
-        rows.append(LBRow(rank=rank, model_id=model_id, provider=provider, score=score))
+        row = _parse_row(
+            tr.find_all("td"),
+            rank_i=rank_i,
+            name_i=name_i,
+            provider_i=provider_i,
+            score_i=score_i,
+            url=url,
+        )
+        if row:
+            rows.append(row)
 
     return rows
 
