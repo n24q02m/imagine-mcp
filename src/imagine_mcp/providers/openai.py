@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import base64
+import io
 import os
 import uuid
 from pathlib import Path
 from typing import Any
 
 import platformdirs
+from PIL import Image
 
 from imagine_mcp.config import settings
 from imagine_mcp.errors import (
@@ -20,7 +22,7 @@ from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
 # Per-sub client cache for HTTP multi-user mode. See providers/gemini.py
-# for rationale; module-level ``_CLIENT`` still serves stdio + single-user.
+# for rationale; module-level `_CLIENT` still serves stdio + single-user.
 _SUB_CLIENTS: dict[str, Any] = {}
 
 
@@ -110,29 +112,69 @@ def understand_video(
     )
 
 
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """Edit an existing image (DALL-E 2)."""
+    from imagine_mcp.media import get_ssrf_safe_client
+
+    # DALL-E 2 only supports 256, 512, 1024 square.
+    size = "1024x1024"
+    model = "dall-e-2"
+
+    raw_bytes = (
+        get_ssrf_safe_client().get(image_url, follow_redirects=True, timeout=60).content
+    )
+
+    # DALL-E 2 requires PNG with alpha channel, and square.
+    with Image.open(io.BytesIO(raw_bytes)) as img:
+        img = img.convert("RGBA")
+        img = img.resize((1024, 1024))
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        png_bytes = buf.getvalue()
+
+    resp = _client().images.edit(
+        model=model,
+        image=png_bytes,
+        prompt=prompt,
+        size=size,
+        response_format="b64_json",
+    )
+
+    img_b64 = resp.data[0].b64_json
+    if not img_b64:
+        raise ProviderAPIError("OpenAI returned no image", status_code=500)
+    img_bytes = base64.b64decode(img_b64)
+
+    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{uuid.uuid4().hex}.png"
+    out_path.write_bytes(img_bytes)
+
+    return {
+        "image_path": str(out_path),
+        "image_base64": img_b64,
+        "model": model,
+        "provider": "openai",
+        "tier": tier,
+    }
+
+
 def generate_image(
     prompt: str,
     tier: str,
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
+    if reference_image_url:
+        return edit(tier, reference_image_url, prompt)
+
     model = get_model_id("openai", "generate", "image", tier)
     size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
     size = size_map.get(aspect_ratio, "1024x1024")
 
-    if reference_image_url:
-        from imagine_mcp.media import get_ssrf_safe_client
-
-        img_bytes = (
-            get_ssrf_safe_client()
-            .get(reference_image_url, follow_redirects=True, timeout=60)
-            .content
-        )
-        resp = _client().images.edit(
-            model=model, image=img_bytes, prompt=prompt, size=size
-        )
-    else:
-        resp = _client().images.generate(model=model, prompt=prompt, size=size, n=1)
+    resp = _client().images.generate(
+        model=model, prompt=prompt, size=size, n=1, response_format="b64_json"
+    )
 
     img_b64 = resp.data[0].b64_json
     if not img_b64:
@@ -163,5 +205,12 @@ def generate_video(
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
         "openai.generate.video: Sora 2 API shutdown 2026-09-24. "
+        "Use provider='gemini' (Veo) or 'grok' (Grok Imagine)."
+    )
+
+
+def video_status(tier: str, job_id: str) -> dict[str, Any]:
+    raise ProviderUnsupportedError(
+        "openai.video_status: Sora 2 API shutdown 2026-09-24. "
         "Use provider='gemini' (Veo) or 'grok' (Grok Imagine)."
     )
