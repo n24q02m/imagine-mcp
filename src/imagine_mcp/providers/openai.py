@@ -20,7 +20,7 @@ from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
 # Per-sub client cache for HTTP multi-user mode. See providers/gemini.py
-# for rationale; module-level ``_CLIENT`` still serves stdio + single-user.
+# for rationale; module-level `_CLIENT` still serves stdio + single-user.
 _SUB_CLIENTS: dict[str, Any] = {}
 
 
@@ -129,10 +129,20 @@ def generate_image(
             .content
         )
         resp = _client().images.edit(
-            model=model, image=img_bytes, prompt=prompt, size=size
+            model=model,
+            image=img_bytes,
+            prompt=prompt,
+            size=size,
+            response_format="b64_json",
         )
     else:
-        resp = _client().images.generate(model=model, prompt=prompt, size=size, n=1)
+        resp = _client().images.generate(
+            model=model,
+            prompt=prompt,
+            size=size,
+            n=1,
+            response_format="b64_json",
+        )
 
     img_b64 = resp.data[0].b64_json
     if not img_b64:
@@ -147,7 +157,7 @@ def generate_image(
     return {
         "image_path": str(out_path),
         "image_base64": img_b64,
-        "model": model,
+        "model": str(model),
         "provider": "openai",
         "tier": tier,
     }
