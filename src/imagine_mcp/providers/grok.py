@@ -29,7 +29,7 @@ _BASE_URL = "https://api.x.ai/v1"
 _SUB_CLIENTS: dict[str, Any] = {}
 
 
-def _api_key() -> str:
+def _resolve_api_key() -> str:
     """Return XAI_API_KEY for the current request scope.
 
     Multi-user HTTP requests pull from the per-sub config; single-user /
@@ -52,7 +52,7 @@ def _api_key() -> str:
     return key
 
 
-def _openai_compat_client() -> Any:
+def _client() -> Any:
     global _CLIENT
     from imagine_mcp.credential_state import get_current_sub
 
@@ -63,14 +63,14 @@ def _openai_compat_client() -> Any:
             return cached
         from openai import OpenAI
 
-        client = OpenAI(api_key=_api_key(), base_url=_BASE_URL)
+        client = OpenAI(api_key=_resolve_api_key(), base_url=_BASE_URL)
         _SUB_CLIENTS[sub] = client
         return client
 
     if _CLIENT is None:
         from openai import OpenAI
 
-        _CLIENT = OpenAI(api_key=_api_key(), base_url=_BASE_URL)
+        _CLIENT = OpenAI(api_key=_resolve_api_key(), base_url=_BASE_URL)
     return _CLIENT
 
 
@@ -80,11 +80,21 @@ def _reset_client() -> None:
     _SUB_CLIENTS.clear()
 
 
+def generate(tier: str, prompt: str, **kwargs: Any) -> dict[str, Any]:
+    """Public entry point for image generation (alias for generate_image)."""
+    return generate_image(prompt, tier, **kwargs)
+
+
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """Edit an image using a prompt."""
+    return generate_image(prompt, tier, reference_image_url=image_url)
+
+
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     model = get_model_id("grok", "understand", "image", tier)
-    resp = _openai_compat_client().chat.completions.create(
+    resp = _client().chat.completions.create(
         model=model,
         messages=[
             {
@@ -121,29 +131,34 @@ def generate_image(
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
     model = get_model_id("grok", "generate", "image", tier)
-    headers = {"Authorization": f"Bearer {_api_key()}"}
-    payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
+    quality = "high" if tier == "rich" else "low"
+
+    extra_body: dict[str, Any] = {
+        "aspect_ratio": aspect_ratio,
+        "quality": quality,
+    }
     if reference_image_url:
-        payload["reference_image"] = reference_image_url
+        extra_body["reference_image"] = reference_image_url
 
-    resp = httpx.post(
-        f"{_BASE_URL}/images/generations",
-        json=payload,
-        headers=headers,
-        timeout=120,
-    )
-    if resp.status_code != 200:
-        raise ProviderAPIError(
-            f"Grok image generate failed: {resp.text}",
-            status_code=resp.status_code,
+    try:
+        resp = _client().images.generate(
+            model=model,
+            prompt=prompt,
+            n=1,
+            extra_body=extra_body,
+            response_format="b64_json",
         )
+    except Exception as e:
+        raise ProviderAPIError(f"Grok image generate failed: {e}") from e
 
-    data = resp.json()
-    img_b64 = data["data"][0].get("b64_json")
+    img_b64 = resp.data[0].b64_json
     if not img_b64:
         from imagine_mcp.media import get_ssrf_safe_client
 
-        img_url = data["data"][0].get("url")
+        img_url = resp.data[0].url
+        if not img_url:
+            raise ProviderAPIError("Grok returned no image data (base64 or URL).")
+
         img_b64 = base64.b64encode(
             get_ssrf_safe_client()
             .get(img_url, follow_redirects=True, timeout=60)

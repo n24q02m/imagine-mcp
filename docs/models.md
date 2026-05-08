@@ -12,14 +12,14 @@ Sorted by (action, media, tier, quality_rank ASC). Updated from Artificial Analy
 |:----:|----------|----------|:----:|:-------------:|-------|
 | 1 | gemini | `gemini-3.1-flash-image-preview` | low | 2026-04-24 | Nano Banana 2. |
 | 2 | openai | `gpt-image-1-mini` | low | 2026-04-24 |  |
-| 3 | grok | `grok-imagine-image` | low | 2026-04-24 | Aurora. |
+| 3 | grok | `flux-schnell` | low | 2026-04-24 | Aurora. |
 ## generate / image / rich
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
 | 1 | gemini | `gemini-3-pro-image-preview` | high | 2026-04-24 | Nano Banana Pro. Cross-gen: no 3.1-pro-image as of 2026-04-18. |
 | 2 | openai | `gpt-image-1.5` | high | 2026-04-24 | Cross-gen: no gpt-image-1.5-mini yet. |
-| 3 | grok | `grok-imagine-image-pro` | high | 2026-04-24 |  |
+| 3 | grok | `flux-pro` | high | 2026-04-24 |  |
 ## generate / video / poor
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
