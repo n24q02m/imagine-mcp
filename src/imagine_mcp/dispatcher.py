@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from imagine_mcp.errors import (
@@ -29,6 +30,8 @@ _DEFAULT_PROVIDER_PRIORITY: tuple[tuple[str, str], ...] = (
     ("OPENAI_API_KEY", "openai"),
     ("GEMINI_API_KEY", "gemini"),
 )
+
+_DISPATCH_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="dispatcher")
 
 _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
     ("openai", "video", "understand"): (
@@ -108,6 +111,12 @@ def _unsupported(provider: str, media: str, action: str) -> ProviderUnsupportedE
     return ProviderUnsupportedError(msg)
 
 
+def _process_url(index: int, url: str) -> str:
+    """Validate and detect media type for a single URL concurrently."""
+    _validate_url(url, f"media_urls[{index}]")
+    return detect_media_type(url)
+
+
 def dispatch_understand(
     media_urls: list[str],
     prompt: str,
@@ -125,10 +134,13 @@ def dispatch_understand(
     _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
-    for i, u in enumerate(media_urls):
-        _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    # Run validation and media type detection concurrently to avoid redundant sequential network calls
+    # Iterating the results map preserves sequential exception propagation behavior.
+    media_types = list(
+        _DISPATCH_POOL.map(_process_url, range(len(media_urls)), media_urls)
+    )
+
     has_video = "video" in media_types
 
     if has_video:
