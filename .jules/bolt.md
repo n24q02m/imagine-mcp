@@ -1,3 +1,6 @@
 ## 2024-05-18 - Optimize default_provider_for lookups
 **Learning:** `default_provider_for` in `src/imagine_mcp/models.py` performs an O(N log N) filtering and sorting of `MODELS` on every call. Since the parameter space (`action`, `media`, `tier`) is very small and bounded, caching the result yields a ~25x performance improvement. Standard lru_cache works perfectly for this use case.
 **Action:** Use `@functools.lru_cache(maxsize=32)` to optimize functions that perform expensive queries or sorting over static lists when their parameter space is small and bounded.
+## 2024-05-18 - Preserve fail-fast semantics when parallelizing
+**Learning:** When parallelizing a pipeline using `ThreadPoolExecutor.map`, combining a fast, CPU-bound step (like URL validation) with a slow, IO-bound step (like media detection) in the mapped function changes the fail-fast semantics of the loop. This causes the code to wait for early slow steps to finish even if a later item is invalid, and causes unnecessary network operations. The original fast loop should be preserved, and only the slow IO step mapped.
+**Action:** Ensure that fail-fast loops are kept intact before passing the valid items to a concurrent pool. Map only the IO-bound slow functions.
