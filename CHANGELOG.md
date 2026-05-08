@@ -2,6 +2,53 @@
 
 <!-- version list -->
 
+## v1.4.0-beta.1 (2026-05-08)
+
+### Bug Fixes
+
+- Resolve TOCTOU SSRF via DNS pinning and secure media fetching
+  ([#96](https://github.com/n24q02m/imagine-mcp/pull/96),
+  [`2bc6657`](https://github.com/n24q02m/imagine-mcp/commit/2bc6657a57cc158adb667bddffa7c4d8f1ce316f))
+
+- Resolve TOCTOU SSRF via DNS pinning and secure media fetching (fix lint)
+  ([#96](https://github.com/n24q02m/imagine-mcp/pull/96),
+  [`2bc6657`](https://github.com/n24q02m/imagine-mcp/commit/2bc6657a57cc158adb667bddffa7c4d8f1ce316f))
+
+- Resolve TOCTOU SSRF via DNS pinning and secure media fetching (fix type hinting)
+  ([#96](https://github.com/n24q02m/imagine-mcp/pull/96),
+  [`2bc6657`](https://github.com/n24q02m/imagine-mcp/commit/2bc6657a57cc158adb667bddffa7c4d8f1ce316f))
+
+- Resolve TOCTOU SSRF via DNS pinning and secure media fetching (fix types & mocks)
+  ([#96](https://github.com/n24q02m/imagine-mcp/pull/96),
+  [`2bc6657`](https://github.com/n24q02m/imagine-mcp/commit/2bc6657a57cc158adb667bddffa7c4d8f1ce316f))
+
+- Restore docs/models.md (Spec F Phase 4 mistakenly deleted)
+  ([`e0cd077`](https://github.com/n24q02m/imagine-mcp/commit/e0cd0778f8eaaa71971f28b59885c3f42db2b1c6))
+
+- Update setup-manual.md refs in error messages to mcp.n24q02m.com
+  ([`9712b73`](https://github.com/n24q02m/imagine-mcp/commit/9712b73a264697bd0fb7ac26d9af565f24f29d18))
+
+- **deps**: Bump n24q02m-mcp-core to 1.14.0
+  ([`733d87c`](https://github.com/n24q02m/imagine-mcp/commit/733d87cacfd657759fdbb31df37fa8ece4948fbb))
+
+- **deps**: Bump python-multipart from 0.0.26 to 0.0.27
+  ([`1f6fe67`](https://github.com/n24q02m/imagine-mcp/commit/1f6fe6789f495ffe3c5cc8d0ad90b4451c80cb46))
+
+### Features
+
+- Add MediaDetectError tests for detect_media_type
+  ([`7a9b333`](https://github.com/n24q02m/imagine-mcp/commit/7a9b3336d66d4c8d34a4c92dbbe61bd1f8aeea43))
+
+- Add Table of contents heading + auto-generated link list (Spec E Wave 2)
+  ([`d1d069d`](https://github.com/n24q02m/imagine-mcp/commit/d1d069d795a4eeca2aec7d2cc361b905d532f82b))
+
+- Link to mcp.n24q02m.com unified docs site (Spec F Phase 4)
+  ([`6f1f748`](https://github.com/n24q02m/imagine-mcp/commit/6f1f748645629e04f81a31c545294249c07a8c12))
+
+- Sync cross-promo section ([#102](https://github.com/n24q02m/imagine-mcp/pull/102),
+  [`a493183`](https://github.com/n24q02m/imagine-mcp/commit/a493183e65f3a104642103a5ef8b0096305f813c))
+
+
 ## v1.3.0 (2026-05-06)
 
 
