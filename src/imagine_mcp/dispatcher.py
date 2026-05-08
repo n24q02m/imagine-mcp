@@ -18,7 +18,7 @@ from imagine_mcp.errors import (
     ProviderUnsupportedError,
 )
 from imagine_mcp.media import detect_media_type
-from imagine_mcp.models import UNSUPPORTED, get_model_id
+from imagine_mcp.models import UNSUPPORTED, GenerateParams, get_model_id
 
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
@@ -209,10 +209,7 @@ def dispatch_generate(
     prompt: str,
     provider: str | None,
     tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    params: GenerateParams | None = None,
 ) -> dict[str, Any]:
     """Dispatch generate call to provider.
 
@@ -226,8 +223,10 @@ def dispatch_generate(
         raise InvalidMediaTypeError(
             f"Unknown media_type {media_type!r}. Valid: {VALID_MEDIA_TYPES}"
         )
-    if reference_image_url is not None:
-        _validate_url(reference_image_url, "reference_image_url")
+
+    params = params or GenerateParams()
+    if params.reference_image_url is not None:
+        _validate_url(params.reference_image_url, "reference_image_url")
 
     model = get_model_id(provider, "generate", media_type, tier)
     if model is UNSUPPORTED:
@@ -235,7 +234,5 @@ def dispatch_generate(
 
     mod = _load_provider(provider)
     if media_type == "image":
-        return mod.generate_image(prompt, tier, reference_image_url, aspect_ratio)
-    return mod.generate_video(
-        prompt, tier, reference_image_url, job_id, aspect_ratio, duration_seconds
-    )
+        return mod.generate_image(prompt, tier, params)
+    return mod.generate_video(prompt, tier, params)

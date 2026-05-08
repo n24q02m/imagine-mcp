@@ -39,6 +39,16 @@ _BASELINE_DATE = date(2026, 4, 24)
 
 
 @dataclass(frozen=True, slots=True)
+class GenerateParams:
+    """Optional parameters for generation actions."""
+
+    reference_image_url: str | None = None
+    job_id: str | None = None
+    aspect_ratio: str | None = None
+    duration_seconds: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ModelEntry:
     provider: Provider
     action: Action

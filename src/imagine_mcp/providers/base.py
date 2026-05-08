@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
+
+if TYPE_CHECKING:
+    from imagine_mcp.models import GenerateParams
 
 
 class ImagineProvider(Protocol):
@@ -18,16 +21,12 @@ class ImagineProvider(Protocol):
         self,
         prompt: str,
         tier: str,
-        reference_image_url: str | None = None,
-        aspect_ratio: str = "1:1",
+        params: GenerateParams | None = None,
     ) -> dict[str, Any]: ...
 
     def generate_video(
         self,
         prompt: str,
         tier: str,
-        reference_image_url: str | None = None,
-        job_id: str | None = None,
-        aspect_ratio: str = "16:9",
-        duration_seconds: int = 8,
+        params: GenerateParams | None = None,
     ) -> dict[str, Any]: ...

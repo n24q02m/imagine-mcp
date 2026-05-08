@@ -12,7 +12,7 @@ import platformdirs
 
 from imagine_mcp.config import settings
 from imagine_mcp.errors import CredentialMissingError, ProviderAPIError
-from imagine_mcp.models import get_model_id
+from imagine_mcp.models import GenerateParams, get_model_id
 
 _CLIENT: Any = None
 # Per-sub client cache for HTTP multi-user mode. Keyed by JWT sub so each
@@ -149,10 +149,12 @@ def understand_multimodal(
 def generate_image(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    aspect_ratio: str = "1:1",
+    params: GenerateParams | None = None,
 ) -> dict[str, Any]:
     from google.genai import types
+
+    params = params or GenerateParams()
+    reference_image_url = params.reference_image_url
 
     model = get_model_id("gemini", "generate", "image", tier)
     contents: list[Any] = [prompt]
@@ -191,12 +193,14 @@ def generate_image(
 def generate_video(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    params: GenerateParams | None = None,
 ) -> dict[str, Any]:
     from google.genai import types
+
+    params = params or GenerateParams()
+    job_id = params.job_id
+    aspect_ratio = params.aspect_ratio or "16:9"
+    duration_seconds = params.duration_seconds or 8
 
     model = get_model_id("gemini", "generate", "video", tier)
     client = _client()

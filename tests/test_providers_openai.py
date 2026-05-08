@@ -19,9 +19,16 @@ def test_generate_video_raises() -> None:
 
 
 def test_understand_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake = MagicMock()
-    fake.responses.create.return_value = MagicMock(output_text="a dog")
-    monkeypatch.setattr(provider, "_client", lambda: fake)
+    fake_client = MagicMock()
+    fake_msg = MagicMock()
+    fake_msg.content = "a dog"
+    fake_choice = MagicMock()
+    fake_choice.message = fake_msg
+    fake_resp = MagicMock()
+    fake_resp.choices = [fake_choice]
+    fake_client.chat.completions.create.return_value = fake_resp
+
+    monkeypatch.setattr(provider, "_client", lambda: fake_client)
 
     result = provider.understand_image(
         url="https://example.com/dog.png", prompt="describe", tier="poor"

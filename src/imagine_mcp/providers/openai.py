@@ -1,4 +1,4 @@
-"""OpenAI provider -- image-only (2 LIVE + 2 ERROR)."""
+"""OpenAI provider -- 3 LIVE + 1 ERROR."""
 
 from __future__ import annotations
 
@@ -16,16 +16,15 @@ from imagine_mcp.errors import (
     ProviderAPIError,
     ProviderUnsupportedError,
 )
-from imagine_mcp.models import get_model_id
+from imagine_mcp.models import GenerateParams, get_model_id
 
 _CLIENT: Any = None
-# Per-sub client cache for HTTP multi-user mode. See providers/gemini.py
-# for rationale; module-level ``_CLIENT`` still serves stdio + single-user.
+# Per-sub client cache for HTTP multi-user mode (see providers/gemini.py).
 _SUB_CLIENTS: dict[str, Any] = {}
 
 
 def _resolve_api_key() -> str | None:
-    """Return OPENAI_API_KEY for the current request scope (per-sub or env)."""
+    """Return OPENAI_API_KEY for the current request scope."""
     from imagine_mcp.credential_state import (
         credentials_for_current_request,
         get_current_sub,
@@ -45,27 +44,27 @@ def _client() -> Any:
         cached = _SUB_CLIENTS.get(sub)
         if cached is not None:
             return cached
+        from openai import OpenAI
+
         api_key = _resolve_api_key()
         if not api_key:
             raise CredentialMissingError(
                 "OpenAI API key missing. Run config(action='open_relay') for "
                 "browser-based setup, or set OPENAI_API_KEY."
             )
-        from openai import OpenAI
-
         client = OpenAI(api_key=api_key)
         _SUB_CLIENTS[sub] = client
         return client
 
     if _CLIENT is None:
+        from openai import OpenAI
+
         api_key = _resolve_api_key()
         if not api_key:
             raise CredentialMissingError(
                 "OpenAI API key missing. Run config(action='open_relay') for "
                 "browser-based setup, or set OPENAI_API_KEY."
             )
-        from openai import OpenAI
-
         _CLIENT = OpenAI(api_key=api_key)
     return _CLIENT
 
@@ -80,21 +79,21 @@ def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     model = get_model_id("openai", "understand", "image", tier)
-    resp = _client().responses.create(
+    resp = _client().chat.completions.create(
         model=model,
-        input=[
+        messages=[
             {
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": prompt},
-                    {"type": "input_image", "image_url": url},
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": url}},
                 ],
             }
         ],
-        max_output_tokens=max_tokens,
+        max_tokens=max_tokens,
     )
     return {
-        "text": resp.output_text,
+        "text": resp.choices[0].message.content,
         "model": model,
         "provider": "openai",
         "tier": tier,
@@ -105,20 +104,29 @@ def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
-        "openai.understand.video: GPT-5.4 is image-only. "
-        "Extract frames externally or use provider='gemini'."
+        "openai.understand.video: GPT-5.4 vision is image-only. "
+        "Workarounds: (1) use provider='gemini' (native multimodal), or "
+        "(2) extract frames externally and pass as image URLs."
     )
 
 
 def generate_image(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    aspect_ratio: str = "1:1",
+    params: GenerateParams | None = None,
 ) -> dict[str, Any]:
+    params = params or GenerateParams()
+    reference_image_url = params.reference_image_url
+    aspect_ratio = params.aspect_ratio or "1:1"
+
     model = get_model_id("openai", "generate", "image", tier)
-    size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
-    size = size_map.get(aspect_ratio, "1024x1024")
+
+    # 1:1 -> 1024x1024, 16:9 -> 1792x1024, 9:16 -> 1024x1792
+    size = "1024x1024"
+    if aspect_ratio == "16:9":
+        size = "1792x1024"
+    elif aspect_ratio == "9:16":
+        size = "1024x1792"
 
     if reference_image_url:
         from imagine_mcp.media import get_ssrf_safe_client
@@ -156,10 +164,7 @@ def generate_image(
 def generate_video(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    params: GenerateParams | None = None,
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
         "openai.generate.video: Sora 2 API shutdown 2026-09-24. "
