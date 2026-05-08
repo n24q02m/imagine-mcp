@@ -80,15 +80,27 @@ def _reset_client() -> None:
     _SUB_CLIENTS.clear()
 
 
+def _fetch_media_bytes(url: str) -> bytes:
+    """Fetch media bytes from URL using SSRF-safe client."""
+    from imagine_mcp.media import get_ssrf_safe_client
+
+    return get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60).content
+
+
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     from google.genai import types
 
     model = get_model_id("gemini", "understand", "image", tier)
+    img_bytes = _fetch_media_bytes(url)
+
     resp = _client().models.generate_content(
         model=model,
-        contents=[prompt, types.Part.from_uri(file_uri=url, mime_type="image/png")],
+        contents=[
+            prompt,
+            types.Part.from_bytes(data=img_bytes, mime_type="image/png"),
+        ],
         config=types.GenerateContentConfig(max_output_tokens=max_tokens),
     )
     return {
@@ -105,9 +117,14 @@ def understand_video(
     from google.genai import types
 
     model = get_model_id("gemini", "understand", "video", tier)
+    vid_bytes = _fetch_media_bytes(url)
+
     resp = _client().models.generate_content(
         model=model,
-        contents=[prompt, types.Part.from_uri(file_uri=url, mime_type="video/mp4")],
+        contents=[
+            prompt,
+            types.Part.from_bytes(data=vid_bytes, mime_type="video/mp4"),
+        ],
         config=types.GenerateContentConfig(max_output_tokens=max_tokens),
     )
     return {
@@ -131,7 +148,9 @@ def understand_multimodal(
     for u in urls:
         mt = detect_media_type(u)
         mime = "image/png" if mt == "image" else "video/mp4"
-        parts.append(types.Part.from_uri(file_uri=u, mime_type=mime))
+        data = _fetch_media_bytes(u)
+        parts.append(types.Part.from_bytes(data=data, mime_type=mime))
+
     resp = _client().models.generate_content(
         model=model,
         contents=parts,
@@ -146,6 +165,16 @@ def understand_multimodal(
     }
 
 
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """Gemini image edit (inpainting/editing)."""
+    return generate_image(prompt, tier, reference_image_url=image_url)
+
+
+def video_status(tier: str, job_id: str) -> dict[str, Any]:
+    """Poll Gemini video job status."""
+    return generate_video(prompt="", tier=tier, job_id=job_id)
+
+
 def generate_image(
     prompt: str,
     tier: str,
@@ -157,14 +186,16 @@ def generate_image(
     model = get_model_id("gemini", "generate", "image", tier)
     contents: list[Any] = [prompt]
     if reference_image_url:
-        contents.append(
-            types.Part.from_uri(file_uri=reference_image_url, mime_type="image/png")
-        )
+        img_bytes = _fetch_media_bytes(reference_image_url)
+        contents.append(types.Part.from_bytes(data=img_bytes, mime_type="image/png"))
 
     resp = _client().models.generate_content(
         model=model,
         contents=contents,
-        config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
+        config=types.GenerateContentConfig(
+            response_modalities=["IMAGE"],
+            image_config=types.ImageConfig(aspect_ratio=aspect_ratio),
+        ),
     )
     image_data: bytes | None = None
     for part in resp.candidates[0].content.parts:
@@ -202,9 +233,15 @@ def generate_video(
     client = _client()
 
     if job_id is None:
+        image_input = None
+        if reference_image_url:
+            img_bytes = _fetch_media_bytes(reference_image_url)
+            image_input = types.Image(image_bytes=img_bytes, mime_type="image/png")
+
         op = client.models.generate_videos(
             model=model,
             prompt=prompt,
+            image=image_input,
             config=types.GenerateVideosConfig(
                 aspect_ratio=aspect_ratio,
                 duration_seconds=duration_seconds,
