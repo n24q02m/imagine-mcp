@@ -53,8 +53,8 @@ def test_gemini_generate_video() -> None:
 
 
 def test_openai_understand_image() -> None:
-    assert get_model_id("openai", "understand", "image", "poor") == "gpt-5.4-mini"
-    assert get_model_id("openai", "understand", "image", "rich") == "gpt-5.4"
+    assert get_model_id("openai", "understand", "image", "poor") == "gpt-4o-mini"
+    assert get_model_id("openai", "understand", "image", "rich") == "gpt-4o"
 
 
 def test_openai_unsupported() -> None:

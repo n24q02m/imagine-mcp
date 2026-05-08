@@ -20,12 +20,23 @@ def test_generate_video_raises() -> None:
 
 def test_understand_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
     fake = MagicMock()
-    fake.responses.create.return_value = MagicMock(output_text="a dog")
+    # Mock chat.completions.create
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "a dog"
+    fake.chat.completions.create.return_value = mock_response
+
     monkeypatch.setattr(provider, "_client", lambda: fake)
 
     result = provider.understand_image(
         url="https://example.com/dog.png", prompt="describe", tier="poor"
     )
     assert result["text"] == "a dog"
-    assert result["model"] == "gpt-5.4-mini"
+    assert result["model"] == "gpt-4o-mini"
     assert result["provider"] == "openai"
+
+    # Test rich tier
+    result_rich = provider.understand_image(
+        url="https://example.com/dog.png", prompt="describe", tier="rich"
+    )
+    assert result_rich["model"] == "gpt-4o"

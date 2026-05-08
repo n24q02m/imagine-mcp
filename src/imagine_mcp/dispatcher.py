@@ -37,7 +37,7 @@ _DEFAULT_PROVIDER_PRIORITY: tuple[tuple[str, str], ...] = (
 
 _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
     ("openai", "video", "understand"): (
-        "OpenAI GPT-5.4 vision is image-only. Workarounds: "
+        "OpenAI GPT-4o vision is image-only. Workarounds: "
         "(1) use provider='gemini' (native multimodal), or "
         "(2) extract frames externally and pass as image URLs."
     ),
