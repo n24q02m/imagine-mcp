@@ -1,6 +1,6 @@
 """Grok (xAI) provider -- 3 LIVE + 1 ERROR.
 
-Uses OpenAI SDK with xAI base_url for chat completions (understand).
+Uses OpenAI SDK with xAI base_url for Responses API (understand).
 Dedicated endpoints for images and videos via httpx.
 """
 
@@ -84,21 +84,21 @@ def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     model = get_model_id("grok", "understand", "image", tier)
-    resp = _openai_compat_client().chat.completions.create(
+    resp = _openai_compat_client().responses.create(
         model=model,
-        messages=[
+        input=[
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": url}},
+                    {"type": "input_text", "text": prompt},
+                    {"type": "input_image", "image_url": url},
                 ],
             }
         ],
-        max_tokens=max_tokens,
+        max_output_tokens=max_tokens,
     )
     return {
-        "text": resp.choices[0].message.content,
+        "text": resp.output_text,
         "model": model,
         "provider": "grok",
         "tier": tier,
@@ -109,7 +109,7 @@ def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
-        "grok.understand.video: Grok production (4.20-0309-v2) is image-only. "
+        "grok.understand.video: Grok production (grok-3-vision) is image-only. "
         "Beta supports video but is not stable. Use provider='gemini'."
     )
 

@@ -10,55 +10,55 @@ Sorted by (action, media, tier, quality_rank ASC). Updated from Artificial Analy
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
-| 1 | gemini | `gemini-3.1-flash-image-preview` | low | 2026-04-24 | Nano Banana 2. |
-| 2 | openai | `gpt-image-1-mini` | low | 2026-04-24 |  |
-| 3 | grok | `grok-imagine-image` | low | 2026-04-24 | Aurora. |
+| 1 | gemini | `gemini-3.1-flash-image-preview` | low | 2026-05-02 | Nano Banana 2. |
+| 2 | openai | `gpt-image-1-mini` | low | 2026-05-02 |  |
+| 3 | grok | `grok-imagine-image` | low | 2026-05-02 | Aurora. |
 ## generate / image / rich
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
-| 1 | gemini | `gemini-3-pro-image-preview` | high | 2026-04-24 | Nano Banana Pro. Cross-gen: no 3.1-pro-image as of 2026-04-18. |
-| 2 | openai | `gpt-image-1.5` | high | 2026-04-24 | Cross-gen: no gpt-image-1.5-mini yet. |
-| 3 | grok | `grok-imagine-image-pro` | high | 2026-04-24 |  |
+| 1 | gemini | `gemini-3-pro-image-preview` | high | 2026-05-02 | Nano Banana Pro. Cross-gen: no 3.1-pro-image as of 2026-04-18. |
+| 2 | openai | `gpt-image-1.5` | high | 2026-05-02 | Cross-gen: no gpt-image-1.5-mini yet. |
+| 3 | grok | `grok-imagine-image-pro` | high | 2026-05-02 |  |
 ## generate / video / poor
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
-| 1 | gemini | `veo-3.1-lite-generate-preview` | low | 2026-04-24 |  |
-| 2 | grok | `grok-imagine-video` | medium | 2026-04-24 | Single tier -- same model for poor and rich. |
-| — | openai | **ERROR** | low | 2026-04-24 | Sora 2 API shutdown 2026-09-24. |
+| 1 | gemini | `veo-3.1-lite-generate-preview` | low | 2026-05-02 |  |
+| 2 | grok | `grok-imagine-video` | medium | 2026-05-02 | Single tier -- same model for poor and rich. |
+| — | openai | **ERROR** | low | 2026-05-02 | Sora 2 API shutdown 2026-09-24. |
 ## generate / video / rich
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
-| 1 | gemini | `veo-3.1-generate-preview` | high | 2026-04-24 |  |
-| 2 | grok | `grok-imagine-video` | medium | 2026-04-24 |  |
-| — | openai | **ERROR** | high | 2026-04-24 |  |
+| 1 | gemini | `veo-3.1-generate-preview` | high | 2026-05-02 |  |
+| 2 | grok | `grok-imagine-video` | medium | 2026-05-02 |  |
+| — | openai | **ERROR** | high | 2026-05-02 |  |
 ## understand / image / poor
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
-| 1 | gemini | `gemini-3.1-flash-lite-preview` | low | 2026-04-24 |  |
-| 2 | openai | `gpt-5.4-mini` | low | 2026-04-24 |  |
-| 3 | grok | `grok-4.20-0309-non-reasoning` | low | 2026-04-24 |  |
+| 1 | gemini | `gemini-3.1-flash-lite-preview` | low | 2026-05-02 |  |
+| 2 | openai | `gpt-5.4-mini` | low | 2026-05-02 |  |
+| 3 | grok | `grok-3-vision` | low | 2026-05-02 |  |
 ## understand / image / rich
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
-| 1 | gemini | `gemini-3.1-pro-preview` | high | 2026-04-24 |  |
-| 2 | openai | `gpt-5.4` | high | 2026-04-24 |  |
-| 3 | grok | `grok-4.20-0309-reasoning` | high | 2026-04-24 |  |
+| 1 | gemini | `gemini-3.1-pro-preview` | high | 2026-05-02 |  |
+| 2 | openai | `gpt-5.4` | high | 2026-05-02 |  |
+| 3 | grok | `grok-3-vision` | high | 2026-05-02 |  |
 ## understand / video / poor
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
-| 1 | gemini | `gemini-3.1-flash-lite-preview` | low | 2026-04-24 | Native multimodal; no dedicated video leaderboard. |
-| — | grok | **ERROR** | low | 2026-04-24 | Prod 4.20-0309-v2 image-only. |
-| — | openai | **ERROR** | low | 2026-04-24 | GPT-5.4 image-only; extract frames or use gemini. |
+| 1 | gemini | `gemini-3.1-flash-lite-preview` | low | 2026-05-02 | Native multimodal; no dedicated video leaderboard. |
+| — | grok | **ERROR** | low | 2026-05-02 | Prod grok-3-vision image-only. |
+| — | openai | **ERROR** | low | 2026-05-02 | GPT-5.4 image-only; extract frames or use gemini. |
 ## understand / video / rich
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
-| 1 | gemini | `gemini-3.1-pro-preview` | high | 2026-04-24 |  |
-| — | grok | **ERROR** | high | 2026-04-24 |  |
-| — | openai | **ERROR** | high | 2026-04-24 |  |
+| 1 | gemini | `gemini-3.1-pro-preview` | high | 2026-05-02 |  |
+| — | grok | **ERROR** | high | 2026-05-02 |  |
+| — | openai | **ERROR** | high | 2026-05-02 |  |
