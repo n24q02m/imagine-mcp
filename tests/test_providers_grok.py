@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+import base64
+from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from imagine_mcp.errors import ProviderUnsupportedError
@@ -14,6 +16,14 @@ def test_understand_video_raises() -> None:
 
 
 def test_understand_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_img_resp = MagicMock()
+    fake_img_resp.status_code = 200
+    fake_img_resp.content = b"fake-image-content"
+    fake_img_resp.headers = {"content-type": "image/png"}
+
+    mock_ssrf_client = MagicMock()
+    mock_ssrf_client.get.return_value = fake_img_resp
+
     fake_client = MagicMock()
     msg = MagicMock()
     msg.content = "a parrot"
@@ -22,11 +32,61 @@ def test_understand_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
     resp = MagicMock()
     resp.choices = [choice]
     fake_client.chat.completions.create.return_value = resp
-    monkeypatch.setattr(provider, "_openai_compat_client", lambda: fake_client)
 
-    result = provider.understand_image(
-        url="https://example.com/parrot.png", prompt="describe", tier="rich"
-    )
-    assert result["text"] == "a parrot"
-    assert result["model"] == "grok-4.20-0309-reasoning"
-    assert result["provider"] == "grok"
+    with patch(
+        "imagine_mcp.media.get_ssrf_safe_client", return_value=mock_ssrf_client
+    ):
+        monkeypatch.setattr(provider, "_openai_compat_client", lambda: fake_client)
+        monkeypatch.setattr(provider, "_api_key", lambda: "fake-key")
+
+        result = provider.understand_image(
+            url="https://example.com/parrot.png", prompt="describe", tier="rich"
+        )
+        assert result["text"] == "a parrot"
+        assert result["model"] == "grok-4.20-0309-reasoning"
+        assert result["provider"] == "grok"
+
+        # Verify data URL was passed to chat completions
+        call_args = fake_client.chat.completions.create.call_args[1]
+        img_url = call_args["messages"][0]["content"][1]["image_url"]["url"]
+        assert img_url.startswith("data:image/png;base64,")
+
+
+def test_video_status_pending(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_resp = MagicMock()
+    fake_resp.status_code = 200
+    fake_resp.json.return_value = {"status": "pending", "eta_seconds": 10}
+
+    with patch("httpx.get", return_value=fake_resp):
+        monkeypatch.setattr(provider, "_api_key", lambda: "fake-key")
+        result = provider.video_status("poor", "job-123")
+        assert result["status"] == "pending"
+        assert result["job_id"] == "job-123"
+
+
+def test_edit_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_img_resp = MagicMock()
+    fake_img_resp.status_code = 200
+    fake_img_resp.content = b"fake-image-content"
+    fake_img_resp.headers = {"content-type": "image/png"}
+
+    fake_edit_resp = MagicMock()
+    fake_edit_resp.status_code = 200
+    fake_edit_resp.json.return_value = {
+        "data": [{"b64_json": base64.b64encode(b"edited-image").decode()}]
+    }
+
+    mock_ssrf_client = MagicMock()
+    mock_ssrf_client.get.return_value = fake_img_resp
+
+    with patch("httpx.post", return_value=fake_edit_resp) as mock_post, patch(
+        "imagine_mcp.media.get_ssrf_safe_client", return_value=mock_ssrf_client
+    ):
+        monkeypatch.setattr(provider, "_api_key", lambda: "fake-key")
+        result = provider.edit("rich", "https://example.com/orig.png", "add a hat")
+        assert "image_path" in result
+        assert result["model"] == "grok-imagine-image-pro"
+
+        # Verify data URL was passed in JSON payload
+        call_args = mock_post.call_args[1]
+        assert call_args["json"]["image"].startswith("data:image/png;base64,")

@@ -31,9 +31,9 @@ Options:
      {"command": "uvx", "args": ["imagine-mcp"], "env": {"GEMINI_API_KEY": "..."}}
 
   2. Switch to HTTP mode (browser-based setup):
-     See imagine-mcp/docs/setup-manual.md "Method 5: Self-Hosting HTTP Mode"
+     See https://mcp.n24q02m.com/servers/imagine-mcp/setup/ "Self-Hosting HTTP Mode"
 
-Documentation: https://github.com/n24q02m/imagine-mcp#setup
+Documentation: https://mcp.n24q02m.com/servers/imagine-mcp/
 """
 
 

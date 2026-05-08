@@ -79,7 +79,16 @@ def _reset_client() -> None:
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
+    from imagine_mcp.media import get_ssrf_safe_client
+
     model = get_model_id("openai", "understand", "image", tier)
+
+    # Download image securely and pass as base64 data URL to prevent backend SSRF
+    resp_img = get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60)
+    img_b64 = base64.b64encode(resp_img.content).decode()
+    mime_type = resp_img.headers.get("content-type", "image/png")
+    data_url = f"data:{mime_type};base64,{img_b64}"
+
     resp = _client().responses.create(
         model=model,
         input=[
@@ -87,7 +96,7 @@ def understand_image(
                 "role": "user",
                 "content": [
                     {"type": "input_text", "text": prompt},
-                    {"type": "input_image", "image_url": url},
+                    {"type": "input_image", "image_url": data_url},
                 ],
             }
         ],

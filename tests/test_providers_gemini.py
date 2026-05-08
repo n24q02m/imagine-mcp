@@ -8,7 +8,23 @@ import pytest
 from imagine_mcp.providers import gemini
 
 
-def test_understand_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.fixture
+def mock_media_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Mock get_ssrf_safe_client and download_to_path to avoid real network calls."""
+    mock_resp = MagicMock()
+    mock_resp.content = b"fake-image-bytes"
+    mock_resp.headers = {"content-type": "image/png"}
+
+    mock_client = MagicMock()
+    mock_client.get.return_value = mock_resp
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: mock_client)
+    monkeypatch.setattr("imagine_mcp.media.download_to_path", lambda url, dest: dest)
+
+
+def test_understand_image_mocked(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fake_client = MagicMock()
     fake_response = MagicMock()
     fake_response.text = "a cat on a mat"
@@ -24,7 +40,9 @@ def test_understand_image_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
     assert result["tier"] == "poor"
 
 
-def test_understand_video_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_understand_video_mocked(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fake_client = MagicMock()
     fake_response = MagicMock()
     fake_response.text = "a cat jumping"

@@ -1,11 +1,3 @@
-"""Grok (xAI) provider -- 3 LIVE + 1 ERROR.
-
-Uses OpenAI SDK with xAI base_url for chat completions (understand).
-Dedicated endpoints for images and videos via httpx.
-"""
-
-from __future__ import annotations
-
 import base64
 import os
 import uuid
@@ -25,7 +17,6 @@ from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
-# Per-sub client cache for HTTP multi-user mode (see providers/gemini.py).
 _SUB_CLIENTS: dict[str, Any] = {}
 
 
@@ -83,7 +74,16 @@ def _reset_client() -> None:
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
+    from imagine_mcp.media import get_ssrf_safe_client
+
     model = get_model_id("grok", "understand", "image", tier)
+
+    # Download image securely and pass as base64 data URL to prevent backend SSRF
+    resp_img = get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60)
+    img_b64 = base64.b64encode(resp_img.content).decode()
+    mime_type = resp_img.headers.get("content-type", "image/png")
+    data_url = f"data:{mime_type};base64,{img_b64}"
+
     resp = _openai_compat_client().chat.completions.create(
         model=model,
         messages=[
@@ -91,7 +91,7 @@ def understand_image(
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": url}},
+                    {"type": "image_url", "image_url": {"url": data_url}},
                 ],
             }
         ],
@@ -114,35 +114,45 @@ def understand_video(
     )
 
 
-def generate_image(
-    prompt: str,
-    tier: str,
-    reference_image_url: str | None = None,
-    aspect_ratio: str = "1:1",
-) -> dict[str, Any]:
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    from imagine_mcp.media import get_ssrf_safe_client
+
     model = get_model_id("grok", "generate", "image", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
-    payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
-    if reference_image_url:
-        payload["reference_image"] = reference_image_url
+
+    # SSRF-safe image fetch + data URL conversion (#96 compliance)
+    resp_img = get_ssrf_safe_client().get(image_url, follow_redirects=True, timeout=60)
+    if resp_img.status_code != 200:
+        raise ProviderAPIError(
+            f"Failed to fetch image for edit: {resp_img.text}",
+            status_code=resp_img.status_code,
+        )
+    img_b64_in = base64.b64encode(resp_img.content).decode()
+    mime_type_in = resp_img.headers.get("content-type", "image/png")
+    data_url_in = f"data:{mime_type_in};base64,{img_b64_in}"
+
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "image": data_url_in,
+        "n": 1,
+    }
 
     resp = httpx.post(
-        f"{_BASE_URL}/images/generations",
+        f"{_BASE_URL}/images/edits",
         json=payload,
         headers=headers,
         timeout=120,
     )
     if resp.status_code != 200:
         raise ProviderAPIError(
-            f"Grok image generate failed: {resp.text}",
+            f"Grok image edit failed: {resp.text}",
             status_code=resp.status_code,
         )
 
     data = resp.json()
     img_b64 = data["data"][0].get("b64_json")
     if not img_b64:
-        from imagine_mcp.media import get_ssrf_safe_client
-
         img_url = data["data"][0].get("url")
         img_b64 = base64.b64encode(
             get_ssrf_safe_client()
@@ -165,47 +175,62 @@ def generate_image(
     }
 
 
-def generate_video(
+def generate_image(
     prompt: str,
     tier: str,
     reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
-    model = get_model_id("grok", "generate", "video", tier)
+    if reference_image_url:
+        return edit(tier, reference_image_url, prompt)
+
+    from imagine_mcp.media import get_ssrf_safe_client
+
+    model = get_model_id("grok", "generate", "image", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
+    payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
 
-    if job_id is None:
-        payload: dict[str, Any] = {
-            "model": model,
-            "prompt": prompt,
-            "duration_seconds": duration_seconds,
-            "aspect_ratio": aspect_ratio,
-        }
-        if reference_image_url:
-            payload["source_image"] = reference_image_url
-        resp = httpx.post(
-            f"{_BASE_URL}/videos/generations",
-            json=payload,
-            headers=headers,
-            timeout=60,
+    resp = httpx.post(
+        f"{_BASE_URL}/images/generations",
+        json=payload,
+        headers=headers,
+        timeout=120,
+    )
+    if resp.status_code != 200:
+        raise ProviderAPIError(
+            f"Grok image generate failed: {resp.text}",
+            status_code=resp.status_code,
         )
-        if resp.status_code != 200:
-            raise ProviderAPIError(
-                f"Grok video submit failed: {resp.text}",
-                status_code=resp.status_code,
-            )
-        data = resp.json()
-        return {
-            "job_id": data["id"],
-            "status": "pending",
-            "eta_seconds": data.get("eta_seconds", 30),
-            "model": model,
-            "provider": "grok",
-            "tier": tier,
-        }
 
+    data = resp.json()
+    img_b64 = data["data"][0].get("b64_json")
+    if not img_b64:
+        img_url = data["data"][0].get("url")
+        img_b64 = base64.b64encode(
+            get_ssrf_safe_client()
+            .get(img_url, follow_redirects=True, timeout=60)
+            .content
+        ).decode()
+
+    img_bytes = base64.b64decode(img_b64)
+    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{uuid.uuid4().hex}.png"
+    out_path.write_bytes(img_bytes)
+
+    return {
+        "image_path": str(out_path),
+        "image_base64": img_b64,
+        "model": model,
+        "provider": "grok",
+        "tier": tier,
+    }
+
+
+def video_status(tier: str, job_id: str) -> dict[str, Any]:
+    from imagine_mcp.media import get_ssrf_safe_client
+
+    headers = {"Authorization": f"Bearer {_api_key()}"}
     resp = httpx.get(
         f"{_BASE_URL}/videos/generations/{job_id}",
         headers=headers,
@@ -231,8 +256,6 @@ def generate_video(
             status_code=500,
         )
 
-    from imagine_mcp.media import get_ssrf_safe_client
-
     video_url = data["video_url"]
     video_bytes = (
         get_ssrf_safe_client()
@@ -245,11 +268,66 @@ def generate_video(
     out_path = out_dir / f"{uuid.uuid4().hex}.mp4"
     out_path.write_bytes(video_bytes)
 
+    model = get_model_id("grok", "generate", "video", tier)
     return {
         "video_path": str(out_path),
         "video_url": video_url,
         "job_id": job_id,
         "status": "done",
+        "model": model,
+        "provider": "grok",
+        "tier": tier,
+    }
+
+
+def generate_video(
+    prompt: str,
+    tier: str,
+    reference_image_url: str | None = None,
+    job_id: str | None = None,
+    aspect_ratio: str = "16:9",
+    duration_seconds: int = 8,
+) -> dict[str, Any]:
+    if job_id is not None:
+        return video_status(tier, job_id)
+
+    from imagine_mcp.media import get_ssrf_safe_client
+
+    model = get_model_id("grok", "generate", "video", tier)
+    headers = {"Authorization": f"Bearer {_api_key()}"}
+
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "duration_seconds": duration_seconds,
+        "aspect_ratio": aspect_ratio,
+    }
+    if reference_image_url:
+        # Download source image and pass as base64 data URL
+        resp_img = get_ssrf_safe_client().get(
+            reference_image_url, follow_redirects=True, timeout=60
+        )
+        img_b64 = base64.b64encode(resp_img.content).decode()
+        mime_type = resp_img.headers.get("content-type", "image/png")
+        data_url = f"data:{mime_type};base64,{img_b64}"
+        payload["source_image"] = data_url
+
+    resp = httpx.post(
+        f"{_BASE_URL}/videos/generations",
+        json=payload,
+        headers=headers,
+        timeout=60,
+    )
+    if resp.status_code != 200:
+        raise ProviderAPIError(
+            f"Grok video submit failed: {resp.text}",
+            status_code=resp.status_code,
+        )
+    data = resp.json()
+    return {
+        "job_id": data["id"],
+        "status": "pending",
+        "eta_seconds": data.get("eta_seconds", 30),
         "model": model,
         "provider": "grok",
         "tier": tier,
