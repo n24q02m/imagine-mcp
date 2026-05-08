@@ -305,3 +305,48 @@ def test_validate_url_blocks_cgnat() -> None:
     # but is considered not global by is_global. Our updated validation must block it.
     with pytest.raises(InvalidURLError, match="URL resolves to an internal/private IP"):
         _validate_url("http://100.64.0.1/test", "test_param")
+
+
+def test_dispatch_understand_parallel_detection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import time
+
+    calls = []
+
+    def mock_detect(url: str) -> str:
+        calls.append(url)
+        time.sleep(0.3)
+        return "image"
+
+    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", mock_detect)
+    # Mock _validate_url to do nothing fast
+    monkeypatch.setattr("imagine_mcp.dispatcher._validate_url", lambda u, p: None)
+    # Mock _default_provider and _validate
+    monkeypatch.setattr("imagine_mcp.dispatcher._default_provider", lambda: "gemini")
+    monkeypatch.setattr("imagine_mcp.dispatcher._validate", lambda p, t: None)
+    # Mock get_model_id
+    monkeypatch.setattr("imagine_mcp.dispatcher.get_model_id", lambda *args: "model-id")
+
+    # Mock _load_provider
+    class MockMod:
+        @staticmethod
+        def understand_multimodal(
+            urls: list[str],
+            prompt: str,
+            tier: str,
+            max_tokens: int = 2048,
+            media_types: list[str] | None = None,
+        ) -> dict:
+            return {"ok": True, "provider": "gemini"}
+
+    monkeypatch.setattr("imagine_mcp.dispatcher._load_provider", lambda p: MockMod)
+
+    urls = ["http://ex1.com", "http://ex2.com", "http://ex3.com"]
+    start = time.time()
+    dispatch_understand(urls, "prompt", "gemini", "poor")
+    duration = time.time() - start
+
+    # If sequential, it should take ~0.9s. If parallel, it should take ~0.3s.
+    # Allow some overhead, so < 0.6s is safe.
+    assert duration < 0.6

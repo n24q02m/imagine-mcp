@@ -180,10 +180,18 @@ def dispatch_understand(
     _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
-    for i, u in enumerate(media_urls):
-        _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    def _validate_and_detect(i: int, url: str) -> str:
+        _validate_url(url, f"media_urls[{i}]")
+        return detect_media_type(url)
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=min(len(media_urls), 16), thread_name_prefix="media_detector"
+    ) as executor:
+        # Using list() to force evaluation and catch exceptions
+        media_types = list(
+            executor.map(_validate_and_detect, range(len(media_urls)), media_urls)
+        )
     has_video = "video" in media_types
 
     if has_video:
@@ -195,7 +203,9 @@ def dispatch_understand(
 
     # Gemini native multimodal can accept many URLs in one call
     if provider == "gemini" and len(media_urls) > 1:
-        return mod.understand_multimodal(media_urls, prompt, tier, max_tokens)
+        return mod.understand_multimodal(
+            media_urls, prompt, tier, max_tokens, media_types=media_types
+        )
 
     url = media_urls[0]
     primary = media_types[0]
