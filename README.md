@@ -52,17 +52,18 @@ mcp-name: io.github.n24q02m/imagine-mcp
 >
 > All plugins share the same architecture -- install once, learn pattern transfers.
 
-## Setup
+## Documentation
 
-- **Stdio mode** (default) -- env var creds (>=1 of `GEMINI_API_KEY`, `OPENAI_API_KEY`, `XAI_API_KEY`). See [setup-manual.md](docs/setup-manual.md).
-- **HTTP mode** (optional) -- multi-user, browser-based API key setup. See [setup-manual.md](docs/setup-manual.md).
+Full docs at **[mcp.n24q02m.com/servers/imagine-mcp/](https://mcp.n24q02m.com/servers/imagine-mcp/)**:
 
-**With AI Agent** -- copy and send this to your AI agent:
+- [Setup](https://mcp.n24q02m.com/servers/imagine-mcp/setup/) -- install methods for Claude Code, Codex, Gemini CLI, Cursor, Windsurf, mcp.json
+- [Modes overview](https://mcp.n24q02m.com/get-started/modes-overview/) -- stdio / local-relay / remote-relay / remote-oauth
+- [Multi-user setup](https://mcp.n24q02m.com/get-started/multi-user/) -- per-JWT-sub credential model
 
-> Please set up imagine-mcp for me. Follow this guide:
-> https://raw.githubusercontent.com/n24q02m/imagine-mcp/main/docs/setup-with-agent.md
+**Install with AI agent** -- paste this to your AI coding agent:
 
-**Manual setup** -- follow [docs/setup-manual.md](docs/setup-manual.md)
+> Install MCP server `imagine-mcp` following the steps at  
+> https://raw.githubusercontent.com/n24q02m/claude-plugins/main/plugins/imagine-mcp/setup-with-agent.md
 
 ## Tools
 
