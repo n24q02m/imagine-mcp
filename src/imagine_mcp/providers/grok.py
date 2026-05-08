@@ -83,7 +83,16 @@ def _reset_client() -> None:
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
+    from imagine_mcp.media import get_ssrf_safe_client
+
     model = get_model_id("grok", "understand", "image", tier)
+
+    # Download image securely and pass as base64 data URL to prevent backend SSRF
+    resp_img = get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60)
+    img_b64 = base64.b64encode(resp_img.content).decode()
+    mime_type = resp_img.headers.get("content-type", "image/png")
+    data_url = f"data:{mime_type};base64,{img_b64}"
+
     resp = _openai_compat_client().chat.completions.create(
         model=model,
         messages=[
@@ -91,7 +100,7 @@ def understand_image(
                 "role": "user",
                 "content": [
                     {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": url}},
+                    {"type": "image_url", "image_url": {"url": data_url}},
                 ],
             }
         ],
@@ -120,11 +129,21 @@ def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
+    from imagine_mcp.media import get_ssrf_safe_client
+
     model = get_model_id("grok", "generate", "image", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
     payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
+
     if reference_image_url:
-        payload["reference_image"] = reference_image_url
+        # Download reference image and pass as base64 data URL
+        resp_img = get_ssrf_safe_client().get(
+            reference_image_url, follow_redirects=True, timeout=60
+        )
+        img_b64 = base64.b64encode(resp_img.content).decode()
+        mime_type = resp_img.headers.get("content-type", "image/png")
+        data_url = f"data:{mime_type};base64,{img_b64}"
+        payload["reference_image"] = data_url
 
     resp = httpx.post(
         f"{_BASE_URL}/images/generations",
@@ -141,8 +160,6 @@ def generate_image(
     data = resp.json()
     img_b64 = data["data"][0].get("b64_json")
     if not img_b64:
-        from imagine_mcp.media import get_ssrf_safe_client
-
         img_url = data["data"][0].get("url")
         img_b64 = base64.b64encode(
             get_ssrf_safe_client()
@@ -173,6 +190,8 @@ def generate_video(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
+    from imagine_mcp.media import get_ssrf_safe_client
+
     model = get_model_id("grok", "generate", "video", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
 
@@ -184,7 +203,15 @@ def generate_video(
             "aspect_ratio": aspect_ratio,
         }
         if reference_image_url:
-            payload["source_image"] = reference_image_url
+            # Download source image and pass as base64 data URL
+            resp_img = get_ssrf_safe_client().get(
+                reference_image_url, follow_redirects=True, timeout=60
+            )
+            img_b64 = base64.b64encode(resp_img.content).decode()
+            mime_type = resp_img.headers.get("content-type", "image/png")
+            data_url = f"data:{mime_type};base64,{img_b64}"
+            payload["source_image"] = data_url
+
         resp = httpx.post(
             f"{_BASE_URL}/videos/generations",
             json=payload,
@@ -230,8 +257,6 @@ def generate_video(
             f"Grok video generation failed: {data.get('error', 'unknown')}",
             status_code=500,
         )
-
-    from imagine_mcp.media import get_ssrf_safe_client
 
     video_url = data["video_url"]
     video_bytes = (

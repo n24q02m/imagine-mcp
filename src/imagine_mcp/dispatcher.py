@@ -2,22 +2,17 @@
 
 from __future__ import annotations
 
-import concurrent.futures
 import importlib
-import ipaddress
-import socket
 from typing import Any
-from urllib.parse import urlparse
 
 from imagine_mcp.errors import (
     CredentialMissingError,
     InvalidMediaTypeError,
     InvalidProviderError,
     InvalidTierError,
-    InvalidURLError,
     ProviderUnsupportedError,
 )
-from imagine_mcp.media import detect_media_type
+from imagine_mcp.media import detect_media_type, validate_url_and_get_ip
 from imagine_mcp.models import UNSUPPORTED, get_model_id
 
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
@@ -52,63 +47,13 @@ _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
 }
 
 
-_ALLOWED_URL_SCHEMES = frozenset({"http", "https"})
-
-_DNS_RESOLVER_POOL = concurrent.futures.ThreadPoolExecutor(
-    max_workers=4, thread_name_prefix="dns_resolver"
-)
-
-
 def _validate_url(url: str, param: str) -> None:
-    """Reject non-http(s) URLs to prevent SSRF and local file inclusion.
+    """Reject non-http(s) URLs and internal IPs to prevent SSRF.
 
-    Providers pass URLs to SDKs / HEAD requests that honour file://, ftp://,
-    gopher://, etc. Restrict to http/https at the dispatch boundary so every
-    downstream call inherits the check.
-
-    Also verify that the resolved hostname does not point to a local/private IP.
-    Note: This is a best-effort defense against SSRF. Because we pass the URL string
-    to downstream SDKs rather than managing the HTTP client ourselves, this check
-    remains vulnerable to Time-Of-Check to Time-Of-Use (TOCTOU) DNS rebinding attacks.
+    This function calls the centralized validation utility which ensures
+    the URL uses an allowed scheme and resolves to a public, non-multicast IP.
     """
-    parsed = urlparse(url)
-    scheme = parsed.scheme.lower()
-    if scheme not in _ALLOWED_URL_SCHEMES:
-        raise InvalidURLError(
-            f"Invalid {param} scheme {scheme!r}. Only http/https are allowed."
-        )
-
-    hostname = parsed.hostname
-    if not hostname:
-        raise InvalidURLError(f"Invalid {param}: missing hostname.")
-
-    try:
-        # Wrap the blocking getaddrinfo in a thread with a short timeout
-        # to prevent DoS attacks via malicious DNS servers.
-        future = _DNS_RESOLVER_POOL.submit(socket.getaddrinfo, hostname, None)
-        # Short timeout to fail fast on tarpit DNS
-        addr_info = future.result(timeout=2.0)
-
-        for res in addr_info:
-            ip_str = res[4][0]
-            ip_obj = ipaddress.ip_address(ip_str)
-
-            # Extract underlying IPv4 if it's an IPv4-mapped IPv6 address (e.g. ::ffff:127.0.0.1)
-            if ip_obj.version == 6 and ip_obj.ipv4_mapped:
-                ip_obj = ip_obj.ipv4_mapped
-
-            if not ip_obj.is_global or ip_obj.is_multicast:
-                raise InvalidURLError(
-                    f"Invalid {param}: URL resolves to an internal/private IP."
-                )
-    except concurrent.futures.TimeoutError as e:
-        raise InvalidURLError(
-            f"Invalid {param}: DNS resolution timed out for {hostname!r}."
-        ) from e
-    except socket.gaierror as e:
-        raise InvalidURLError(
-            f"Invalid {param}: Could not resolve hostname {hostname!r}."
-        ) from e
+    validate_url_and_get_ip(url, param)
 
 
 def _validate(provider: str, tier: str) -> None:
