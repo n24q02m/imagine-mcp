@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 import pytest
 
 from imagine_mcp.dispatcher import (
@@ -15,6 +17,11 @@ from imagine_mcp.errors import (
     InvalidURLError,
     ProviderUnsupportedError,
 )
+
+if TYPE_CHECKING:
+    from typing import Unpack
+
+    from imagine_mcp.providers.base import GenerateOptions
 
 
 @pytest.fixture
@@ -240,15 +247,15 @@ def test_dispatch_generate_resolves_default_provider(
 ) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
 
-    captured: dict[str, str] = {}
+    captured: dict[str, Any] = {}
 
     def mock_fn(
         prompt: str,
         tier: str,
-        reference_image_url: str | None,
-        aspect_ratio: str,
+        **kwargs: Unpack[GenerateOptions],
     ) -> dict:
         captured["called"] = "openai"
+        captured["kwargs"] = kwargs
         return {"image": "...", "model": "gpt-image", "provider": "openai"}
 
     import imagine_mcp.providers.openai as openai_mod

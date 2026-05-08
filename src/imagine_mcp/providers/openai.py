@@ -6,7 +6,7 @@ import base64
 import os
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import platformdirs
 
@@ -18,9 +18,14 @@ from imagine_mcp.errors import (
 )
 from imagine_mcp.models import get_model_id
 
+if TYPE_CHECKING:
+    from typing import Unpack
+
+    from imagine_mcp.providers.base import GenerateOptions
+
 _CLIENT: Any = None
 # Per-sub client cache for HTTP multi-user mode. See providers/gemini.py
-# for rationale; module-level ``_CLIENT`` still serves stdio + single-user.
+# for rationale; module-level `_CLIENT` still serves stdio + single-user.
 _SUB_CLIENTS: dict[str, Any] = {}
 
 
@@ -80,21 +85,21 @@ def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     model = get_model_id("openai", "understand", "image", tier)
-    resp = _client().responses.create(
+    resp = _client().chat.completions.create(
         model=model,
-        input=[
+        messages=[
             {
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": prompt},
-                    {"type": "input_image", "image_url": url},
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": url}},
                 ],
             }
         ],
-        max_output_tokens=max_tokens,
+        max_tokens=max_tokens,
     )
     return {
-        "text": resp.output_text,
+        "text": resp.choices[0].message.content,
         "model": model,
         "provider": "openai",
         "tier": tier,
@@ -113,9 +118,11 @@ def understand_video(
 def generate_image(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    aspect_ratio: str = "1:1",
+    **kwargs: Unpack[GenerateOptions],
 ) -> dict[str, Any]:
+    reference_image_url = kwargs.get("reference_image_url")
+    aspect_ratio = kwargs.get("aspect_ratio", "1:1")
+
     model = get_model_id("openai", "generate", "image", tier)
     size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
     size = size_map.get(aspect_ratio, "1024x1024")
@@ -156,10 +163,7 @@ def generate_image(
 def generate_video(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    **kwargs: Unpack[GenerateOptions],
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
         "openai.generate.video: Sora 2 API shutdown 2026-09-24. "

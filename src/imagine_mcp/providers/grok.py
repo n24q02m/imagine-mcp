@@ -10,7 +10,7 @@ import base64
 import os
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
 import platformdirs
@@ -22,6 +22,11 @@ from imagine_mcp.errors import (
     ProviderUnsupportedError,
 )
 from imagine_mcp.models import get_model_id
+
+if TYPE_CHECKING:
+    from typing import Unpack
+
+    from imagine_mcp.providers.base import GenerateOptions
 
 _CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
@@ -117,9 +122,10 @@ def understand_video(
 def generate_image(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    aspect_ratio: str = "1:1",
+    **kwargs: Unpack[GenerateOptions],
 ) -> dict[str, Any]:
+    reference_image_url = kwargs.get("reference_image_url")
+
     model = get_model_id("grok", "generate", "image", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
     payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
@@ -168,11 +174,13 @@ def generate_image(
 def generate_video(
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    **kwargs: Unpack[GenerateOptions],
 ) -> dict[str, Any]:
+    reference_image_url = kwargs.get("reference_image_url")
+    job_id = kwargs.get("job_id")
+    aspect_ratio = kwargs.get("aspect_ratio", "16:9")
+    duration_seconds = kwargs.get("duration_seconds", 8)
+
     model = get_model_id("grok", "generate", "video", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
 

@@ -6,7 +6,7 @@ import concurrent.futures
 import importlib
 import ipaddress
 import socket
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
 from imagine_mcp.errors import (
@@ -19,6 +19,11 @@ from imagine_mcp.errors import (
 )
 from imagine_mcp.media import detect_media_type
 from imagine_mcp.models import UNSUPPORTED, get_model_id
+
+if TYPE_CHECKING:
+    from typing import Unpack
+
+    from imagine_mcp.providers.base import GenerateOptions
 
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
@@ -125,13 +130,13 @@ def _default_provider() -> str:
 
     Resolution order: XAI_API_KEY -> OPENAI_API_KEY -> GEMINI_API_KEY.
 
-    Single-user / stdio path: reads ``os.environ`` (credentials saved via the
-    relay form / config.enc are written back into ``os.environ`` by
-    ``imagine_mcp.relay_setup.apply_config``).
+    Single-user / stdio path: reads `os.environ` (credentials saved via the
+    relay form / config.enc are written back into `os.environ` by
+    `imagine_mcp.relay_setup.apply_config`).
 
-    HTTP multi-user path (``auth_scope`` middleware sets ``_current_sub``):
-        Reads the per-sub config from ``~/.imagine-mcp/subs/<sub>/config.json``.
-        ``os.environ`` is intentionally NOT consulted -- isolating users is
+    HTTP multi-user path (`auth_scope` middleware sets `_current_sub`):
+        Reads the per-sub config from `~/.imagine-mcp/subs/<sub>/config.json`.
+        `os.environ` is intentionally NOT consulted -- isolating users is
         the whole point of multi-user mode.
 
     Raises:
@@ -172,7 +177,7 @@ def dispatch_understand(
 ) -> dict[str, Any]:
     """Dispatch understand call to provider.
 
-    When ``provider`` is ``None``, auto-resolve via :func:`_default_provider`
+    When `provider` is `None`, auto-resolve via :func:`_default_provider`
     (first provider whose API key is present in the environment).
     """
     if provider is None:
@@ -209,14 +214,11 @@ def dispatch_generate(
     prompt: str,
     provider: str | None,
     tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    **kwargs: Unpack[GenerateOptions],
 ) -> dict[str, Any]:
     """Dispatch generate call to provider.
 
-    When ``provider`` is ``None``, auto-resolve via :func:`_default_provider`
+    When `provider` is `None`, auto-resolve via :func:`_default_provider`
     (first provider whose API key is present in the environment).
     """
     if provider is None:
@@ -226,6 +228,8 @@ def dispatch_generate(
         raise InvalidMediaTypeError(
             f"Unknown media_type {media_type!r}. Valid: {VALID_MEDIA_TYPES}"
         )
+
+    reference_image_url = kwargs.get("reference_image_url")
     if reference_image_url is not None:
         _validate_url(reference_image_url, "reference_image_url")
 
@@ -235,7 +239,5 @@ def dispatch_generate(
 
     mod = _load_provider(provider)
     if media_type == "image":
-        return mod.generate_image(prompt, tier, reference_image_url, aspect_ratio)
-    return mod.generate_video(
-        prompt, tier, reference_image_url, job_id, aspect_ratio, duration_seconds
-    )
+        return mod.generate_image(prompt, tier, **kwargs)
+    return mod.generate_video(prompt, tier, **kwargs)

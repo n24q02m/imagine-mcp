@@ -99,7 +99,7 @@ target-version = "py313"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF"]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF", "PLR0913"]
 ignore = ["E501"]
 
 [tool.ty.rules]
