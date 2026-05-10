@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from imagine_mcp.errors import (
@@ -45,6 +46,19 @@ _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
         "Use provider='gemini' for video understanding."
     ),
 }
+
+
+# Bolt: Optimize by using a ThreadPoolExecutor.
+# URL validation and media type detection involve sequential, I/O bound network
+# operations (DNS resolution and HTTP HEAD requests). Parallelizing these reduces
+# latency from O(N) to O(1) batched time.
+_DISPATCH_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="dispatch_pool")
+
+
+def _validate_and_detect(args: tuple[int, str]) -> str:
+    i, url = args
+    _validate_url(url, f"media_urls[{i}]")
+    return detect_media_type(url)
 
 
 def _validate_url(url: str, param: str) -> None:
@@ -125,10 +139,11 @@ def dispatch_understand(
     _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
-    for i, u in enumerate(media_urls):
-        _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    # Bolt: Run validation and detection concurrently to speed up dispatching.
+    # .map() safely preserves list order. Unhandled exceptions (e.g. from SSRF prevention)
+    # propagate normally when the iterator is consumed by list().
+    media_types = list(_DISPATCH_POOL.map(_validate_and_detect, enumerate(media_urls)))
     has_video = "video" in media_types
 
     if has_video:
