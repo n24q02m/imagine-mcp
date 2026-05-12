@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from imagine_mcp.errors import (
@@ -14,6 +15,11 @@ from imagine_mcp.errors import (
 )
 from imagine_mcp.media import detect_media_type, validate_url_and_get_ip
 from imagine_mcp.models import UNSUPPORTED, get_model_id
+
+# Use a separate thread pool for high-level tasks to avoid deadlocks
+# with the nested _DNS_RESOLVER_POOL used for DNS resolution inside _validate_url.
+# This parallelizes network calls to avoid O(N) latency when processing multiple URLs.
+_DISPATCH_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="dispatch_pool")
 
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
@@ -125,10 +131,15 @@ def dispatch_understand(
     _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
-    for i, u in enumerate(media_urls):
-        _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    def _validate_and_detect(i: int, url: str) -> str:
+        _validate_url(url, f"media_urls[{i}]")
+        return detect_media_type(url)
+
+    # Process validation and detection concurrently, maintaining sequential failure behavior
+    media_types = list(
+        _DISPATCH_POOL.map(_validate_and_detect, range(len(media_urls)), media_urls)
+    )
     has_video = "video" in media_types
 
     if has_video:

@@ -1,3 +1,7 @@
 ## 2024-05-18 - Optimize default_provider_for lookups
 **Learning:** `default_provider_for` in `src/imagine_mcp/models.py` performs an O(N log N) filtering and sorting of `MODELS` on every call. Since the parameter space (`action`, `media`, `tier`) is very small and bounded, caching the result yields a ~25x performance improvement. Standard lru_cache works perfectly for this use case.
 **Action:** Use `@functools.lru_cache(maxsize=32)` to optimize functions that perform expensive queries or sorting over static lists when their parameter space is small and bounded.
+
+## 2024-05-18 - Optimize media URL validation and detection in dispatch
+**Learning:** In `dispatch_understand`, checking media types (which can involve blocking HTTP HEAD requests or DNS resolutions via `_validate_url`) creates an O(N) bottleneck when processing multiple URLs sequentially. Parallelizing these high-level tasks using a `ThreadPoolExecutor` drastically reduces latency. However, it's critical to use a separate thread pool (e.g., `_DISPATCH_POOL`) from nested pools (like `_DNS_RESOLVER_POOL` in `media.py`) to avoid deadlocks. Furthermore, using `list(executor.map(...))` nicely maintains the required sequential failure behavior by immediately raising the first exception encountered.
+**Action:** Use a dedicated `ThreadPoolExecutor` for parallelizing independent network-bound operations across a collection. Ensure high-level thread pools are distinct from nested/lower-level thread pools to prevent deadlocks, and use `executor.map` to preserve sequential exception raising.
