@@ -1,3 +1,7 @@
 ## 2024-05-18 - Optimize default_provider_for lookups
 **Learning:** `default_provider_for` in `src/imagine_mcp/models.py` performs an O(N log N) filtering and sorting of `MODELS` on every call. Since the parameter space (`action`, `media`, `tier`) is very small and bounded, caching the result yields a ~25x performance improvement. Standard lru_cache works perfectly for this use case.
 **Action:** Use `@functools.lru_cache(maxsize=32)` to optimize functions that perform expensive queries or sorting over static lists when their parameter space is small and bounded.
+
+## 2024-05-19 - Parallel URL validation and media detection
+**Learning:** `dispatch_understand` in `src/imagine_mcp/dispatcher.py` performs sequential DNS resolution (`_validate_url`) and HEAD requests (`detect_media_type`) for every URL in `media_urls`. For `gemini` multimodal inputs, this resulted in O(N) network latency on the critical path. Parallelizing these checks via `ThreadPoolExecutor` (already used elsewhere, bounded to 16 workers) brings this down to O(1) latency without changing correctness. Crucially, the parallel step handles early failure correctly when iterating over the returned map.
+**Action:** Always identify network-bound validation loops. Use `ThreadPoolExecutor` mappings to perform concurrent IO. Ensure sequential behavior constraints (like early exception raising) are preserved when evaluating futures.
