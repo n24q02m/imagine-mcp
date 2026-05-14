@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import importlib
 from typing import Any
 
@@ -45,6 +46,10 @@ _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
         "Use provider='gemini' for video understanding."
     ),
 }
+
+_DISPATCH_POOL = concurrent.futures.ThreadPoolExecutor(
+    max_workers=16, thread_name_prefix="dispatcher"
+)
 
 
 def _validate_url(url: str, param: str) -> None:
@@ -125,10 +130,14 @@ def dispatch_understand(
     _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
-    for i, u in enumerate(media_urls):
-        _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    def _process_url(i: int, u: str) -> str:
+        _validate_url(u, f"media_urls[{i}]")
+        return detect_media_type(u)
+
+    media_types = list(
+        _DISPATCH_POOL.map(_process_url, range(len(media_urls)), media_urls)
+    )
     has_video = "video" in media_types
 
     if has_video:
@@ -140,7 +149,9 @@ def dispatch_understand(
 
     # Gemini native multimodal can accept many URLs in one call
     if provider == "gemini" and len(media_urls) > 1:
-        return mod.understand_multimodal(media_urls, prompt, tier, max_tokens)
+        return mod.understand_multimodal(
+            media_urls, prompt, tier, max_tokens, media_types=media_types
+        )
 
     url = media_urls[0]
     primary = media_types[0]
