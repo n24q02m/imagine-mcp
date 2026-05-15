@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from imagine_mcp.errors import (
@@ -18,6 +19,8 @@ from imagine_mcp.models import UNSUPPORTED, get_model_id
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
 VALID_MEDIA_TYPES = ["image", "video"]
+
+_DISPATCH_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="dispatch_pool")
 
 # Auto-fallback priority when caller does not pin a provider. Order is
 # (XAI, OpenAI, Gemini): Gemini stays last because Google AI Studio
@@ -125,10 +128,14 @@ def dispatch_understand(
     _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
-    for i, u in enumerate(media_urls):
-        _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    def _validate_and_detect(args: tuple[int, str]) -> str:
+        idx, url = args
+        _validate_url(url, f"media_urls[{idx}]")
+        return detect_media_type(url)
+
+    # Parallelize validation and media type detection to reduce latency
+    media_types = list(_DISPATCH_POOL.map(_validate_and_detect, enumerate(media_urls)))
     has_video = "video" in media_types
 
     if has_video:
@@ -140,7 +147,9 @@ def dispatch_understand(
 
     # Gemini native multimodal can accept many URLs in one call
     if provider == "gemini" and len(media_urls) > 1:
-        return mod.understand_multimodal(media_urls, prompt, tier, max_tokens)
+        return mod.understand_multimodal(
+            media_urls, prompt, tier, max_tokens, media_types=media_types
+        )
 
     url = media_urls[0]
     primary = media_types[0]
