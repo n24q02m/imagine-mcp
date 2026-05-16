@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import importlib
 from typing import Any
 
@@ -29,6 +30,11 @@ _DEFAULT_PROVIDER_PRIORITY: tuple[tuple[str, str], ...] = (
     ("OPENAI_API_KEY", "openai"),
     ("GEMINI_API_KEY", "gemini"),
 )
+
+_DISPATCH_POOL = concurrent.futures.ThreadPoolExecutor(
+    max_workers=16, thread_name_prefix="dispatcher"
+)
+
 
 _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
     ("openai", "video", "understand"): (
@@ -128,7 +134,10 @@ def dispatch_understand(
     for i, u in enumerate(media_urls):
         _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    # Perform media type detection concurrently to avoid O(N) network
+    # bottlenecks for multimodal requests with multiple URLs.
+    media_types = list(_DISPATCH_POOL.map(detect_media_type, media_urls))
+
     has_video = "video" in media_types
 
     if has_video:
