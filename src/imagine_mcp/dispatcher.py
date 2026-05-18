@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from imagine_mcp.errors import (
@@ -45,6 +46,8 @@ _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
         "Use provider='gemini' for video understanding."
     ),
 }
+
+_DISPATCH_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="dispatch")
 
 
 def _validate_url(url: str, param: str) -> None:
@@ -128,7 +131,8 @@ def dispatch_understand(
     for i, u in enumerate(media_urls):
         _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    # Run media type detection concurrently to reduce latency from O(N) to O(1) network calls
+    media_types = list(_DISPATCH_POOL.map(detect_media_type, media_urls))
     has_video = "video" in media_types
 
     if has_video:
