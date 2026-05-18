@@ -145,6 +145,7 @@ def generate_image(
         payload["reference_image"] = data_url
 
     from imagine_mcp.media import get_ssrf_safe_client
+
     resp = get_ssrf_safe_client().post(
         f"{_BASE_URL}/images/generations",
         json=payload,
@@ -214,6 +215,7 @@ def generate_video(
             payload["source_image"] = data_url
 
         from imagine_mcp.media import get_ssrf_safe_client
+
         resp = get_ssrf_safe_client().post(
             f"{_BASE_URL}/videos/generations",
             json=payload,
@@ -237,6 +239,7 @@ def generate_video(
         }
 
     from imagine_mcp.media import get_ssrf_safe_client
+
     resp = get_ssrf_safe_client().get(
         f"{_BASE_URL}/videos/generations/{job_id}",
         headers=headers,
