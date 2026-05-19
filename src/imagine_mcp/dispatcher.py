@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from imagine_mcp.errors import (
@@ -14,6 +15,8 @@ from imagine_mcp.errors import (
 )
 from imagine_mcp.media import detect_media_type, validate_url_and_get_ip
 from imagine_mcp.models import UNSUPPORTED, get_model_id
+
+_DISPATCH_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="dispatch_pool")
 
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
@@ -128,7 +131,11 @@ def dispatch_understand(
     for i, u in enumerate(media_urls):
         _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    # Optimize network I/O: Concurrently detect media types (which may make HTTP HEAD requests).
+    # Wrapping the executor map result in list() evaluates the generator and ensures the first
+    # encountered exception is raised immediately for fail-fast error handling.
+    # Latency reduction: O(N) sequential network requests -> O(1) concurrent requests.
+    media_types = list(_DISPATCH_POOL.map(detect_media_type, media_urls))
     has_video = "video" in media_types
 
     if has_video:
