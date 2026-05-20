@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from imagine_mcp.errors import (
@@ -18,6 +19,8 @@ from imagine_mcp.models import UNSUPPORTED, get_model_id
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
 VALID_MEDIA_TYPES = ["image", "video"]
+
+_DISPATCH_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="dispatch_pool")
 
 # Auto-fallback priority when caller does not pin a provider. Order is
 # (XAI, OpenAI, Gemini): Gemini stays last because Google AI Studio
@@ -128,7 +131,10 @@ def dispatch_understand(
     for i, u in enumerate(media_urls):
         _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    # Optimization: Use concurrent ThreadPoolExecutor mapping to reduce network
+    # latency for media detection from O(N) to O(1) across multiple URLs.
+    # Wrapping in list() evaluates the generator and preserves fail-fast behavior.
+    media_types = list(_DISPATCH_POOL.map(detect_media_type, media_urls))
     has_video = "video" in media_types
 
     if has_video:
