@@ -556,6 +556,7 @@ dependencies = [
     { name = "fastmcp" },
     { name = "google-genai" },
     { name = "httpx" },
+    { name = "idna" },
     { name = "loguru" },
     { name = "mcp", extra = ["cli"] },
     { name = "n24q02m-mcp-core" },
@@ -564,6 +565,7 @@ dependencies = [
     { name = "platformdirs" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
+    { name = "urllib3" },
 ]
 
 [package.dev-dependencies]
@@ -587,6 +589,7 @@ requires-dist = [
     { name = "fastmcp", specifier = ">=0.4.1" },
     { name = "google-genai", specifier = ">=1.75.0" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "idna", specifier = ">=3.15" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.27.1" },
     { name = "n24q02m-mcp-core", specifier = ">=1.14.0" },
@@ -595,6 +598,7 @@ requires-dist = [
     { name = "platformdirs", specifier = ">=4.9.6" },
     { name = "pydantic", specifier = ">=2.12.5,<2.13" },
     { name = "pydantic-settings", specifier = ">=2.14.1" },
+    { name = "urllib3", specifier = ">=2.7.0" },
 ]
 
 [package.metadata.requires-dev]
