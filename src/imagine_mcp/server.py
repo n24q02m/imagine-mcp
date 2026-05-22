@@ -321,7 +321,7 @@ async def run_http(port: int = 0) -> None:
                 "MCP_DCR_SERVER_SECRET missing. Multi-user remote mode "
                 "requires the DCR secret."
             )
-        host = "0.0.0.0"
+        host = os.environ.get("MCP_HOST", "0.0.0.0")  # nosec B104
         port = int(os.environ.get("MCP_PORT", "8080"))
         mode_label = "http remote relay (multi-user)"
     else:

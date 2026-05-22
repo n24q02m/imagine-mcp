@@ -12,7 +12,6 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import httpx
 import platformdirs
 
 from imagine_mcp.config import settings
@@ -145,11 +144,14 @@ def generate_image(
         data_url = f"data:{mime_type};base64,{img_b64}"
         payload["reference_image"] = data_url
 
-    resp = httpx.post(
+    from imagine_mcp.media import get_ssrf_safe_client
+
+    resp = get_ssrf_safe_client().post(
         f"{_BASE_URL}/images/generations",
         json=payload,
         headers=headers,
         timeout=120,
+        follow_redirects=True,
     )
     if resp.status_code != 200:
         raise ProviderAPIError(
@@ -212,11 +214,14 @@ def generate_video(
             data_url = f"data:{mime_type};base64,{img_b64}"
             payload["source_image"] = data_url
 
-        resp = httpx.post(
+        from imagine_mcp.media import get_ssrf_safe_client
+
+        resp = get_ssrf_safe_client().post(
             f"{_BASE_URL}/videos/generations",
             json=payload,
             headers=headers,
             timeout=60,
+            follow_redirects=True,
         )
         if resp.status_code != 200:
             raise ProviderAPIError(
@@ -233,10 +238,13 @@ def generate_video(
             "tier": tier,
         }
 
-    resp = httpx.get(
+    from imagine_mcp.media import get_ssrf_safe_client
+
+    resp = get_ssrf_safe_client().get(
         f"{_BASE_URL}/videos/generations/{job_id}",
         headers=headers,
         timeout=30,
+        follow_redirects=True,
     )
     if resp.status_code != 200:
         raise ProviderAPIError(
