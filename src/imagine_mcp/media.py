@@ -79,7 +79,7 @@ def validate_url_and_get_ip(url: str, param: str) -> str:
         # to prevent DoS attacks via malicious DNS servers.
         # Note: parsed.port may be None, which is fine for getaddrinfo.
         future = _DNS_RESOLVER_POOL.submit(
-            socket.getaddrinfo, hostname, parsed.port, socket.AF_INET
+            socket.getaddrinfo, hostname, parsed.port, socket.AF_UNSPEC
         )
         # Short timeout to fail fast on tarpit DNS
         addr_info = future.result(timeout=2.0)
