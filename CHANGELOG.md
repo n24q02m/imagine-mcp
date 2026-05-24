@@ -2,6 +2,54 @@
 
 <!-- version list -->
 
+## v1.5.0-beta.1 (2026-05-24)
+
+### Bug Fixes
+
+- Add uv.lock security-floor guard test ([#139](https://github.com/n24q02m/imagine-mcp/pull/139),
+  [`8e6fb7b`](https://github.com/n24q02m/imagine-mcp/commit/8e6fb7ba58e1c903de0742b455153c335a1bb245))
+
+- Bump pinned CI action digests and add relay/entrypoint tests
+  ([#139](https://github.com/n24q02m/imagine-mcp/pull/139),
+  [`8e6fb7b`](https://github.com/n24q02m/imagine-mcp/commit/8e6fb7ba58e1c903de0742b455153c335a1bb245))
+
+- Patch dependency CVEs, bump CI action digests, add test coverage
+  ([#139](https://github.com/n24q02m/imagine-mcp/pull/139),
+  [`8e6fb7b`](https://github.com/n24q02m/imagine-mcp/commit/8e6fb7ba58e1c903de0742b455153c335a1bb245))
+
+- Pin urllib3 and idna floors to patch dependency CVEs
+  ([#139](https://github.com/n24q02m/imagine-mcp/pull/139),
+  [`8e6fb7b`](https://github.com/n24q02m/imagine-mcp/commit/8e6fb7ba58e1c903de0742b455153c335a1bb245))
+
+- Resolve SSRF vulnerability in Grok provider by using SSRFSafeTransport
+  ([#132](https://github.com/n24q02m/imagine-mcp/pull/132),
+  [`6288edc`](https://github.com/n24q02m/imagine-mcp/commit/6288edca4c2cd41cb7391a20a69f06389efdd3ba))
+
+- 🛡️ sentinel: support ipv6 resolution in ssrf filter
+  ([#147](https://github.com/n24q02m/imagine-mcp/pull/147),
+  [`b81b5cc`](https://github.com/n24q02m/imagine-mcp/commit/b81b5cca0b8b0258f52a95c6152b4983a0f8dda7))
+
+- **ci**: Add PR title check via amannn/action-semantic-pull-request
+  ([#108](https://github.com/n24q02m/imagine-mcp/pull/108),
+  [`3d0983f`](https://github.com/n24q02m/imagine-mcp/commit/3d0983f8c895b2a9531698e27a84254c439f72ef))
+
+- **deps**: Pin pydantic <2.13 for mcp-core 1.14.0 compatibility
+  ([#118](https://github.com/n24q02m/imagine-mcp/pull/118),
+  [`de818a7`](https://github.com/n24q02m/imagine-mcp/commit/de818a74e7221ed57cecaf87b81944185016b822))
+
+- **deps**: Update non-major dependencies ([#118](https://github.com/n24q02m/imagine-mcp/pull/118),
+  [`de818a7`](https://github.com/n24q02m/imagine-mcp/commit/de818a74e7221ed57cecaf87b81944185016b822))
+
+- **security**: Route Grok provider calls through SSRF-safe client and gate bind host
+  ([#132](https://github.com/n24q02m/imagine-mcp/pull/132),
+  [`6288edc`](https://github.com/n24q02m/imagine-mcp/commit/6288edca4c2cd41cb7391a20a69f06389efdd3ba))
+
+### Features
+
+- ⚡ bolt: optimize media type detection concurrency
+  ([`30ff068`](https://github.com/n24q02m/imagine-mcp/commit/30ff0688fd26ebf1c3b2ea61a9e3b0bfda3b0698))
+
+
 ## v1.4.0 (2026-05-09)
 
 
