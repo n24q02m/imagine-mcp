@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from imagine_mcp.errors import (
@@ -29,6 +30,8 @@ _DEFAULT_PROVIDER_PRIORITY: tuple[tuple[str, str], ...] = (
     ("OPENAI_API_KEY", "openai"),
     ("GEMINI_API_KEY", "gemini"),
 )
+
+_DISPATCH_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="dispatch")
 
 _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
     ("openai", "video", "understand"): (
@@ -125,10 +128,15 @@ def dispatch_understand(
     _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
+    # Keep URL validation sequential to preserve fail-fast error handling and
+    # prevent deadlocks with the nested _DNS_RESOLVER_POOL used for DNS resolution.
     for i, u in enumerate(media_urls):
         _validate_url(u, f"media_urls[{i}]")
 
-    media_types = [detect_media_type(u) for u in media_urls]
+    # Optimization: Use ThreadPoolExecutor to concurrently perform media type detection,
+    # reducing latency from O(N) sequential network calls to O(1) bounded concurrent calls.
+    # Wrapping in list() evaluates the generator, ensuring fail-fast behavior.
+    media_types = list(_DISPATCH_POOL.map(detect_media_type, media_urls))
     has_video = "video" in media_types
 
     if has_video:
