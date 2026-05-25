@@ -5,3 +5,7 @@
 ## 2024-05-18 - Optimize media type detection concurrency
 **Learning:** `detect_media_type` in `dispatch_understand` involves sequential network requests per media URL, resulting in O(N) latency. By replacing the list comprehension with `_DISPATCH_POOL.map` (using a `ThreadPoolExecutor`), we can reduce latency to O(1) bounded by max_workers. Wrapping `map` in `list()` is critical to evaluate the generator immediately and preserve fail-fast error handling. We also need to keep URL validation sequential to prevent deadlocks with nested thread pools (like `_DNS_RESOLVER_POOL`).
 **Action:** Use `ThreadPoolExecutor.map` wrapped in `list()` to efficiently resolve concurrent I/O operations and carefully manage nested thread pools to avoid deadlocks.
+
+## 2024-05-18 - Optimize redundant network I/O in Gemini multi-URL processing
+**Learning:** In the `understand_multimodal` function of the Gemini provider, calculating `detect_media_type` for every URL redundantly duplicated the work already concurrently performed by `dispatch_understand` in the dispatcher. This led to O(N) sequential HTTP HEAD requests, creating a performance bottleneck for multi-URL prompts. By passing the pre-calculated `media_types` array from the dispatcher down to the provider, we converted this O(N) penalty into an O(1) bounded operation.
+**Action:** When a dispatcher or upstream caller computes expensive metadata (like media types) to make routing decisions, pass that pre-calculated data down to the provider to avoid duplicating expensive network requests.

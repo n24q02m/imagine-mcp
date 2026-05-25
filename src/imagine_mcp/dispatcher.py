@@ -148,7 +148,10 @@ def dispatch_understand(
 
     # Gemini native multimodal can accept many URLs in one call
     if provider == "gemini" and len(media_urls) > 1:
-        return mod.understand_multimodal(media_urls, prompt, tier, max_tokens)
+        # Pass pre-computed media_types to prevent redundant network I/O in the provider
+        return mod.understand_multimodal(
+            media_urls, prompt, tier, max_tokens, media_types=media_types
+        )
 
     url = media_urls[0]
     primary = media_types[0]
