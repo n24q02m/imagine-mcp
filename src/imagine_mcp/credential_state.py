@@ -81,7 +81,11 @@ def credentials_for_current_request() -> dict[str, str]:
     """
     sub = _current_sub.get()
     if sub is None:
-        return {k: v for k, v in os.environ.items() if k in CLOUD_KEYS and v}
+        # Performance optimization:
+        # Avoid O(N) iteration over os.environ.items() by iterating directly
+        # over the bounded O(1) CLOUD_KEYS. This reduces latency significantly
+        # when the environment has many variables.
+        return {k: v for k in CLOUD_KEYS if (v := os.environ.get(k))}
     return read_for_sub(sub)
 
 

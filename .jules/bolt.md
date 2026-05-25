@@ -9,3 +9,7 @@
 ## 2024-05-18 - Optimize redundant network I/O in Gemini multi-URL processing
 **Learning:** In the `understand_multimodal` function of the Gemini provider, calculating `detect_media_type` for every URL redundantly duplicated the work already concurrently performed by `dispatch_understand` in the dispatcher. This led to O(N) sequential HTTP HEAD requests, creating a performance bottleneck for multi-URL prompts. By passing the pre-calculated `media_types` array from the dispatcher down to the provider, we converted this O(N) penalty into an O(1) bounded operation.
 **Action:** When a dispatcher or upstream caller computes expensive metadata (like media types) to make routing decisions, pass that pre-calculated data down to the provider to avoid duplicating expensive network requests.
+
+## 2024-05-18 - Optimize environment variable iteration
+**Learning:** `credentials_for_current_request` iteratively read over `os.environ.items()`, which scales with the total number of environment variables O(N). Because we only need `CLOUD_KEYS`, which is bounded, we can retrieve them directly `os.environ.get(k)`, making it O(1).
+**Action:** When extracting a subset of known keys from a large dict or environment, iterate over the known keys rather than filtering the entire mapping.
