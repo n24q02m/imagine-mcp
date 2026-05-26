@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import os
+import urllib.parse
 import uuid
 from pathlib import Path
 from typing import Any
@@ -240,8 +241,9 @@ def generate_video(
 
     from imagine_mcp.media import get_ssrf_safe_client
 
+    safe_job_id = urllib.parse.quote(job_id, safe="")
     resp = get_ssrf_safe_client().get(
-        f"{_BASE_URL}/videos/generations/{job_id}",
+        f"{_BASE_URL}/videos/generations/{safe_job_id}",
         headers=headers,
         timeout=30,
         follow_redirects=True,
