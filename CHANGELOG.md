@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.0-beta.3 (2026-05-26)
+
+### Features
+
+- Wire MCP_AUTH_DISABLE env to run_http_server(auth_disabled=)
+  ([`79ae89d`](https://github.com/n24q02m/imagine-mcp/commit/79ae89d22a3f406c8d9eab37d0db258542e54828))
+
+
 ## v1.5.0-beta.2 (2026-05-26)
 
 ### Features
