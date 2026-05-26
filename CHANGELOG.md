@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.0-beta.2 (2026-05-26)
+
+### Features
+
+- Add MCP_AUTH_DISABLE env flag for external auth boundary
+  ([`053ab6e`](https://github.com/n24q02m/imagine-mcp/commit/053ab6e0a32f41dd0e65b0a5ada7e3af60fbfa5e))
+
+
 ## v1.5.0-beta.1 (2026-05-24)
 
 ### Bug Fixes
