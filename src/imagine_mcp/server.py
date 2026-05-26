@@ -330,6 +330,12 @@ async def run_http(port: int = 0) -> None:
 
     app = build_app()
     logger.info("imagine-mcp {} starting ({})", _get_version(), mode_label)
+    # MCP_AUTH_DISABLE=1 skips Bearer JWT verification on /mcp -- for
+    # deployments behind an external auth boundary (reverse proxy / API
+    # gateway) that already enforces authentication. See mcp-core
+    # BearerMCPApp.auth_disabled (mcp-core >=1.15.0-beta.3).
+    auth_disabled = os.environ.get("MCP_AUTH_DISABLE") == "1"
+
     await run_http_server(
         app,
         server_name="imagine-mcp",
@@ -339,6 +345,7 @@ async def run_http(port: int = 0) -> None:
         open_browser=not public_url,
         on_credentials_saved=save_credentials,
         auth_scope=_per_request_sub_scope if public_url else None,
+        auth_disabled=auth_disabled,
     )
 
 
