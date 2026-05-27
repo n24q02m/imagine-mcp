@@ -17,3 +17,8 @@ def reset_clients():
 
     if hasattr(openai, "_CLIENT"):
         openai._CLIENT = None
+
+@pytest.fixture(autouse=True)
+def reset_contextvars():
+    from imagine_mcp.credential_state import _request_creds
+    _request_creds.set(None)

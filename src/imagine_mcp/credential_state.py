@@ -49,6 +49,12 @@ _current_sub: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "imagine_current_sub", default=None
 )
 
+# Request-scoped cache for resolved credentials to avoid repeated disk reads,
+# decryption, and JSON parsing during a single tool execution.
+_request_creds: contextvars.ContextVar[dict[str, str] | None] = contextvars.ContextVar(
+    "imagine_request_creds", default=None
+)
+
 
 def set_current_sub(sub: str | None) -> None:
     """Set the JWT sub for the current request scope (testing helper).
@@ -58,6 +64,7 @@ def set_current_sub(sub: str | None) -> None:
     ``finally`` block.
     """
     _current_sub.set(sub)
+    _request_creds.set(None)
 
 
 def get_current_sub() -> str | None:
@@ -79,14 +86,22 @@ def credentials_for_current_request() -> dict[str, str]:
     Returns a dict mapping ``CLOUD_KEYS`` -> value. Missing/empty keys are
     omitted so callers can use ``mapping.get(K)`` safely.
     """
+    cached = _request_creds.get()
+    if cached is not None:
+        return cached
+
     sub = _current_sub.get()
     if sub is None:
         # Performance optimization:
         # Avoid O(N) iteration over os.environ.items() by iterating directly
         # over the bounded O(1) CLOUD_KEYS. This reduces latency significantly
         # when the environment has many variables.
-        return {k: v for k in CLOUD_KEYS if (v := os.environ.get(k))}
-    return read_for_sub(sub)
+        res = {k: v for k in CLOUD_KEYS if (v := os.environ.get(k))}
+    else:
+        res = read_for_sub(sub)
+
+    _request_creds.set(res)
+    return res
 
 
 def _is_http() -> bool:
