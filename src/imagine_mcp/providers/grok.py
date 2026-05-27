@@ -238,10 +238,13 @@ def generate_video(
             "tier": tier,
         }
 
+    import urllib.parse
+    safe_job_id = urllib.parse.quote(job_id, safe='')
+
     from imagine_mcp.media import get_ssrf_safe_client
 
     resp = get_ssrf_safe_client().get(
-        f"{_BASE_URL}/videos/generations/{job_id}",
+        f"{_BASE_URL}/videos/generations/{safe_job_id}",
         headers=headers,
         timeout=30,
         follow_redirects=True,
