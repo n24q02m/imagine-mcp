@@ -281,13 +281,15 @@ async def _per_request_sub_scope(claims: dict[str, Any], next_: Any) -> None:
     a token that we ``reset()`` in ``finally`` so a request that errors out
     cannot leak its sub into the next request handled by the same task.
     """
-    from imagine_mcp.credential_state import _current_sub
+    from imagine_mcp.credential_state import _current_sub, _request_creds
 
-    token = _current_sub.set(claims.get("sub"))
+    token_sub = _current_sub.set(claims.get("sub"))
+    token_creds = _request_creds.set(None)
     try:
         await next_()
     finally:
-        _current_sub.reset(token)
+        _current_sub.reset(token_sub)
+        _request_creds.reset(token_creds)
 
 
 async def run_http(port: int = 0) -> None:
