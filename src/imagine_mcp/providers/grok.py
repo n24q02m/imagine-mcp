@@ -239,7 +239,8 @@ def generate_video(
         }
 
     import urllib.parse
-    safe_job_id = urllib.parse.quote(job_id, safe='')
+
+    safe_job_id = urllib.parse.quote(job_id, safe="")
 
     from imagine_mcp.media import get_ssrf_safe_client
 
