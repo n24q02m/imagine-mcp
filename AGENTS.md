@@ -50,8 +50,8 @@ For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/model
 | grok | understand | image | poor | `grok-4.20-0309-non-reasoning` |
 | grok | understand | image | rich | `grok-4.20-0309-reasoning` |
 | grok | understand | video | — | Not supported (prod 4.20-0309-v2 image-only) |
-| grok | generate | image | poor | `grok-imagine-image` (Aurora) |
-| grok | generate | image | rich | `grok-imagine-image-pro` |
+| grok | generate | image | poor | `flux-schnell` (Flux.1 [schnell]) |
+| grok | generate | image | rich | `flux-pro` (Flux.1 [pro]) |
 | grok | generate | video | — | `grok-imagine-video` (single-tier) |
 
 ## Transport modes

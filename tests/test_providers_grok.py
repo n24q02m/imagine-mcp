@@ -45,3 +45,56 @@ def test_understand_image_mocked(
     assert result["text"] == "a parrot"
     assert result["model"] == "grok-4.20-0309-reasoning"
     assert result["provider"] == "grok"
+
+
+def test_generate_image_mocked(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "data": [{"url": "https://example.com/flux.png"}]
+    }
+
+    def mock_get_ssrf_safe_client():
+        c = MagicMock()
+        c.post.return_value = mock_resp
+        c.get.return_value = MagicMock(content=b"fake-bytes")
+        return c
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", mock_get_ssrf_safe_client)
+    monkeypatch.setattr(provider, "_api_key", lambda: "fake-key")
+
+    result = provider.generate_image(prompt="a sunset", tier="poor")
+    assert result["model"] == "flux-schnell"
+    assert "image_path" in result
+    assert result["provider"] == "grok"
+
+
+def test_generate_image_edit_mocked(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        "url": "https://example.com/flux-edit.png"
+    }
+
+    def mock_get_ssrf_safe_client():
+        c = MagicMock()
+        c.post.return_value = mock_resp
+        # GET for the reference image and then GET for the generated image
+        c.get.return_value = MagicMock(content=b"fake-bytes")
+        return c
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", mock_get_ssrf_safe_client)
+    monkeypatch.setattr(provider, "_api_key", lambda: "fake-key")
+
+    result = provider.generate_image(
+        prompt="make it blue",
+        tier="rich",
+        reference_image_url="https://example.com/orig.png"
+    )
+    assert result["model"] == "flux-pro"
+    assert "image_path" in result
+    assert result["provider"] == "grok"
