@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import concurrent.futures
 import ipaddress
 import os
 import socket
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
@@ -16,7 +16,7 @@ from imagine_mcp.errors import InvalidURLError, MediaDetectError
 
 MediaType = Literal["image", "video"]
 
-_DNS_RESOLVER_POOL = concurrent.futures.ThreadPoolExecutor(
+_DNS_RESOLVER_POOL = ThreadPoolExecutor(
     max_workers=4, thread_name_prefix="dns_resolver"
 )
 
@@ -105,7 +105,7 @@ def validate_url_and_get_ip(url: str, param: str) -> str:
 
         raise InvalidURLError(f"Invalid {param}: No valid IP found for {hostname!r}.")
 
-    except concurrent.futures.TimeoutError as e:
+    except TimeoutError as e:
         raise InvalidURLError(
             f"Invalid {param}: DNS resolution timed out for {hostname!r}."
         ) from e
