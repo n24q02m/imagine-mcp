@@ -74,12 +74,6 @@ def _openai_compat_client() -> Any:
     return _CLIENT
 
 
-def _reset_client() -> None:
-    global _CLIENT
-    _CLIENT = None
-    _SUB_CLIENTS.clear()
-
-
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
