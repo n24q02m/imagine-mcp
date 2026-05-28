@@ -32,15 +32,12 @@ import sys
 
 from mcp_core.storage.per_plugin_store import PerPluginStore
 
+from imagine_mcp.config import PROVIDER_TO_KEY
+
 PLUGIN_NAME = "imagine"
 
-# Cloud provider API keys; mirrors ``relay_setup.CREDENTIAL_KEYS`` and the
-# rename to GEMINI_API_KEY (was GOOGLE_AI_STUDIO_API_KEY) finalised 2026-04-26.
-CLOUD_KEYS: tuple[str, ...] = (
-    "XAI_API_KEY",
-    "OPENAI_API_KEY",
-    "GEMINI_API_KEY",
-)
+# Cloud provider API keys; derived from config.PROVIDER_TO_KEY.
+CLOUD_KEYS: tuple[str, ...] = tuple(PROVIDER_TO_KEY.values())
 
 # Per-request JWT sub. Set by ``auth_scope`` middleware in HTTP multi-user
 # mode; ``None`` in stdio + single-user HTTP. ContextVar is asyncio-safe and

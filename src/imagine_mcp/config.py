@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Mapping of provider names to their respective API key environment variable names.
+PROVIDER_TO_KEY: Final[dict[str, str]] = {
+    "grok": "XAI_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+}
 
 
 class Settings(BaseSettings):
@@ -30,6 +37,13 @@ class Settings(BaseSettings):
     default_tier: Literal["poor", "rich"] = Field(default="poor")
     poll_timeout_seconds: int = Field(default=300, ge=1, le=3600)
     max_media_urls: int = Field(default=5, ge=1, le=20)
+
+    # Auto-fallback priority when caller does not pin a provider. Order is
+    # (XAI, OpenAI, Gemini): Gemini stays last because Google AI Studio
+    # accounts can be billing-locked at the org level (403 PERMISSION_DENIED
+    # on every :generateContent call) without warning, so we prefer keys
+    # that are less prone to silent revocation.
+    provider_priority: list[str] = Field(default=["grok", "openai", "gemini"])
 
 
 settings = Settings()

@@ -6,6 +6,7 @@ import importlib
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
+from imagine_mcp.config import PROVIDER_TO_KEY, settings
 from imagine_mcp.errors import (
     CredentialMissingError,
     InvalidMediaTypeError,
@@ -19,17 +20,6 @@ from imagine_mcp.models import UNSUPPORTED, get_model_id
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
 VALID_MEDIA_TYPES = ["image", "video"]
-
-# Auto-fallback priority when caller does not pin a provider. Order is
-# (XAI, OpenAI, Gemini): Gemini stays last because Google AI Studio
-# accounts can be billing-locked at the org level (403 PERMISSION_DENIED
-# on every :generateContent call) without warning, so we prefer keys
-# that are less prone to silent revocation.
-_DEFAULT_PROVIDER_PRIORITY: tuple[tuple[str, str], ...] = (
-    ("XAI_API_KEY", "grok"),
-    ("OPENAI_API_KEY", "openai"),
-    ("GEMINI_API_KEY", "gemini"),
-)
 
 _DISPATCH_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="dispatch")
 
@@ -71,7 +61,7 @@ def _validate(provider: str, tier: str) -> None:
 def _default_provider() -> str:
     """Return the first provider whose API key is present for this request.
 
-    Resolution order: XAI_API_KEY -> OPENAI_API_KEY -> GEMINI_API_KEY.
+    Resolution order defined in ``settings.provider_priority``.
 
     Single-user / stdio path: reads ``os.environ`` (credentials saved via the
     relay form / config.enc are written back into ``os.environ`` by
@@ -89,10 +79,12 @@ def _default_provider() -> str:
     from imagine_mcp.credential_state import credentials_for_current_request
 
     creds = credentials_for_current_request()
-    for env_var, provider in _DEFAULT_PROVIDER_PRIORITY:
-        if creds.get(env_var):
+    for provider in settings.provider_priority:
+        env_var = PROVIDER_TO_KEY.get(provider)
+        if env_var and creds.get(env_var):
             return provider
-    keys = ", ".join(env for env, _ in _DEFAULT_PROVIDER_PRIORITY)
+
+    keys = ", ".join(PROVIDER_TO_KEY.values())
     raise CredentialMissingError(
         "No provider API key configured. Set one of: "
         f"{keys}, or run config(action='open_relay') to configure via browser."

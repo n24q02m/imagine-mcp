@@ -12,13 +12,11 @@ from typing import Any
 from loguru import logger
 from mcp_core.storage.per_plugin_store import PerPluginStore
 
+from imagine_mcp.config import PROVIDER_TO_KEY
+
 SERVER_NAME = "imagine-mcp"
 PLUGIN_NAME = "imagine"
-CREDENTIAL_KEYS: list[str] = [
-    "GEMINI_API_KEY",
-    "OPENAI_API_KEY",
-    "XAI_API_KEY",
-]
+CREDENTIAL_KEYS: list[str] = list(PROVIDER_TO_KEY.values())
 
 # 5 minutes: user needs time to copy URL, open browser, fill up to 3 keys
 RELAY_TIMEOUT_S = 300.0
