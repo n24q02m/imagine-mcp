@@ -1,4 +1,4 @@
-"""Gemini provider -- all 4 actions LIVE using google-genai SDK."""
+"""Gemini provider -- all 6 actions LIVE using google-genai SDK."""
 
 from __future__ import annotations
 
@@ -316,3 +316,13 @@ def generate_video(
         "provider": "gemini",
         "tier": tier,
     }
+
+
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """Gemini image edit: proxy to generate_image with reference_image_url."""
+    return generate_image(prompt=prompt, tier=tier, reference_image_url=image_url)
+
+
+def video_status(tier: str, job_id: str) -> dict[str, Any]:
+    """Veo video status polling: proxy to generate_video with job_id."""
+    return generate_video(prompt="", tier=tier, job_id=job_id)

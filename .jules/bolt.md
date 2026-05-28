@@ -16,3 +16,7 @@
 ## 2026-05-27 - Request-Scoped ContextVar Caching for I/O Heavy Credentials
 **Learning:** In a multi-user HTTP architecture where credentials are encrypted and stored per user (sub), resolving credentials via `PerPluginStore.load()` triggered expensive file reads, AES-GCM decryption, and JSON parsing on *every* API lookup (e.g. `_default_provider`, `_api_key`). Caching this lookup on a per-request basis using `contextvars.ContextVar` eliminates these redundant operations. However, because `ContextVar` instances inherit state in sequentially executed asyncio test tasks (running in the same OS thread), the cache must be explicitly reset using an `autouse=True` fixture in `conftest.py` to prevent state leakage and isolated test failures.
 **Action:** Use `contextvars.ContextVar` for request-scoped caching to eliminate redundant disk/crypto operations per API request. When doing so, always ensure test suites have an `autouse` fixture to manually reset the contextvar to maintain test isolation.
+## 2026-05-20 - Proxy-based implementation for specialized provider actions
+**Context:** The Gemini provider had TODOs for image editing and video status polling.
+**Optimization:** Instead of implementing new logic, these were implemented as thin proxies to `generate_image` (with `reference_image_url`) and `generate_video` (with `job_id`).
+**Impact:** Reduces code duplication and ensures consistent behavior across tools while satisfying the `ImagineProvider` protocol.
