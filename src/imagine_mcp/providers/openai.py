@@ -24,6 +24,49 @@ _CLIENT: Any = None
 _SUB_CLIENTS: dict[str, Any] = {}
 
 
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """OpenAI image edit (DALL-E 2)."""
+    from imagine_mcp.media import get_ssrf_safe_client
+
+    img_bytes = (
+        get_ssrf_safe_client().get(image_url, follow_redirects=True, timeout=60).content
+    )
+
+    # DALL-E 2 is the primary model for SDK edit() calls
+    model = "dall-e-2"
+    resp = _client().images.edit(
+        model=model,
+        image=img_bytes,
+        prompt=prompt,
+        n=1,
+        size="1024x1024",
+        response_format="b64_json",
+    )
+
+    img_b64 = resp.data[0].b64_json
+    if not img_b64:
+        raise ProviderAPIError("OpenAI returned no image", status_code=500)
+    img_bytes_out = base64.b64decode(img_b64)
+
+    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{uuid.uuid4().hex}.png"
+    out_path.write_bytes(img_bytes_out)
+
+    return {
+        "image_path": str(out_path),
+        "image_base64": img_b64,
+        "model": model,
+        "provider": "openai",
+        "tier": tier,
+    }
+
+
+def video_status(tier: str, job_id: str) -> dict[str, Any]:
+    """OpenAI video status (unsupported)."""
+    return generate_video("", tier, job_id=job_id)
+
+
 def _resolve_api_key() -> str | None:
     """Return OPENAI_API_KEY for the current request scope (per-sub or env)."""
     from imagine_mcp.credential_state import (
@@ -125,23 +168,14 @@ def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
+    if reference_image_url:
+        return edit(tier, reference_image_url, prompt)
+
     model = get_model_id("openai", "generate", "image", tier)
     size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
     size = size_map.get(aspect_ratio, "1024x1024")
 
-    if reference_image_url:
-        from imagine_mcp.media import get_ssrf_safe_client
-
-        img_bytes = (
-            get_ssrf_safe_client()
-            .get(reference_image_url, follow_redirects=True, timeout=60)
-            .content
-        )
-        resp = _client().images.edit(
-            model=model, image=img_bytes, prompt=prompt, size=size
-        )
-    else:
-        resp = _client().images.generate(model=model, prompt=prompt, size=size, n=1)
+    resp = _client().images.generate(model=model, prompt=prompt, size=size, n=1)
 
     img_b64 = resp.data[0].b64_json
     if not img_b64:
