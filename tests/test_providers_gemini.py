@@ -72,3 +72,55 @@ def test_understand_image_live() -> None:
         tier="poor",
     )
     assert "cat" in result["text"].lower()
+
+
+def test_understand_multimodal_mocked(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_client = MagicMock()
+    fake_response = MagicMock()
+    fake_response.text = "mixed content description"
+    fake_client.models.generate_content.return_value = fake_response
+    fake_client.files.upload.return_value = MagicMock(name="fake_gfile")
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    # Mock detect_media_type to return image for .png and video for .mp4
+    def mock_detect(url):
+        return "video" if url.endswith(".mp4") else "image"
+
+    monkeypatch.setattr("imagine_mcp.media.detect_media_type", mock_detect)
+
+    result = gemini.understand_multimodal(
+        urls=["https://example.com/a.png", "https://example.com/b.mp4"],
+        prompt="describe both",
+        tier="rich",
+    )
+    assert result["text"] == "mixed content description"
+    assert result["multimodal"] is True
+    assert result["tier"] == "rich"
+    assert fake_client.files.upload.called
+
+
+def test_understand_multimodal_with_media_types_mocked(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_client = MagicMock()
+    fake_response = MagicMock()
+    fake_response.text = "optimized mixed content description"
+    fake_client.models.generate_content.return_value = fake_response
+    fake_client.files.upload.return_value = MagicMock(name="fake_gfile")
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    # We don't mock detect_media_type here to ensure it's NOT called
+    mock_detect = MagicMock()
+    monkeypatch.setattr("imagine_mcp.media.detect_media_type", mock_detect)
+
+    result = gemini.understand_multimodal(
+        urls=["https://example.com/a.png", "https://example.com/b.mp4"],
+        prompt="describe both",
+        tier="rich",
+        media_types=["image", "video"],
+    )
+    assert result["text"] == "optimized mixed content description"
+    assert not mock_detect.called
+    assert fake_client.files.upload.called
