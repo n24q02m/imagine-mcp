@@ -81,3 +81,23 @@ def test_extract_extension() -> None:
     assert _extract_extension("https://example.com/foo.PNG") == ".png"
     assert _extract_extension("https://example.com/foo.mp4?q=1") == ".mp4"
     assert _extract_extension("https://example.com/foo") == ""
+
+
+def test_download_as_data_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    from imagine_mcp.media import download_as_data_url
+
+    mock_response = MagicMock()
+    mock_response.content = b"fake-image-content"
+    mock_response.headers = {"content-type": "image/png"}
+    mock_response.raise_for_status = MagicMock()
+
+    class MockClient:
+        def get(self, url, **kw):
+            return mock_response
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+
+    data_url = download_as_data_url("https://example.com/image.png")
+    assert data_url.startswith("data:image/png;base64,")
+    # b64encode(b"fake-image-content") -> ZmFrZS1pbWFnZS1jb250ZW50
+    assert "ZmFrZS1pbWFnZS1jb250ZW50" in data_url

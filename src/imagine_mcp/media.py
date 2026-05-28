@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import concurrent.futures
 import ipaddress
 import os
@@ -179,3 +180,12 @@ def download_to_path(url: str, dest: Path) -> Path:
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
     return dest
+
+
+def download_as_data_url(url: str, timeout: int = 60) -> str:
+    """Download image securely and return as base64 data URL."""
+    resp = get_ssrf_safe_client().get(url, follow_redirects=True, timeout=timeout)
+    resp.raise_for_status()
+    img_b64 = base64.b64encode(resp.content).decode()
+    mime_type = resp.headers.get("content-type", "image/png")
+    return f"data:{mime_type};base64,{img_b64}"
