@@ -213,14 +213,19 @@ def parse_leaderboard(url: str, html: str) -> list[LBRow]:
 
 def merge_ranks(rows_aa: list[LBRow], rows_lmarena: list[LBRow]) -> dict[str, int]:
     """Return {canonical_model_id: quality_rank} using min(rank_aa, rank_lmarena)."""
+    # Performance optimization: Convert lists to dicts for O(1) lookups.
+    # This reduces time complexity from O(N^2) to O(N).
+    aa_ranks = {r.model_id: r.rank for r in rows_aa}
+    lm_ranks = {r.model_id: r.rank for r in rows_lmarena}
+
+    all_ids = set(aa_ranks.keys()) | set(lm_ranks.keys())
     result: dict[str, int] = {}
-    all_ids = {r.model_id for r in rows_aa} | {r.model_id for r in rows_lmarena}
     for model_id in all_ids:
         ranks: list[int] = []
-        for rows in (rows_aa, rows_lmarena):
-            match = next((r for r in rows if r.model_id == model_id), None)
-            if match:
-                ranks.append(match.rank)
+        if (r_aa := aa_ranks.get(model_id)) is not None:
+            ranks.append(r_aa)
+        if (r_lm := lm_ranks.get(model_id)) is not None:
+            ranks.append(r_lm)
         result[model_id] = min(ranks) if ranks else 999
     return result
 
