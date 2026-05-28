@@ -126,3 +126,35 @@ def test_default_provider_for_rank_1() -> None:
 def test_default_provider_fallback_when_only_unsupported() -> None:
     # openai has UNSUPPORTED for video understand; default_provider should fall back to gemini
     assert default_provider_for("understand", "video", "poor") == "gemini"
+
+
+def test_list_models_sorted_by_provider() -> None:
+    group = list_models(
+        filter_fn=lambda e: (
+            e.action == "understand" and e.media == "image" and e.tier == "poor"
+        ),
+        sort_by="provider",
+    )
+    providers = [e.provider for e in group]
+    # Providers are gemini, openai, grok. Alphabetical: gemini, grok, openai.
+    assert providers == sorted(providers)
+    assert providers == ["gemini", "grok", "openai"]
+
+
+def test_list_models_sorted_by_cost() -> None:
+    # generate.video.poor has gemini (low) and grok (medium).
+    # openai is also low but UNSUPPORTED, so we filter it out to see the sort.
+    group = list_models(
+        filter_fn=lambda e: (
+            e.action == "generate"
+            and e.media == "video"
+            and e.tier == "poor"
+            and e.model_id is not UNSUPPORTED
+        ),
+        sort_by="cost",
+    )
+    costs = [e.cost_tier for e in group]
+    cost_order = {"low": 0, "medium": 1, "high": 2}
+    cost_values = [cost_order[c] for c in costs]
+    assert cost_values == sorted(cost_values)
+    assert costs == ["low", "medium"]
