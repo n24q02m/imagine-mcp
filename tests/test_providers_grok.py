@@ -45,3 +45,42 @@ def test_understand_image_mocked(
     assert result["text"] == "a parrot"
     assert result["model"] == "grok-4.20-0309-reasoning"
     assert result["provider"] == "grok"
+
+
+def test_edit_proxies_to_generate_image(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+
+    def mock_generate_image(prompt, tier, reference_image_url):
+        calls.append((prompt, tier, reference_image_url))
+        return {"status": "ok"}
+
+    monkeypatch.setattr(provider, "generate_image", mock_generate_image)
+
+    result = provider.edit(
+        tier="rich", image_url="https://example.com/img.png", prompt="make it blue"
+    )
+    assert result == {"status": "ok"}
+    assert calls == [("make it blue", "rich", "https://example.com/img.png")]
+
+
+def test_video_status_proxies_to_generate_video(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+
+    def mock_generate_video(
+        prompt,
+        tier,
+        reference_image_url=None,
+        job_id=None,
+        aspect_ratio="16:9",
+        duration_seconds=8,
+    ):
+        calls.append((prompt, tier, job_id))
+        return {"status": "pending"}
+
+    monkeypatch.setattr(provider, "generate_video", mock_generate_video)
+
+    result = provider.video_status(tier="poor", job_id="job-123")
+    assert result == {"status": "pending"}
+    assert calls == [("", "poor", "job-123")]
