@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import os
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -54,6 +56,54 @@ def test_understand_video_mocked(
     )
     assert result["text"] == "a cat jumping"
     assert result["model"] == "gemini-3.1-pro-preview"
+
+
+def test_generate_image_mocked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    fake_response = MagicMock()
+    fake_part = MagicMock()
+    fake_part.inline_data.data = b"fake-generated-image"
+    fake_response.candidates = [MagicMock()]
+    fake_response.candidates[0].content.parts = [fake_part]
+    fake_client.models.generate_content.return_value = fake_response
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+    monkeypatch.setattr("platformdirs.user_cache_dir", lambda _: str(tmp_path))
+
+    result = gemini.generate_image(prompt="a sunset", tier="poor")
+
+    assert "fake-generated-image" in base64.b64decode(result["image_base64"]).decode()
+    assert result["model"] == "gemini-3.1-flash-image-preview"
+    assert result["provider"] == "gemini"
+    assert result["tier"] == "poor"
+    assert Path(result["image_path"]).exists()
+
+
+def test_generate_image_with_reference_mocked(
+    mock_media_fetch: None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_client = MagicMock()
+    fake_response = MagicMock()
+    fake_part = MagicMock()
+    fake_part.inline_data.data = b"fake-generated-image-ref"
+    fake_response.candidates = [MagicMock()]
+    fake_response.candidates[0].content.parts = [fake_part]
+    fake_client.models.generate_content.return_value = fake_response
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+    monkeypatch.setattr("platformdirs.user_cache_dir", lambda _: str(tmp_path))
+
+    result = gemini.generate_image(
+        prompt="a sunset like this",
+        tier="rich",
+        reference_image_url="https://example.com/ref.png",
+    )
+
+    assert (
+        "fake-generated-image-ref" in base64.b64decode(result["image_base64"]).decode()
+    )
+    assert result["model"] == "gemini-3-pro-image-preview"
+    assert result["provider"] == "gemini"
+    assert result["tier"] == "rich"
+    assert Path(result["image_path"]).exists()
 
 
 @pytest.mark.live
