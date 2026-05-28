@@ -114,6 +114,79 @@ def understand_image(
     }
 
 
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """Edit an existing image using xAI /v1/images/edits."""
+    from imagine_mcp.media import get_ssrf_safe_client
+
+    model = get_model_id("grok", "generate", "image", tier)
+    headers = {"Authorization": f"Bearer {_api_key()}"}
+
+    # Download image securely and pass as base64 data URL to prevent backend SSRF
+    resp_img = get_ssrf_safe_client().get(image_url, follow_redirects=True, timeout=60)
+    img_b64 = base64.b64encode(resp_img.content).decode()
+    mime_type = resp_img.headers.get("content-type", "image/png")
+    data_url = f"data:{mime_type};base64,{img_b64}"
+
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "image": {"url": data_url, "type": "image_url"},
+    }
+
+    resp = get_ssrf_safe_client().post(
+        f"{_BASE_URL}/images/edits",
+        json=payload,
+        headers=headers,
+        timeout=120,
+        follow_redirects=True,
+    )
+    if resp.status_code != 200:
+        raise ProviderAPIError(
+            f"Grok image edit failed: {resp.text}",
+            status_code=resp.status_code,
+        )
+
+    data = resp.json()
+    # Handle both {data: [{url: ...}]} and {url: ...} formats
+    img_url = None
+    img_b64 = None
+    if data.get("data"):
+        img_b64 = data["data"][0].get("b64_json")
+        if not img_b64:
+            img_url = data["data"][0].get("url")
+    else:
+        img_url = data.get("url")
+
+    if not img_b64 and img_url:
+        img_b64 = base64.b64encode(
+            get_ssrf_safe_client()
+            .get(img_url, follow_redirects=True, timeout=60)
+            .content
+        ).decode()
+
+    if not img_b64:
+        raise ProviderAPIError(f"Grok edit returned no image: {data}", status_code=500)
+
+    img_bytes = base64.b64decode(img_b64)
+    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{uuid.uuid4().hex}.png"
+    out_path.write_bytes(img_bytes)
+
+    return {
+        "image_path": str(out_path),
+        "image_base64": img_b64,
+        "model": model,
+        "provider": "grok",
+        "tier": tier,
+    }
+
+
+def video_status(tier: str, job_id: str) -> dict[str, Any]:
+    """Poll for video status (proxy for generate_video with job_id)."""
+    return generate_video(prompt="", tier=tier, job_id=job_id)
+
+
 def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
