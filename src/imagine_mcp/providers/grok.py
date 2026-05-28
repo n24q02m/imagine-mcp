@@ -16,11 +16,16 @@ from typing import Any
 import platformdirs
 
 from imagine_mcp.config import settings
+from imagine_mcp.credential_state import (
+    credentials_for_current_request,
+    get_current_sub,
+)
 from imagine_mcp.errors import (
     CredentialMissingError,
     ProviderAPIError,
     ProviderUnsupportedError,
 )
+from imagine_mcp.media import get_ssrf_safe_client
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
@@ -35,11 +40,6 @@ def _api_key() -> str:
     Multi-user HTTP requests pull from the per-sub config; single-user /
     stdio falls back to settings + os.environ.
     """
-    from imagine_mcp.credential_state import (
-        credentials_for_current_request,
-        get_current_sub,
-    )
-
     if get_current_sub() is not None:
         key = credentials_for_current_request().get("XAI_API_KEY")
     else:
@@ -54,8 +54,6 @@ def _api_key() -> str:
 
 def _openai_compat_client() -> Any:
     global _CLIENT
-    from imagine_mcp.credential_state import get_current_sub
-
     sub = get_current_sub()
     if sub is not None:
         cached = _SUB_CLIENTS.get(sub)
@@ -63,14 +61,22 @@ def _openai_compat_client() -> Any:
             return cached
         from openai import OpenAI
 
-        client = OpenAI(api_key=_api_key(), base_url=_BASE_URL)
+        client = OpenAI(
+            api_key=_api_key(),
+            base_url=_BASE_URL,
+            http_client=get_ssrf_safe_client(),
+        )
         _SUB_CLIENTS[sub] = client
         return client
 
     if _CLIENT is None:
         from openai import OpenAI
 
-        _CLIENT = OpenAI(api_key=_api_key(), base_url=_BASE_URL)
+        _CLIENT = OpenAI(
+            api_key=_api_key(),
+            base_url=_BASE_URL,
+            http_client=get_ssrf_safe_client(),
+        )
     return _CLIENT
 
 
@@ -83,8 +89,6 @@ def _reset_client() -> None:
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
-    from imagine_mcp.media import get_ssrf_safe_client
-
     model = get_model_id("grok", "understand", "image", tier)
 
     # Download image securely and pass as base64 data URL to prevent backend SSRF
@@ -129,8 +133,6 @@ def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
-    from imagine_mcp.media import get_ssrf_safe_client
-
     model = get_model_id("grok", "generate", "image", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
     payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
@@ -144,8 +146,6 @@ def generate_image(
         mime_type = resp_img.headers.get("content-type", "image/png")
         data_url = f"data:{mime_type};base64,{img_b64}"
         payload["reference_image"] = data_url
-
-    from imagine_mcp.media import get_ssrf_safe_client
 
     resp = get_ssrf_safe_client().post(
         f"{_BASE_URL}/images/generations",
@@ -193,8 +193,6 @@ def generate_video(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
-    from imagine_mcp.media import get_ssrf_safe_client
-
     model = get_model_id("grok", "generate", "video", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
 
@@ -214,8 +212,6 @@ def generate_video(
             mime_type = resp_img.headers.get("content-type", "image/png")
             data_url = f"data:{mime_type};base64,{img_b64}"
             payload["source_image"] = data_url
-
-        from imagine_mcp.media import get_ssrf_safe_client
 
         resp = get_ssrf_safe_client().post(
             f"{_BASE_URL}/videos/generations",
@@ -238,8 +234,6 @@ def generate_video(
             "provider": "grok",
             "tier": tier,
         }
-
-    from imagine_mcp.media import get_ssrf_safe_client
 
     safe_job_id = urllib.parse.quote(job_id, safe="")
     resp = get_ssrf_safe_client().get(
