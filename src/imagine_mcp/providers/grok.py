@@ -118,8 +118,8 @@ def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
-        "grok.understand.video: Grok production (4.20-0309-v2) is image-only. "
-        "Beta supports video but is not stable. Use provider='gemini'."
+        "grok.understand.video: Grok (grok-3-vision) is image-only. "
+        "Use provider='gemini' for video understanding."
     )
 
 
