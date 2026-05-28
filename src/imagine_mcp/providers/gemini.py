@@ -217,34 +217,52 @@ def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
+    """Gemini Imagen 3: text-to-image and image-to-image (style edit)."""
     from google.genai import types
 
     from imagine_mcp.media import get_ssrf_safe_client
 
     client = _client()
     model = get_model_id("gemini", "generate", "image", tier)
-    contents: list[Any] = [prompt]
 
     if reference_image_url:
+        # Image-to-Image (Editing) using StyleReferenceImage as the closest
+        # equivalent for general "edit with reference" in the GenAI SDK.
         img_data = (
             get_ssrf_safe_client()
             .get(reference_image_url, follow_redirects=True, timeout=60)
             .content
         )
-        contents.append(types.Part.from_bytes(data=img_data, mime_type="image/png"))
+        resp = client.models.edit_image(
+            model=model,
+            prompt=prompt,
+            reference_images=[
+                types.StyleReferenceImage(
+                    reference_image=types.Image(image_bytes=img_data)
+                )
+            ],
+            config=types.EditImageConfig(
+                aspect_ratio=aspect_ratio,
+                number_of_images=1,
+            ),
+        )
+    else:
+        # Text-to-Image (Generation)
+        resp = client.models.generate_images(
+            model=model,
+            prompt=prompt,
+            config=types.GenerateImagesConfig(
+                aspect_ratio=aspect_ratio,
+                number_of_images=1,
+            ),
+        )
 
-    resp = client.models.generate_content(
-        model=model,
-        contents=contents,
-        config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
-    )
-    image_data: bytes | None = None
-    for part in resp.candidates[0].content.parts:
-        if hasattr(part, "inline_data") and part.inline_data:
-            image_data = part.inline_data.data
-            break
-    if not image_data:
+    if not resp.generated_images:
         raise ProviderAPIError("Gemini returned no image", status_code=500)
+
+    image_data = resp.generated_images[0].image.image_bytes
+    if not image_data:
+        raise ProviderAPIError("Gemini returned empty image bytes", status_code=500)
 
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -316,3 +334,8 @@ def generate_video(
         "provider": "gemini",
         "tier": tier,
     }
+
+
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """Proxy for generate_image(reference_image_url=image_url)."""
+    return generate_image(prompt, tier, reference_image_url=image_url)
