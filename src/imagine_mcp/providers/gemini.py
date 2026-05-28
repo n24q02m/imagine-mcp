@@ -316,3 +316,13 @@ def generate_video(
         "provider": "gemini",
         "tier": tier,
     }
+
+
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """Edit image proxy (uses generate_image with reference_image_url)."""
+    return generate_image(prompt=prompt, tier=tier, reference_image_url=image_url)
+
+
+def video_status(tier: str, job_id: str) -> dict[str, Any]:
+    """Video status proxy (uses generate_video with job_id)."""
+    return generate_video(prompt="", tier=tier, job_id=job_id)
