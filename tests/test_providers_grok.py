@@ -18,7 +18,7 @@ def mock_media_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_client = MagicMock()
     mock_client.get.return_value = mock_resp
 
-    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: mock_client)
+    monkeypatch.setattr(provider, "get_ssrf_safe_client", lambda: mock_client)
 
 
 def test_understand_video_raises() -> None:

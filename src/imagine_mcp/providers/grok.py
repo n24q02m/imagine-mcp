@@ -21,6 +21,7 @@ from imagine_mcp.errors import (
     ProviderAPIError,
     ProviderUnsupportedError,
 )
+from imagine_mcp.media import get_ssrf_safe_client
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
@@ -83,8 +84,6 @@ def _reset_client() -> None:
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
-    from imagine_mcp.media import get_ssrf_safe_client
-
     model = get_model_id("grok", "understand", "image", tier)
 
     # Download image securely and pass as base64 data URL to prevent backend SSRF
@@ -129,8 +128,6 @@ def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
-    from imagine_mcp.media import get_ssrf_safe_client
-
     model = get_model_id("grok", "generate", "image", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
     payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
@@ -144,8 +141,6 @@ def generate_image(
         mime_type = resp_img.headers.get("content-type", "image/png")
         data_url = f"data:{mime_type};base64,{img_b64}"
         payload["reference_image"] = data_url
-
-    from imagine_mcp.media import get_ssrf_safe_client
 
     resp = get_ssrf_safe_client().post(
         f"{_BASE_URL}/images/generations",
@@ -193,8 +188,6 @@ def generate_video(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
-    from imagine_mcp.media import get_ssrf_safe_client
-
     model = get_model_id("grok", "generate", "video", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
 
@@ -214,8 +207,6 @@ def generate_video(
             mime_type = resp_img.headers.get("content-type", "image/png")
             data_url = f"data:{mime_type};base64,{img_b64}"
             payload["source_image"] = data_url
-
-        from imagine_mcp.media import get_ssrf_safe_client
 
         resp = get_ssrf_safe_client().post(
             f"{_BASE_URL}/videos/generations",
@@ -238,8 +229,6 @@ def generate_video(
             "provider": "grok",
             "tier": tier,
         }
-
-    from imagine_mcp.media import get_ssrf_safe_client
 
     safe_job_id = urllib.parse.quote(job_id, safe="")
     resp = get_ssrf_safe_client().get(
