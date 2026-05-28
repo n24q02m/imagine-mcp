@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import base64
 import os
-import uuid
 from pathlib import Path
 from typing import Any
 
-import platformdirs
-
 from imagine_mcp.config import settings
 from imagine_mcp.errors import CredentialMissingError, ProviderAPIError
+from imagine_mcp.media import get_temp_media_path
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
@@ -122,9 +120,7 @@ def understand_video(
     model = get_model_id("gemini", "understand", "video", tier)
 
     # Download video securely and upload to Gemini
-    tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-    tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
+    tmp_path = get_temp_media_path(".mp4", sub_dir="tmp")
     download_to_path(url, tmp_path)
 
     try:
@@ -167,9 +163,6 @@ def understand_multimodal(
     parts: list[Any] = [prompt]
     tmp_files: list[Path] = []
 
-    tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-
     try:
         for i, u in enumerate(urls):
             # Performance optimization:
@@ -187,7 +180,7 @@ def understand_multimodal(
                     types.Part.from_bytes(data=img_data, mime_type="image/png")
                 )
             else:
-                tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
+                tmp_path = get_temp_media_path(".mp4", sub_dir="tmp")
                 download_to_path(u, tmp_path)
                 tmp_files.append(tmp_path)
                 parts.append(client.files.upload(file=tmp_path))
@@ -246,9 +239,7 @@ def generate_image(
     if not image_data:
         raise ProviderAPIError("Gemini returned no image", status_code=500)
 
-    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{uuid.uuid4().hex}.png"
+    out_path = get_temp_media_path(".png")
     out_path.write_bytes(image_data)
 
     return {
@@ -302,9 +293,7 @@ def generate_video(
         raise ProviderAPIError(f"Gemini job error: {op.error}", status_code=500)
 
     video = op.response.generated_videos[0]
-    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{uuid.uuid4().hex}.mp4"
+    out_path = get_temp_media_path(".mp4")
     client.files.download(file=video.video)
     video.video.save(str(out_path))
 

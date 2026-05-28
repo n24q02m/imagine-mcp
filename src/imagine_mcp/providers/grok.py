@@ -9,11 +9,7 @@ from __future__ import annotations
 import base64
 import os
 import urllib.parse
-import uuid
-from pathlib import Path
 from typing import Any
-
-import platformdirs
 
 from imagine_mcp.config import settings
 from imagine_mcp.errors import (
@@ -21,6 +17,7 @@ from imagine_mcp.errors import (
     ProviderAPIError,
     ProviderUnsupportedError,
 )
+from imagine_mcp.media import get_temp_media_path
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
@@ -171,9 +168,7 @@ def generate_image(
         ).decode()
 
     img_bytes = base64.b64decode(img_b64)
-    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{uuid.uuid4().hex}.png"
+    out_path = get_temp_media_path(".png")
     out_path.write_bytes(img_bytes)
 
     return {
@@ -275,9 +270,7 @@ def generate_video(
         .content
     )
 
-    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{uuid.uuid4().hex}.mp4"
+    out_path = get_temp_media_path(".mp4")
     out_path.write_bytes(video_bytes)
 
     return {

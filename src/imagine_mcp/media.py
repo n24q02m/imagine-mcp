@@ -6,11 +6,13 @@ import concurrent.futures
 import ipaddress
 import os
 import socket
+import uuid
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
 import httpx
+import platformdirs
 
 from imagine_mcp.errors import InvalidURLError, MediaDetectError
 
@@ -164,6 +166,16 @@ def _extract_extension(url: str) -> str:
     path = url.split("?", 1)[0].split("#", 1)[0]
     _, ext = os.path.splitext(path)
     return ext.lower()
+
+
+def get_temp_media_path(extension: str, sub_dir: str = "generations") -> Path:
+    """Generate a unique path for temporary media storage.
+
+    Ensures the directory exists.
+    """
+    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / sub_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir / f"{uuid.uuid4().hex}.{extension.lstrip('.')}"
 
 
 def download_to_path(url: str, dest: Path) -> Path:
