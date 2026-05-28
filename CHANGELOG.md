@@ -2,6 +2,21 @@
 
 <!-- version list -->
 
+## v1.5.1-beta.1 (2026-05-28)
+
+### Bug Fixes
+
+- 🛡️ sentinel: fix path traversal vulnerability in grok provider
+  ([#156](https://github.com/n24q02m/imagine-mcp/pull/156),
+  [`553bacc`](https://github.com/n24q02m/imagine-mcp/commit/553bacc85398af5a54cff216ca9baa030e056ccd))
+
+- **deps**: Pin pydantic to <2.13 to match mcp-core 1.15.0 transitive cap
+  ([`62cba02`](https://github.com/n24q02m/imagine-mcp/commit/62cba023bc6aa4947bce224a316d857895d15d4c))
+
+- **deps**: Update non-major dependencies ([#157](https://github.com/n24q02m/imagine-mcp/pull/157),
+  [`60b9eb3`](https://github.com/n24q02m/imagine-mcp/commit/60b9eb33c6e8dde6b50d02ed3d835394aad29b87))
+
+
 ## v1.5.0 (2026-05-26)
 
 
