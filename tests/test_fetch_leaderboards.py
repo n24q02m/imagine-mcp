@@ -45,7 +45,7 @@ def test_parse_lmarena_vision() -> None:
 def test_resolve_alias_known() -> None:
     assert resolve_alias("Nano Banana Pro") == "gemini-3-pro-image-preview"
     assert resolve_alias("Gemini 3 Pro") == "gemini-3.1-pro-preview"
-    assert resolve_alias("gpt-5.4") == "gpt-5.4"
+    assert resolve_alias("gpt-4o") == "gpt-4o"
 
 
 def test_resolve_alias_unknown_returns_none() -> None:

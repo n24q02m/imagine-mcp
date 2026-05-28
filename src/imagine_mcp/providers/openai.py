@@ -89,21 +89,21 @@ def understand_image(
     mime_type = resp_img.headers.get("content-type", "image/png")
     data_url = f"data:{mime_type};base64,{img_b64}"
 
-    resp = _client().responses.create(
+    resp = _client().chat.completions.create(
         model=model,
-        input=[
+        messages=[
             {
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": prompt},
-                    {"type": "input_image", "image_url": data_url},
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_url}},
                 ],
             }
         ],
-        max_output_tokens=max_tokens,
+        max_tokens=max_tokens,
     )
     return {
-        "text": resp.output_text,
+        "text": resp.choices[0].message.content,
         "model": model,
         "provider": "openai",
         "tier": tier,
@@ -114,7 +114,7 @@ def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
-        "openai.understand.video: GPT-5.4 is image-only. "
+        "openai.understand.video: GPT-4o is image-only. "
         "Extract frames externally or use provider='gemini'."
     )
 

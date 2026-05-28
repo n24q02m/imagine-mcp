@@ -35,12 +35,25 @@ def test_understand_image_mocked(
     mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fake = MagicMock()
-    fake.responses.create.return_value = MagicMock(output_text="a dog")
+    # Mock chat.completions.create for standard vision API
+    mock_response = MagicMock()
+    mock_response.choices = [MagicMock()]
+    mock_response.choices[0].message.content = "a dog"
+    fake.chat.completions.create.return_value = mock_response
+
     monkeypatch.setattr(provider, "_client", lambda: fake)
 
     result = provider.understand_image(
         url="https://example.com/dog.png", prompt="describe", tier="poor"
     )
     assert result["text"] == "a dog"
-    assert result["model"] == "gpt-5.4-mini"
+    assert result["model"] == "gpt-4o-mini"
     assert result["provider"] == "openai"
+
+    # Verify call structure
+    fake.chat.completions.create.assert_called_once()
+    kwargs = fake.chat.completions.create.call_args.kwargs
+    assert kwargs["model"] == "gpt-4o-mini"
+    assert kwargs["messages"][0]["role"] == "user"
+    assert kwargs["messages"][0]["content"][0]["type"] == "text"
+    assert kwargs["messages"][0]["content"][1]["type"] == "image_url"

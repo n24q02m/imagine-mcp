@@ -39,14 +39,14 @@ Sorted by (action, media, tier, quality_rank ASC). Updated from Artificial Analy
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
 | 1 | gemini | `gemini-3.1-flash-lite-preview` | low | 2026-04-24 |  |
-| 2 | openai | `gpt-5.4-mini` | low | 2026-04-24 |  |
+| 2 | openai | `gpt-4o-mini` | low | 2026-04-24 |  |
 | 3 | grok | `grok-4.20-0309-non-reasoning` | low | 2026-04-24 |  |
 ## understand / image / rich
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
 | 1 | gemini | `gemini-3.1-pro-preview` | high | 2026-04-24 |  |
-| 2 | openai | `gpt-5.4` | high | 2026-04-24 |  |
+| 2 | openai | `gpt-4o` | high | 2026-04-24 |  |
 | 3 | grok | `grok-4.20-0309-reasoning` | high | 2026-04-24 |  |
 ## understand / video / poor
 
@@ -54,7 +54,7 @@ Sorted by (action, media, tier, quality_rank ASC). Updated from Artificial Analy
 |:----:|----------|----------|:----:|:-------------:|-------|
 | 1 | gemini | `gemini-3.1-flash-lite-preview` | low | 2026-04-24 | Native multimodal; no dedicated video leaderboard. |
 | — | grok | **ERROR** | low | 2026-04-24 | Prod 4.20-0309-v2 image-only. |
-| — | openai | **ERROR** | low | 2026-04-24 | GPT-5.4 image-only; extract frames or use gemini. |
+| — | openai | **ERROR** | low | 2026-04-24 | GPT-4o image-only; extract frames or use gemini. |
 ## understand / video / rich
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
