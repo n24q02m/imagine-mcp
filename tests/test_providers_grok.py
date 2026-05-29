@@ -45,3 +45,25 @@ def test_understand_image_mocked(
     assert result["text"] == "a parrot"
     assert result["model"] == "grok-4.20-0309-reasoning"
     assert result["provider"] == "grok"
+
+
+def test_grok_edit_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_gen = MagicMock(return_value={"status": "done"})
+    monkeypatch.setattr(provider, "generate_image", mock_gen)
+
+    result = provider.edit(
+        tier="poor", image_url="http://img.png", prompt="make it blue"
+    )
+    assert result == {"status": "done"}
+    mock_gen.assert_called_once_with(
+        prompt="make it blue", tier="poor", reference_image_url="http://img.png"
+    )
+
+
+def test_grok_video_status_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_gen = MagicMock(return_value={"status": "done"})
+    monkeypatch.setattr(provider, "generate_video", mock_gen)
+
+    result = provider.video_status(tier="rich", job_id="job-123")
+    assert result == {"status": "done"}
+    mock_gen.assert_called_once_with(prompt="", tier="rich", job_id="job-123")

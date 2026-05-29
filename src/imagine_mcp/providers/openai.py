@@ -174,3 +174,13 @@ def generate_video(
         "openai.generate.video: Sora 2 API shutdown 2026-09-24. "
         "Use provider='gemini' (Veo) or 'grok' (Grok Imagine)."
     )
+
+
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """OpenAI image edit: proxy to generate_image with reference_image_url."""
+    return generate_image(prompt=prompt, tier=tier, reference_image_url=image_url)
+
+
+def video_status(tier: str, job_id: str) -> dict[str, Any]:
+    """OpenAI video status polling: proxy to generate_video with job_id."""
+    return generate_video(prompt="", tier=tier, job_id=job_id)

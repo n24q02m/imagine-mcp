@@ -72,3 +72,23 @@ def test_understand_image_live() -> None:
         tier="poor",
     )
     assert "cat" in result["text"].lower()
+
+
+def test_gemini_edit_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_gen = MagicMock(return_value={"status": "done"})
+    monkeypatch.setattr(gemini, "generate_image", mock_gen)
+
+    result = gemini.edit(tier="poor", image_url="http://img.png", prompt="make it blue")
+    assert result == {"status": "done"}
+    mock_gen.assert_called_once_with(
+        prompt="make it blue", tier="poor", reference_image_url="http://img.png"
+    )
+
+
+def test_gemini_video_status_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_gen = MagicMock(return_value={"status": "done"})
+    monkeypatch.setattr(gemini, "generate_video", mock_gen)
+
+    result = gemini.video_status(tier="rich", job_id="job-123")
+    assert result == {"status": "done"}
+    mock_gen.assert_called_once_with(prompt="", tier="rich", job_id="job-123")
