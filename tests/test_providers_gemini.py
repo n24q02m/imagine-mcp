@@ -72,3 +72,36 @@ def test_understand_image_live() -> None:
         tier="poor",
     )
     assert "cat" in result["text"].lower()
+
+
+def test_edit_proxy(mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    # Mocking response from generate_content (called by generate_image)
+    fake_response = MagicMock()
+    fake_response.candidates = [MagicMock()]
+    fake_response.candidates[0].content.parts = [MagicMock()]
+    fake_response.candidates[0].content.parts[
+        0
+    ].inline_data.data = b"fake-edited-image-bytes"
+    fake_client.models.generate_content.return_value = fake_response
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    result = gemini.edit(
+        tier="poor", image_url="https://example.com/input.png", prompt="make it blue"
+    )
+    assert result["provider"] == "gemini"
+    assert "image_path" in result
+    assert result["image_base64"] is not None
+
+
+def test_video_status_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    # Mocking response from operations.get (called by generate_video)
+    fake_op = MagicMock()
+    fake_op.done = False
+    fake_client.operations.get.return_value = fake_op
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    result = gemini.video_status(tier="poor", job_id="job-123")
+    assert result["job_id"] == "job-123"
+    assert result["status"] == "pending"
