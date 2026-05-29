@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.3 (2026-05-29)
+
+### Bug Fixes
+
+- Pin mcp-core 1.17.1 (BearerMCPApp resource_metadata #260)
+  ([`1329edc`](https://github.com/n24q02m/imagine-mcp/commit/1329edc4071ad3d58a97e5996376ddb86c6223fc))
+
+
 ## v1.5.2 (2026-05-29)
 
 ### Bug Fixes
