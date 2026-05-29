@@ -216,7 +216,7 @@ MODELS: Final[list[ModelEntry]] = [
         "generate",
         "image",
         "poor",
-        "grok-imagine-image",
+        "flux-schnell",
         quality_rank=3,
         cost_tier="low",
         last_verified=_BASELINE_DATE,
@@ -224,7 +224,7 @@ MODELS: Final[list[ModelEntry]] = [
             "artificialanalysis.ai/image/leaderboard/text-to-image",
             "arena.ai/leaderboard/text-to-image",
         ),
-        notes="Aurora.",
+        notes="Flux.1 [schnell]",
     ),
     ModelEntry(
         "gemini",
@@ -257,10 +257,11 @@ MODELS: Final[list[ModelEntry]] = [
         "generate",
         "image",
         "rich",
-        "grok-imagine-image-pro",
+        "flux-pro",
         quality_rank=3,
         cost_tier="high",
         last_verified=_BASELINE_DATE,
+        notes="Flux.1 [pro]",
     ),
     # ----- generate.video -----
     ModelEntry(

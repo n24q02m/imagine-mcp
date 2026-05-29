@@ -79,10 +79,14 @@ MODEL_ALIASES: dict[str, str] = {
     "Grok 4.20": "grok-4.20-0309-non-reasoning",
     "grok-4.20-0309-non-reasoning": "grok-4.20-0309-non-reasoning",
     # Grok generate
-    "Aurora": "grok-imagine-image",
-    "grok-imagine-image": "grok-imagine-image",
-    "Grok Imagine Pro": "grok-imagine-image-pro",
-    "grok-imagine-image-pro": "grok-imagine-image-pro",
+    "Aurora": "flux-schnell",
+    "grok-imagine-image": "flux-schnell",
+    "Flux.1 [schnell]": "flux-schnell",
+    "flux-schnell": "flux-schnell",
+    "Grok Imagine Pro": "flux-pro",
+    "grok-imagine-image-pro": "flux-pro",
+    "Flux.1 [pro]": "flux-pro",
+    "flux-pro": "flux-pro",
     "Grok Imagine Video": "grok-imagine-video",
     "grok-imagine-video": "grok-imagine-video",
 }
@@ -114,7 +118,7 @@ def _infer_provider_from_id(model_id: str) -> str | None:
         return "gemini"
     if lid.startswith(("gpt", "dall", "sora")):
         return "openai"
-    if lid.startswith(("grok", "aurora")):
+    if lid.startswith(("grok", "aurora", "flux")):
         return "grok"
     return None
 
