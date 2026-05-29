@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.2 (2026-05-29)
+
+### Bug Fixes
+
+- Pin mcp-core 1.17.0 (stable OAuth refresh_token)
+  ([`cbaf210`](https://github.com/n24q02m/imagine-mcp/commit/cbaf2106eba2a8372454686d14c9563c08a2a635))
+
+
 ## v1.5.2-beta.1 (2026-05-29)
 
 ### Bug Fixes
