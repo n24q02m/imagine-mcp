@@ -31,6 +31,48 @@ def test_generate_video_raises() -> None:
         provider.generate_video("a dog", "poor")
 
 
+def test_video_status_raises() -> None:
+    with pytest.raises(ProviderUnsupportedError):
+        provider.video_status("poor", "job_123")
+
+
+def test_edit_mocked(mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    fake = MagicMock()
+    # Mock images.edit response
+    mock_image = MagicMock()
+    mock_image.b64_json = "ZmFrZS1pbWFnZS1ieXRlcw=="  # "fake-image-bytes" in base64
+    fake.images.edit.return_value = MagicMock(data=[mock_image])
+    monkeypatch.setattr(provider, "_client", lambda: fake)
+
+    result = provider.edit(
+        tier="poor", image_url="https://example.com/cat.png", prompt="make it blue"
+    )
+    assert "generations" in result["image_path"]
+    assert result["image_base64"] == "ZmFrZS1pbWFnZS1ieXRlcw=="
+    assert result["model"] == "dall-e-2"
+    assert result["provider"] == "openai"
+
+
+def test_generate_image_delegates_to_edit(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake = MagicMock()
+    # Mock images.edit response
+    mock_image = MagicMock()
+    mock_image.b64_json = "ZmFrZS1pbWFnZS1ieXRlcw=="
+    fake.images.edit.return_value = MagicMock(data=[mock_image])
+    monkeypatch.setattr(provider, "_client", lambda: fake)
+
+    # Calling generate_image with reference_image_url should trigger edit
+    result = provider.generate_image(
+        prompt="make it blue",
+        tier="poor",
+        reference_image_url="https://example.com/cat.png",
+    )
+    assert result["model"] == "dall-e-2"
+    assert result["provider"] == "openai"
+
+
 def test_understand_image_mocked(
     mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
