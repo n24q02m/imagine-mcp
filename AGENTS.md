@@ -47,8 +47,8 @@ For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/model
 | openai | generate | image | poor | `gpt-image-1-mini` |
 | openai | generate | image | rich | `gpt-image-1.5` (cross-gen; no gpt-image-1.5-mini) |
 | openai | generate | video | — | Not supported (Sora 2 API shutdown 2026-09-24) |
-| grok | understand | image | poor | `grok-4.20-0309-non-reasoning` |
-| grok | understand | image | rich | `grok-4.20-0309-reasoning` |
+| grok | understand | image | poor | `grok-3-vision` |
+| grok | understand | image | rich | `grok-3-vision` |
 | grok | understand | video | — | Not supported (prod 4.20-0309-v2 image-only) |
 | grok | generate | image | poor | `grok-imagine-image` (Aurora) |
 | grok | generate | image | rich | `grok-imagine-image-pro` |

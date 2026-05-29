@@ -40,14 +40,14 @@ Sorted by (action, media, tier, quality_rank ASC). Updated from Artificial Analy
 |:----:|----------|----------|:----:|:-------------:|-------|
 | 1 | gemini | `gemini-3.1-flash-lite-preview` | low | 2026-04-24 |  |
 | 2 | openai | `gpt-5.4-mini` | low | 2026-04-24 |  |
-| 3 | grok | `grok-4.20-0309-non-reasoning` | low | 2026-04-24 |  |
+| 3 | grok | `grok-3-vision` | low | 2026-04-24 |  |
 ## understand / image / rich
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |
 |:----:|----------|----------|:----:|:-------------:|-------|
 | 1 | gemini | `gemini-3.1-pro-preview` | high | 2026-04-24 |  |
 | 2 | openai | `gpt-5.4` | high | 2026-04-24 |  |
-| 3 | grok | `grok-4.20-0309-reasoning` | high | 2026-04-24 |  |
+| 3 | grok | `grok-3-vision` | high | 2026-04-24 |  |
 ## understand / video / poor
 
 | Rank | Provider | Model ID | Cost | Last verified | Notes |

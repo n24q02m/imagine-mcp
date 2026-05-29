@@ -43,5 +43,5 @@ def test_understand_image_mocked(
         url="https://example.com/parrot.png", prompt="describe", tier="rich"
     )
     assert result["text"] == "a parrot"
-    assert result["model"] == "grok-4.20-0309-reasoning"
+    assert result["model"] == "grok-3-vision"
     assert result["provider"] == "grok"
