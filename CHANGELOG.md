@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.5.2-beta.1 (2026-05-29)
+
+### Bug Fixes
+
+- Add gemini generate_image missing-data error tests
+  ([#163](https://github.com/n24q02m/imagine-mcp/pull/163),
+  [`8133615`](https://github.com/n24q02m/imagine-mcp/commit/813361535637947bf5b9f2818e3e0313551db747))
+
+- Add SSRF protection to grok provider API client
+  ([#186](https://github.com/n24q02m/imagine-mcp/pull/186),
+  [`3e00e01`](https://github.com/n24q02m/imagine-mcp/commit/3e00e01aee9b145ece1853846f71784642f794dd))
+
+- Add understand_multimodal mocked tests ([#169](https://github.com/n24q02m/imagine-mcp/pull/169),
+  [`a5e6460`](https://github.com/n24q02m/imagine-mcp/commit/a5e6460d3afd9fafba39c94e71abcaf480f77674))
+
+- Bump mcp-core to 1.17.0-beta.1 for OAuth refresh_token
+  ([`8f68137`](https://github.com/n24q02m/imagine-mcp/commit/8f681377132085f14f667af2440bce17414763ec))
+
+
 ## v1.5.1 (2026-05-28)
 
 
