@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import os
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,11 @@ _CLIENT: Any = None
 # user gets a client wired to their own ``GEMINI_API_KEY``. Single-user /
 # stdio mode still uses the module-level ``_CLIENT`` above.
 _SUB_CLIENTS: dict[str, Any] = {}
+
+# Thread pool for parallelizing network-bound I/O during multimodal ingestion
+# Bounded to 10 workers to avoid overwhelming rate limits while significantly
+# reducing sequential latency for multiple URLs.
+_GEMINI_POOL = ThreadPoolExecutor(max_workers=10)
 
 
 def _resolve_api_key() -> str | None:
@@ -171,11 +177,9 @@ def understand_multimodal(
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        for i, u in enumerate(urls):
-            # Performance optimization:
-            # Use pre-calculated media types if provided by the dispatcher
-            # This avoids O(N) sequential redundant network calls (HEAD requests)
-            # converting the latency to O(1) bounded by the dispatcher's thread pool.
+
+        def _process_url(idx_and_url: tuple[int, str]) -> tuple[Any, Path | None]:
+            i, u = idx_and_url
             mt = media_types[i] if media_types else detect_media_type(u)
             if mt == "image":
                 img_data = (
@@ -183,14 +187,22 @@ def understand_multimodal(
                     .get(u, follow_redirects=True, timeout=60)
                     .content
                 )
-                parts.append(
-                    types.Part.from_bytes(data=img_data, mime_type="image/png")
-                )
+                return types.Part.from_bytes(data=img_data, mime_type="image/png"), None
             else:
                 tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
                 download_to_path(u, tmp_path)
-                tmp_files.append(tmp_path)
-                parts.append(client.files.upload(file=tmp_path))
+                return client.files.upload(file=tmp_path), tmp_path
+
+        # Parallelize network-bound URL processing (image fetching, video downloading, and uploading)
+        futures = []
+        for i, u in enumerate(urls):
+            futures.append(_GEMINI_POOL.submit(_process_url, (i, u)))
+
+        for future in futures:
+            part, temp_file_path = future.result()
+            parts.append(part)
+            if temp_file_path:
+                tmp_files.append(temp_file_path)
 
         resp = client.models.generate_content(
             model=model,
