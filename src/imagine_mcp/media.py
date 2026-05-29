@@ -174,7 +174,9 @@ def download_to_path(url: str, dest: Path) -> Path:
         with client.stream("GET", url, follow_redirects=True, timeout=60) as resp:
             resp.raise_for_status()
             with dest.open("wb") as f:
-                for chunk in resp.iter_bytes(chunk_size=65536):
+                # Use 1MB chunk size (1048576 bytes) instead of 64KB
+                # to reduce syscall overhead and improve throughput for large media files
+                for chunk in resp.iter_bytes(chunk_size=1048576):
                     f.write(chunk)
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
