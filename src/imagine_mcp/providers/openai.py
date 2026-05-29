@@ -126,8 +126,28 @@ def generate_image(
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
     model = get_model_id("openai", "generate", "image", tier)
-    size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
+    is_gpt_image = isinstance(model, str) and model.startswith("gpt-image-")
+
+    # Quality mapping: GPT uses low/high; DALL-E uses standard/hd.
+    if is_gpt_image:
+        quality = "low" if tier == "poor" else "high"
+        size_map = {"1:1": "1024x1024", "16:9": "1536x1024", "9:16": "1024x1536"}
+    else:
+        quality = "standard" if tier == "poor" else "hd"
+        size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
+
     size = size_map.get(aspect_ratio, "1024x1024")
+
+    kwargs: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "size": size,
+        "quality": quality,
+    }
+
+    # GPT image models only support b64_json and may error if response_format is passed.
+    if not is_gpt_image:
+        kwargs["response_format"] = "b64_json"
 
     if reference_image_url:
         from imagine_mcp.media import get_ssrf_safe_client
@@ -137,16 +157,27 @@ def generate_image(
             .get(reference_image_url, follow_redirects=True, timeout=60)
             .content
         )
-        resp = _client().images.edit(
-            model=model, image=img_bytes, prompt=prompt, size=size
-        )
+        kwargs["image"] = img_bytes
+        resp = _client().images.edit(**kwargs)
     else:
-        resp = _client().images.generate(model=model, prompt=prompt, size=size, n=1)
+        kwargs["n"] = 1
+        resp = _client().images.generate(**kwargs)
 
     img_b64 = resp.data[0].b64_json
     if not img_b64:
-        raise ProviderAPIError("OpenAI returned no image", status_code=500)
-    img_bytes = base64.b64decode(img_b64)
+        img_url = resp.data[0].url
+        if not img_url:
+            raise ProviderAPIError("OpenAI returned no image data", status_code=500)
+        from imagine_mcp.media import get_ssrf_safe_client
+
+        img_bytes = (
+            get_ssrf_safe_client()
+            .get(img_url, follow_redirects=True, timeout=60)
+            .content
+        )
+        img_b64 = base64.b64encode(img_bytes).decode()
+    else:
+        img_bytes = base64.b64decode(img_b64)
 
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
     out_dir.mkdir(parents=True, exist_ok=True)
