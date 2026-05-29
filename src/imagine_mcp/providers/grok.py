@@ -289,3 +289,13 @@ def generate_video(
         "provider": "grok",
         "tier": tier,
     }
+
+
+def edit(tier: str, image_url: str, prompt: str) -> dict[str, Any]:
+    """Proxy for generate_image with reference_image_url."""
+    return generate_image(prompt=prompt, tier=tier, reference_image_url=image_url)
+
+
+def video_status(tier: str, job_id: str) -> dict[str, Any]:
+    """Proxy for generate_video with job_id (polling)."""
+    return generate_video(prompt="", tier=tier, job_id=job_id)
