@@ -72,3 +72,93 @@ def test_understand_image_live() -> None:
         tier="poor",
     )
     assert "cat" in result["text"].lower()
+
+
+def test_generate_image_mocked(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_client = MagicMock()
+    fake_response = MagicMock()
+
+    # Mocking resp.candidates[0].content.parts
+    mock_part = MagicMock()
+    mock_part.inline_data.data = b"fake-gen-image"
+    fake_response.candidates = [MagicMock(content=MagicMock(parts=[mock_part]))]
+
+    fake_client.models.generate_content.return_value = fake_response
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    # Mock Path methods to avoid real file IO
+    from pathlib import Path
+
+    monkeypatch.setattr(Path, "write_bytes", MagicMock())
+    monkeypatch.setattr(Path, "mkdir", MagicMock())
+
+    result = gemini.generate_image(prompt="a sunset", tier="poor")
+    assert "image_path" in result
+    assert result["image_base64"] == "ZmFrZS1nZW4taW1hZ2U="  # b64 of b"fake-gen-image"
+    assert result["model"] == "gemini-3.1-flash-image-preview"
+
+
+def test_generate_video_init_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    fake_op = MagicMock()
+    fake_op.name = "job-123"
+    fake_client.models.generate_videos.return_value = fake_op
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    result = gemini.generate_video(prompt="a cat dancing", tier="poor")
+    assert result["job_id"] == "job-123"
+    assert result["status"] == "pending"
+    assert result["model"] == "veo-3.1-lite-generate-preview"
+
+
+def test_generate_video_polling_pending_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    fake_op = MagicMock()
+    fake_op.done = False
+    fake_client.operations.get.return_value = fake_op
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    result = gemini.generate_video(prompt="", tier="poor", job_id="job-123")
+    assert result["job_id"] == "job-123"
+    assert result["status"] == "pending"
+
+
+def test_generate_video_polling_success_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    fake_op = MagicMock()
+    fake_op.done = True
+    fake_op.error = None
+
+    mock_video = MagicMock()
+    fake_op.response.generated_videos = [mock_video]
+
+    fake_client.operations.get.return_value = fake_op
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    # Mock Path.mkdir and video.video.save
+    from pathlib import Path
+
+    monkeypatch.setattr(Path, "mkdir", MagicMock())
+
+    result = gemini.generate_video(prompt="", tier="poor", job_id="job-123")
+    assert result["status"] == "done"
+    assert "video_path" in result
+    mock_video.video.save.assert_called_once()
+
+
+def test_generate_video_polling_error_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    fake_op = MagicMock()
+    fake_op.done = True
+    fake_op.error = "something went wrong"
+    fake_client.operations.get.return_value = fake_op
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    from imagine_mcp.errors import ProviderAPIError
+
+    with pytest.raises(
+        ProviderAPIError, match="Gemini job error: something went wrong"
+    ):
+        gemini.generate_video(prompt="", tier="poor", job_id="job-123")
