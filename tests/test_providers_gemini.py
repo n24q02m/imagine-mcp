@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from imagine_mcp.errors import ProviderAPIError
 from imagine_mcp.providers import gemini
 
 
@@ -54,6 +55,33 @@ def test_understand_video_mocked(
     )
     assert result["text"] == "a cat jumping"
     assert result["model"] == "gemini-3.1-pro-preview"
+
+
+def test_generate_video_error_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    fake_op = MagicMock()
+    fake_op.done = True
+    fake_op.error = "something went wrong"
+    fake_client.operations.get.return_value = fake_op
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    with pytest.raises(ProviderAPIError) as excinfo:
+        gemini.generate_video(prompt="a sunset", tier="poor", job_id="job-123")
+
+    assert "Gemini job error: something went wrong" in str(excinfo.value)
+    assert excinfo.value.status_code == 500
+
+
+def test_generate_video_pending_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_client = MagicMock()
+    fake_op = MagicMock()
+    fake_op.done = False
+    fake_client.operations.get.return_value = fake_op
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    result = gemini.generate_video(prompt="a sunset", tier="poor", job_id="job-123")
+    assert result["status"] == "pending"
+    assert result["job_id"] == "job-123"
 
 
 @pytest.mark.live
