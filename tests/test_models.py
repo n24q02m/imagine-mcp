@@ -71,9 +71,21 @@ def test_grok_understand_unsupported_video() -> None:
     assert get_model_id("grok", "understand", "video", "poor") is UNSUPPORTED
 
 
-def test_unknown_raises() -> None:
-    with pytest.raises(KeyError):
-        get_model_id("unknown", "understand", "image", "poor")
+@pytest.mark.parametrize(
+    "p, a, m, t",
+    [
+        ("unknown", "understand", "image", "poor"),
+        ("gemini", "unknown", "image", "poor"),
+        ("gemini", "understand", "unknown", "poor"),
+        ("gemini", "understand", "image", "unknown"),
+    ],
+)
+def test_get_model_id_unknown_raises(p: str, a: str, m: str, t: str) -> None:
+    with pytest.raises(KeyError) as excinfo:
+        get_model_id(p, a, m, t)
+    assert f"unknown combo: provider={p!r} action={a!r} media={m!r} tier={t!r}" in str(
+        excinfo.value
+    )
 
 
 def test_rank_for_returns_int() -> None:
@@ -126,3 +138,25 @@ def test_default_provider_for_rank_1() -> None:
 def test_default_provider_fallback_when_only_unsupported() -> None:
     # openai has UNSUPPORTED for video understand; default_provider should fall back to gemini
     assert default_provider_for("understand", "video", "poor") == "gemini"
+
+
+def test_unsupported_sentinel() -> None:
+    assert repr(UNSUPPORTED) == "UNSUPPORTED"
+    assert not UNSUPPORTED
+
+
+def test_list_models_sort_by_provider() -> None:
+    models = list_models(sort_by="provider")
+    # Check a slice to ensure it's actually sorted by provider within (action, media, tier)
+    # We'll just verify it doesn't crash and returns the same number of models
+    assert len(models) == len(MODELS)
+
+
+def test_list_models_sort_by_cost() -> None:
+    models = list_models(sort_by="cost")
+    assert len(models) == len(MODELS)
+
+
+def test_default_provider_fallback_gemini() -> None:
+    # If no models match the criteria, it should return "gemini"
+    assert default_provider_for("unknown", "unknown", "unknown") == "gemini"
