@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import os
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ _CLIENT: Any = None
 # user gets a client wired to their own ``GEMINI_API_KEY``. Single-user /
 # stdio mode still uses the module-level ``_CLIENT`` above.
 _SUB_CLIENTS: dict[str, Any] = {}
+_GEMINI_POOL = ThreadPoolExecutor(max_workers=10, thread_name_prefix="gemini_pool")
 
 
 def _resolve_api_key() -> str | None:
@@ -170,27 +172,45 @@ def understand_multimodal(
     tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
+    def _process_url(i: int, u: str) -> tuple[int, Any, Path | None]:
+        mt = media_types[i] if media_types else detect_media_type(u)
+        if mt == "image":
+            img_data = (
+                get_ssrf_safe_client().get(u, follow_redirects=True, timeout=60).content
+            )
+            return i, types.Part.from_bytes(data=img_data, mime_type="image/png"), None
+        else:
+            tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
+            download_to_path(u, tmp_path)
+            return i, client.files.upload(file=tmp_path), tmp_path
+
+    from concurrent.futures import FIRST_EXCEPTION, wait
+
+    futures = []
+    # Submit all tasks
+    for i, u in enumerate(urls):
+        futures.append(_GEMINI_POOL.submit(_process_url, i, u))
+
     try:
-        for i, u in enumerate(urls):
-            # Performance optimization:
-            # Use pre-calculated media types if provided by the dispatcher
-            # This avoids O(N) sequential redundant network calls (HEAD requests)
-            # converting the latency to O(1) bounded by the dispatcher's thread pool.
-            mt = media_types[i] if media_types else detect_media_type(u)
-            if mt == "image":
-                img_data = (
-                    get_ssrf_safe_client()
-                    .get(u, follow_redirects=True, timeout=60)
-                    .content
-                )
-                parts.append(
-                    types.Part.from_bytes(data=img_data, mime_type="image/png")
-                )
-            else:
-                tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
-                download_to_path(u, tmp_path)
+        # Wait for all to complete or the first exception to fail fast
+        done, not_done = wait(futures, return_when=FIRST_EXCEPTION)
+
+        # Cancel any pending futures if we failed fast
+        for future in not_done:
+            future.cancel()
+
+        # Check for exceptions and propagate them
+        for future in done:
+            future.result()  # This will raise if the future failed
+
+        # All succeeded, assemble parts in correct order
+        results = [f.result() for f in futures]
+        results.sort(key=lambda x: x[0])
+
+        for _, part, tmp_path in results:
+            parts.append(part)
+            if tmp_path:
                 tmp_files.append(tmp_path)
-                parts.append(client.files.upload(file=tmp_path))
 
         resp = client.models.generate_content(
             model=model,
@@ -198,9 +218,17 @@ def understand_multimodal(
             config=types.GenerateContentConfig(max_output_tokens=max_tokens),
         )
     finally:
-        for f in tmp_files:
-            if f.exists():
-                f.unlink()
+        # If any tmp_path was returned successfully, we must clean it up.
+        # This handles the success path (where tmp_path is added to tmp_files)
+        # AND the fail-fast path where we must wait for cancelled/running
+        # futures to return their tmp_path so we can unlink them.
+        for future in futures:
+            try:
+                _, _, tmp_path = future.result(timeout=0)
+                if tmp_path and tmp_path.exists():
+                    tmp_path.unlink()
+            except Exception:
+                pass
 
     return {
         "text": resp.text,
