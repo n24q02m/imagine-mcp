@@ -37,22 +37,22 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "mcp[cli]>=1.27.1",
+    "mcp[cli]>=1.27.2",
     "fastmcp>=3.3.1",
-    "pydantic>=2.12.5,<2.13",
+    "pydantic>=2.13.4,<2.14",
     "pydantic-settings>=2.14.1",
     "httpx>=0.28.1",
-    "google-genai>=2.6.0",
+    "google-genai>=2.7.0",
     "openai>=2.38.0",
     "pillow>=12.2.0",
     "diskcache>=5.6.3",
     "loguru>=0.7.3",
     "n24q02m-mcp-core>=1.17.1,<2",
-    "platformdirs>=4.9.6",
+    "platformdirs>=4.10.0",
     # Security floors: transitive deps pinned to patched releases.
     # urllib3 < 2.7.0 -> PYSEC-2026-141/142; idna < 3.15 -> CVE-2026-45409.
     "urllib3>=2.7.0",
-    "idna>=3.16",
+    "idna>=3.17",
 ]
 
 [project.scripts]
@@ -78,10 +78,10 @@ dev = [
     "pytest-timeout>=2.4.0",
     "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
-    "ruff>=0.15.14",
+    "ruff>=0.15.15",
     "ty>=0.0.40",
     "pre-commit>=4.6.0",
-    "syrupy>=5.2.0",
+    "syrupy>=5.3.1",
     "beautifulsoup4>=4.14.3",
     "pyyaml>=6.0.3",
 ]
