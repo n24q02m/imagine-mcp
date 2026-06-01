@@ -85,21 +85,21 @@ def understand_image(
 ) -> dict[str, Any]:
     from google.genai import types
 
-    from imagine_mcp.media import get_ssrf_safe_client
+    from imagine_mcp.media import get_ssrf_safe_client, resolve_image_mime
 
     client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
 
     # Download image securely to prevent backend SSRF
-    img_data = (
-        get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60).content
-    )
+    img_resp = get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60)
+    img_data = img_resp.content
+    mime_type = resolve_image_mime(img_resp.headers.get("content-type"), img_data)
 
     resp = client.models.generate_content(
         model=model,
         contents=[
             prompt,
-            types.Part.from_bytes(data=img_data, mime_type="image/png"),
+            types.Part.from_bytes(data=img_data, mime_type=mime_type),
         ],
         config=types.GenerateContentConfig(max_output_tokens=max_tokens),
     )
@@ -160,6 +160,7 @@ def understand_multimodal(
         detect_media_type,
         download_to_path,
         get_ssrf_safe_client,
+        resolve_image_mime,
     )
 
     client = _client()
@@ -178,14 +179,14 @@ def understand_multimodal(
             # converting the latency to O(1) bounded by the dispatcher's thread pool.
             mt = media_types[i] if media_types else detect_media_type(u)
             if mt == "image":
-                img_data = (
-                    get_ssrf_safe_client()
-                    .get(u, follow_redirects=True, timeout=60)
-                    .content
+                img_resp = get_ssrf_safe_client().get(
+                    u, follow_redirects=True, timeout=60
                 )
-                parts.append(
-                    types.Part.from_bytes(data=img_data, mime_type="image/png")
+                img_data = img_resp.content
+                mime_type = resolve_image_mime(
+                    img_resp.headers.get("content-type"), img_data
                 )
+                parts.append(types.Part.from_bytes(data=img_data, mime_type=mime_type))
             else:
                 tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
                 download_to_path(u, tmp_path)
@@ -219,19 +220,19 @@ def generate_image(
 ) -> dict[str, Any]:
     from google.genai import types
 
-    from imagine_mcp.media import get_ssrf_safe_client
+    from imagine_mcp.media import get_ssrf_safe_client, resolve_image_mime
 
     client = _client()
     model = get_model_id("gemini", "generate", "image", tier)
     contents: list[Any] = [prompt]
 
     if reference_image_url:
-        img_data = (
-            get_ssrf_safe_client()
-            .get(reference_image_url, follow_redirects=True, timeout=60)
-            .content
+        img_resp = get_ssrf_safe_client().get(
+            reference_image_url, follow_redirects=True, timeout=60
         )
-        contents.append(types.Part.from_bytes(data=img_data, mime_type="image/png"))
+        img_data = img_resp.content
+        mime_type = resolve_image_mime(img_resp.headers.get("content-type"), img_data)
+        contents.append(types.Part.from_bytes(data=img_data, mime_type=mime_type))
 
     resp = client.models.generate_content(
         model=model,
