@@ -5,7 +5,48 @@ from unittest.mock import MagicMock
 import pytest
 
 from imagine_mcp.errors import MediaDetectError
-from imagine_mcp.media import _extract_extension, detect_media_type
+from imagine_mcp.media import (
+    _extract_extension,
+    detect_media_type,
+    resolve_image_mime,
+    sniff_image_mime,
+)
+
+_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
+_JPEG = b"\xff\xd8\xff\xe0\x00\x10JFIF" + b"\x00" * 16
+_WEBP = b"RIFF\x24\x00\x00\x00WEBPVP8 " + b"\x00" * 16
+_GIF = b"GIF89a" + b"\x00" * 16
+_HEIC = b"\x00\x00\x00\x18ftypheic\x00\x00\x00\x00" + b"\x00" * 8
+_HEIF = b"\x00\x00\x00\x18ftypmif1\x00\x00\x00\x00" + b"\x00" * 8
+
+
+def test_sniff_image_mime_magic_bytes() -> None:
+    assert sniff_image_mime(_PNG) == "image/png"
+    assert sniff_image_mime(_JPEG) == "image/jpeg"
+    assert sniff_image_mime(_WEBP) == "image/webp"
+    assert sniff_image_mime(_GIF) == "image/gif"
+    assert sniff_image_mime(_HEIC) == "image/heic"
+    assert sniff_image_mime(_HEIF) == "image/heif"
+    assert sniff_image_mime(b"not-an-image") is None
+
+
+def test_resolve_image_mime_content_type_precedence() -> None:
+    # Real image/* Content-Type wins even when bytes say PNG.
+    assert resolve_image_mime("image/jpeg", _PNG) == "image/jpeg"
+    # Params stripped and lowercased.
+    assert resolve_image_mime("Image/WEBP; charset=binary", _PNG) == "image/webp"
+
+
+def test_resolve_image_mime_sniff_when_header_unhelpful() -> None:
+    # Non-image Content-Type falls through to magic-byte sniffing.
+    assert resolve_image_mime("application/octet-stream", _JPEG) == "image/jpeg"
+    assert resolve_image_mime(None, _GIF) == "image/gif"
+    assert resolve_image_mime("", _WEBP) == "image/webp"
+
+
+def test_resolve_image_mime_unknown_falls_back_to_jpeg() -> None:
+    assert resolve_image_mime(None, b"garbage-bytes") == "image/jpeg"
+    assert resolve_image_mime("text/html", b"\x00\x01\x02\x03") == "image/jpeg"
 
 
 def test_detect_by_extension_image() -> None:

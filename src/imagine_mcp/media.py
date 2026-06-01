@@ -28,6 +28,50 @@ _VIDEO_EXT = {".mp4", ".webm", ".mov", ".avi", ".mkv", ".flv", ".m4v"}
 _IMAGE_MIME_PREFIX = "image/"
 _VIDEO_MIME_PREFIX = "video/"
 
+# Most image hosts serve JPEG, so it is the safest fallback when neither the
+# Content-Type header nor the magic bytes identify the format.
+_IMAGE_FALLBACK_MIME = "image/jpeg"
+
+
+def sniff_image_mime(data: bytes) -> str | None:
+    """Return an ``image/*`` mime type by sniffing magic bytes, or None.
+
+    Recognizes PNG, JPEG, WEBP, GIF, and the HEIC/HEIF ISO-BMFF families.
+    """
+    if data.startswith(b"\x89PNG"):
+        return "image/png"
+    if data.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "image/webp"
+    if data.startswith(b"GIF8"):
+        return "image/gif"
+    # HEIC/HEIF: ISO-BMFF box with an ``ftyp`` brand at offset 4.
+    if data[4:8] == b"ftyp":
+        brand = data[8:12]
+        if brand in (b"heic", b"heix", b"hevc", b"hevx"):
+            return "image/heic"
+        if brand in (b"heif", b"mif1", b"msf1"):
+            return "image/heif"
+    return None
+
+
+def resolve_image_mime(content_type: str | None, data: bytes) -> str:
+    """Resolve the mime type for fetched image bytes.
+
+    Precedence: a real ``image/*`` Content-Type header (params stripped,
+    lowercased) wins; otherwise magic-byte sniffing; otherwise the JPEG
+    fallback (the most common web image format).
+    """
+    if content_type:
+        ctype = content_type.split(";", 1)[0].strip().lower()
+        if ctype.startswith(_IMAGE_MIME_PREFIX):
+            return ctype
+    sniffed = sniff_image_mime(data)
+    if sniffed is not None:
+        return sniffed
+    return _IMAGE_FALLBACK_MIME
+
 
 class SSRFSafeTransport(httpx.HTTPTransport):
     """Custom transport that implements DNS pinning to prevent TOCTOU SSRF.
