@@ -54,11 +54,12 @@ For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/model
 | grok | generate | image | rich | `grok-imagine-image-pro` |
 | grok | generate | video | — | `grok-imagine-video` (single-tier) |
 
-## Transport modes (parity with wet/mnemo/crg category `http local relay`)
+## Transport modes
 
-- **Default**: `http local relay` -- `run_local_server` on 127.0.0.1:<port>, credential form at `/authorize`.
-- **Alternative**: `http remote relay (self-host)` -- `MCP_MODE=remote-relay` + `MCP_RELAY_URL=<your-deployed-url>`; server pulls creds from your relay, then serves MCP protocol locally. n24q02m does not host a public `imagine-mcp.n24q02m.com` (see mode-matrix.md section 2.5).
-- **Stdio transport**: `--stdio` or `MCP_TRANSPORT=stdio` -- `run_smart_stdio_proxy` spawns a local daemon (same backend as http local relay) and bridges stdin/stdout. Not a separate mode; it is a transport wrapper on top of the daemon.
+Two transports, dispatched in `src/imagine_mcp/__main__.py:41-64`:
+
+- **Default**: `stdio` -- `build_app().run(transport="stdio")` on stdin/stdout (single-user, no daemon, no browser). Reads creds from env vars only; exits 1 if all three of `GEMINI_API_KEY`/`OPENAI_API_KEY`/`XAI_API_KEY` are missing. Universal MCP client compatibility.
+- **Opt-in**: `http` -- enabled by `--http` flag, `MCP_TRANSPORT=http`, or `TRANSPORT_MODE=http`. Runs `run_http()` -> mcp-core `run_http_server` (`src/imagine_mcp/server.py:314,341`), always multi-user / remote-style. Set `PUBLIC_URL` + `MCP_DCR_SERVER_SECRET` to bind publicly with per-JWT-sub credential isolation; otherwise serves on `127.0.0.1:<port>` for local self-host. Credentials set via the browser form at `/authorize`.
 
 ## Credentials
 
@@ -68,7 +69,7 @@ For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/model
 - `OPENAI_API_KEY`
 - `GEMINI_API_KEY` (renamed from `GOOGLE_AI_STUDIO_API_KEY` 2026-04-26 for parity with wet/mnemo/crg)
 
-Source priority: env var > `config.enc` (via mcp-core) > relay setup > degraded mode.
+Source priority (`src/imagine_mcp/relay_setup.py`): env var > `config.enc` (per-plugin store, via mcp-core) > optional `MCP_RELAY_URL` remote-relay fetch > degraded mode. (Stdio mode reads env vars only.)
 
 Auto-fallback provider (when `understand`/`generate` is called without an
 explicit `provider`): the first key present in this order wins —

@@ -56,8 +56,10 @@ For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/model
 
 ## Transport modes
 
-- **Default**: `http local relay mode` — `run_local_server` on 127.0.0.1:<port>, credentials via browser form
-- **Alternative**: `stdio proxy mode` — spawn with `--stdio` or `MCP_MODE=stdio-proxy`
+Dispatched in `src/imagine_mcp/__main__.py:41-64`:
+
+- **Default**: `stdio` — `build_app().run(transport="stdio")` on stdin/stdout (single-user, no daemon). Env-only creds; exits 1 if all three API keys missing.
+- **Opt-in**: `http` — enabled by `--http`, `MCP_TRANSPORT=http`, or `TRANSPORT_MODE=http`. Runs mcp-core `run_http_server` (`src/imagine_mcp/server.py:314,341`), always multi-user; credentials via browser form at `/authorize`.
 
 ## Credentials
 
@@ -67,7 +69,7 @@ For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/model
 - `OPENAI_API_KEY`
 - `XAI_API_KEY`
 
-Priority: env var > `config.enc` (via mcp-core) > relay setup > degraded mode.
+Priority (`src/imagine_mcp/relay_setup.py`): env var > `config.enc` (via mcp-core) > optional `MCP_RELAY_URL` relay fetch > degraded mode. (Stdio mode reads env vars only.)
 
 ## Install
 

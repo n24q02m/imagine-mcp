@@ -87,8 +87,8 @@ async def ensure_config(
     if not relay_url:
         logger.warning(
             "No credentials found and MCP_RELAY_URL not set; starting in degraded mode. "
-            "Use `http local relay mode` (default) to set credentials via browser, "
-            "or set env vars directly."
+            "Run HTTP mode (`--http` / `MCP_TRANSPORT=http`) to set credentials via the "
+            "browser form, or set GEMINI_API_KEY/OPENAI_API_KEY/XAI_API_KEY (or MCP_RELAY_URL) directly."
         )
         return None
 
