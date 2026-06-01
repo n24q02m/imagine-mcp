@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.5.4-beta.2 (2026-06-01)
+
+### Bug Fixes
+
+- Detect real image mime type for Gemini vision instead of hardcoding image/png
+  ([#202](https://github.com/n24q02m/imagine-mcp/pull/202),
+  [`84c05f0`](https://github.com/n24q02m/imagine-mcp/commit/84c05f0cafc204f5fbe2a6bbd5e0a97b7233d9a5))
+
+
 ## v1.5.4-beta.1 (2026-06-01)
 
 ### Bug Fixes
