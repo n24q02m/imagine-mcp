@@ -13,11 +13,11 @@ Production-grade MCP server for image/video understanding and generation across 
 
 ```python
 understand(media_urls: list[str], prompt: str,
-           provider: str = "gemini", tier: str = "poor",
+           provider: str | None = None, tier: str = "poor",
            max_tokens: int = 2048) -> dict
 
 generate(media_type: Literal["image", "video"], prompt: str,
-         provider: str = "gemini", tier: str = "poor",
+         provider: str | None = None, tier: str = "poor",
          reference_image_url: str | None = None,
          job_id: str | None = None,
          output_mode: Literal["base64", "path", "both"] = "both",
@@ -63,7 +63,7 @@ For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/model
 
 3 API keys (all optional — server runs in degraded mode with missing creds):
 
-- `GOOGLE_AI_STUDIO_API_KEY`
+- `GEMINI_API_KEY`
 - `OPENAI_API_KEY`
 - `XAI_API_KEY`
 

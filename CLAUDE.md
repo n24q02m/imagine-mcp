@@ -13,11 +13,11 @@ Production-grade MCP server for image/video understanding and generation across 
 
 ```python
 understand(media_urls: list[str], prompt: str,
-           provider: str = "gemini", tier: str = "poor",
+           provider: str | None = None, tier: str = "poor",
            max_tokens: int = 2048) -> dict
 
 generate(media_type: Literal["image", "video"], prompt: str,
-         provider: str = "gemini", tier: str = "poor",
+         provider: str | None = None, tier: str = "poor",
          reference_image_url: str | None = None,
          job_id: str | None = None,
          output_mode: Literal["base64", "path", "both"] = "both",
