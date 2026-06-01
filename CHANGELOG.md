@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.5.4 (2026-06-01)
+
+### Bug Fixes
+
+- Pin mcp-core 1.17.2 (stable)
+  ([`f88d7e8`](https://github.com/n24q02m/imagine-mcp/commit/f88d7e88284eafea016bf5c74a05cbad99fe817b))
+
+
 ## v1.5.4-beta.2 (2026-06-01)
 
 ### Bug Fixes
