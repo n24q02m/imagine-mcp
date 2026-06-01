@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.5.4-beta.1 (2026-06-01)
+
+### Bug Fixes
+
+- Bump mcp-core to 1.17.2-beta.1 for beta testing
+  ([`8499066`](https://github.com/n24q02m/imagine-mcp/commit/84990669202cf5a10ee23b4d216d994366c80efd))
+
+- Correct stale transport-mode docs and degraded-mode warning
+  ([#201](https://github.com/n24q02m/imagine-mcp/pull/201),
+  [`661ca85`](https://github.com/n24q02m/imagine-mcp/commit/661ca8547dfeed4a41fa11904fedef265073f49a))
+
+- Sync docs to code (provider default None, GEMINI_API_KEY env name, drop dead setup-manual link)
+  ([#200](https://github.com/n24q02m/imagine-mcp/pull/200),
+  [`0c62573`](https://github.com/n24q02m/imagine-mcp/commit/0c625738736f06dc4da036fbce5f0caa5c7a3e62))
+
+- Update non-major dependencies ([#191](https://github.com/n24q02m/imagine-mcp/pull/191),
+  [`07f5d22`](https://github.com/n24q02m/imagine-mcp/commit/07f5d220e290b15fb4ae0f656933b2b96e95f2f3))
+
+
 ## v1.5.3 (2026-05-29)
 
 ### Bug Fixes
