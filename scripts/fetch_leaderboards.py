@@ -215,12 +215,18 @@ def merge_ranks(rows_aa: list[LBRow], rows_lmarena: list[LBRow]) -> dict[str, in
     """Return {canonical_model_id: quality_rank} using min(rank_aa, rank_lmarena)."""
     result: dict[str, int] = {}
     all_ids = {r.model_id for r in rows_aa} | {r.model_id for r in rows_lmarena}
+
+    # O(N) lookup dictionaries
+    aa_ranks = {r.model_id: r.rank for r in rows_aa}
+    lm_ranks = {r.model_id: r.rank for r in rows_lmarena}
+
     for model_id in all_ids:
         ranks: list[int] = []
-        for rows in (rows_aa, rows_lmarena):
-            match = next((r for r in rows if r.model_id == model_id), None)
-            if match:
-                ranks.append(match.rank)
+        if model_id in aa_ranks:
+            ranks.append(aa_ranks[model_id])
+        if model_id in lm_ranks:
+            ranks.append(lm_ranks[model_id])
+
         result[model_id] = min(ranks) if ranks else 999
     return result
 

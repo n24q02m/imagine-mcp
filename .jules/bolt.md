@@ -16,3 +16,7 @@
 ## 2026-05-27 - Request-Scoped ContextVar Caching for I/O Heavy Credentials
 **Learning:** In a multi-user HTTP architecture where credentials are encrypted and stored per user (sub), resolving credentials via `PerPluginStore.load()` triggered expensive file reads, AES-GCM decryption, and JSON parsing on *every* API lookup (e.g. `_default_provider`, `_api_key`). Caching this lookup on a per-request basis using `contextvars.ContextVar` eliminates these redundant operations. However, because `ContextVar` instances inherit state in sequentially executed asyncio test tasks (running in the same OS thread), the cache must be explicitly reset using an `autouse=True` fixture in `conftest.py` to prevent state leakage and isolated test failures.
 **Action:** Use `contextvars.ContextVar` for request-scoped caching to eliminate redundant disk/crypto operations per API request. When doing so, always ensure test suites have an `autouse` fixture to manually reset the contextvar to maintain test isolation.
+
+## 2024-05-18 - Optimize merge_ranks list comprehensions
+**Learning:** `merge_ranks` in `scripts/fetch_leaderboards.py` used nested list comprehensions to find matching model ranks, yielding an O(N²) time complexity. Pre-computing lookup dictionaries for ranks reduces this process to an O(N) complexity for dictionary lookups inside a single loop iteration.
+**Action:** Replace nested loops that search for matching elements in lists with single loops utilizing pre-computed O(1) dictionary lookups.
