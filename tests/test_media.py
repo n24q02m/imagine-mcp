@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 
-from imagine_mcp.errors import MediaDetectError
+from imagine_mcp.errors import InvalidURLError, MediaDetectError
 from imagine_mcp.media import (
     _extract_extension,
     detect_media_type,
+    download_to_path,
     resolve_image_mime,
     sniff_image_mime,
 )
@@ -122,3 +125,60 @@ def test_extract_extension() -> None:
     assert _extract_extension("https://example.com/foo.PNG") == ".png"
     assert _extract_extension("https://example.com/foo.mp4?q=1") == ".mp4"
     assert _extract_extension("https://example.com/foo") == ""
+
+
+def test_download_to_path_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dest = tmp_path / "test.png"
+    url = "https://example.com/test.png"
+    content = b"fake-image-data"
+
+    mock_response = MagicMock()
+    mock_response.iter_bytes.return_value = [
+        content[i : i + 2] for i in range(0, len(content), 2)
+    ]
+    mock_response.raise_for_status = MagicMock()
+
+    class MockClient:
+        def stream(self, method, url, **kwargs):
+            class ContextManager:
+                def __enter__(self):
+                    return mock_response
+
+                def __exit__(self, *args):
+                    pass
+
+            return ContextManager()
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+
+    result = download_to_path(url, dest)
+
+    assert result == dest
+    assert dest.read_bytes() == content
+
+
+def test_download_to_path_invalid_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dest = tmp_path / "test.png"
+    url = "https://internal.com/test.png"
+
+    class MockClient:
+        def stream(self, method, url, **kwargs):
+            class ContextManager:
+                def __enter__(self):
+                    raise InvalidURLError("Private IP")
+
+                def __exit__(self, *args):
+                    pass
+
+            return ContextManager()
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+
+    with pytest.raises(
+        httpx.HTTPError, match="Download failed due to invalid redirect: Private IP"
+    ):
+        download_to_path(url, dest)
