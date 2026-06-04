@@ -114,34 +114,31 @@ def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
-        "openai.understand.video: GPT-5.4 is image-only. "
-        "Extract frames externally or use provider='gemini'."
+        "openai.understand.video: GPT-5.4 vision is image-only. Workarounds: "
+        "(1) use provider='gemini' (native multimodal), or "
+        "(2) extract frames externally and pass as image URLs."
     )
 
 
-def generate_image(
+def edit(
+    url: str,
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
+    """Edit an image using OpenAI DALL-E 2."""
+    from imagine_mcp.media import get_ssrf_safe_client
+
     model = get_model_id("openai", "generate", "image", tier)
     size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
     size = size_map.get(aspect_ratio, "1024x1024")
 
-    if reference_image_url:
-        from imagine_mcp.media import get_ssrf_safe_client
+    # Download reference image securely to prevent backend SSRF
+    img_bytes = (
+        get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60).content
+    )
 
-        img_bytes = (
-            get_ssrf_safe_client()
-            .get(reference_image_url, follow_redirects=True, timeout=60)
-            .content
-        )
-        resp = _client().images.edit(
-            model=model, image=img_bytes, prompt=prompt, size=size
-        )
-    else:
-        resp = _client().images.generate(model=model, prompt=prompt, size=size, n=1)
+    resp = _client().images.edit(model=model, image=img_bytes, prompt=prompt, size=size)
 
     img_b64 = resp.data[0].b64_json
     if not img_b64:
@@ -162,6 +159,54 @@ def generate_image(
     }
 
 
+def generate_image(
+    prompt: str,
+    tier: str,
+    reference_image_url: str | None = None,
+    aspect_ratio: str = "1:1",
+) -> dict[str, Any]:
+    if reference_image_url:
+        return edit(reference_image_url, prompt, tier, aspect_ratio)
+
+    model = get_model_id("openai", "generate", "image", tier)
+    size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
+    size = size_map.get(aspect_ratio, "1024x1024")
+
+    resp = _client().images.generate(model=model, prompt=prompt, size=size, n=1)
+
+    img_b64 = resp.data[0].b64_json
+    if not img_b64:
+        raise ProviderAPIError("OpenAI returned no image", status_code=500)
+    img_bytes = base64.b64decode(img_b64)
+
+    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"{uuid.uuid4().hex}.png"
+    out_path.write_bytes(img_bytes)
+
+    return {
+        "image_path": str(out_path),
+        "image_base64": img_b64,
+        "model": model,
+        "provider": "openai",
+        "tier": tier,
+    }
+
+
+def video_status(
+    job_id: str,
+    prompt: str,
+    tier: str,
+    reference_image_url: str | None = None,
+    aspect_ratio: str = "16:9",
+    duration_seconds: int = 8,
+) -> dict[str, Any]:
+    """Proxy for generate_video status polling."""
+    return generate_video(
+        prompt, tier, reference_image_url, job_id, aspect_ratio, duration_seconds
+    )
+
+
 def generate_video(
     prompt: str,
     tier: str,
@@ -172,5 +217,5 @@ def generate_video(
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
         "openai.generate.video: Sora 2 API shutdown 2026-09-24. "
-        "Use provider='gemini' (Veo) or 'grok' (Grok Imagine)."
+        "Use provider='gemini' (Veo 3.1) or 'grok' (Grok Imagine)."
     )
