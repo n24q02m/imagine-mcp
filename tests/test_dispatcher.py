@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from imagine_mcp.dispatcher import (
+    GenerationOptions,
     _default_provider,
     dispatch_generate,
     dispatch_understand,
@@ -157,7 +158,7 @@ def test_generate_rejects_non_http_reference_image_url() -> None:
             prompt="cat",
             provider="gemini",
             tier="poor",
-            reference_image_url="file:///etc/passwd",
+            options=GenerationOptions(reference_image_url="file:///etc/passwd"),
         )
 
 
