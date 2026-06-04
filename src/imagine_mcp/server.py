@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from importlib.metadata import version
 from importlib.resources import files
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import platformdirs
 from loguru import logger
@@ -75,11 +75,13 @@ def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
 
     match key:
         case "log_level":
-            settings.log_level = value
+            settings.log_level = cast(
+                Literal["DEBUG", "INFO", "WARNING", "ERROR"], value
+            )
         case "default_provider":
-            settings.default_provider = value
+            settings.default_provider = cast(Literal["gemini", "openai", "grok"], value)
         case "default_tier":
-            settings.default_tier = value
+            settings.default_tier = cast(Literal["poor", "rich"], value)
         case "cache_ttl_seconds":
             try:
                 settings.cache_ttl_seconds = int(value)
