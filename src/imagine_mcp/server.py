@@ -1,18 +1,17 @@
+"""FastMCP server exposing understand, generate, config, help tools."""
+
 from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
-from importlib.metadata import version
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Literal, cast
 
 import platformdirs
+from fastmcp import FastMCP
 from loguru import logger
-from mcp.server import Server
-from mcp_core.app import BearerMCPApp
+from mcp_core.relay.tool_helpers import register_open_relay_tool
 
 from imagine_mcp.config import settings
 from imagine_mcp.dispatcher import (
@@ -33,10 +32,19 @@ _VALID_SET_KEYS = {
 
 
 def _get_version() -> str:
-    try:
-        return version("imagine-mcp")
-    except Exception:
-        return "0.0.0-dev"
+    from imagine_mcp import __version__
+
+    return __version__
+
+
+def _creds_state() -> str:
+    # Read from os.environ -- settings singleton is frozen at import time
+    # and does not observe post-startup relay-saved credentials.
+    if any(
+        os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
+    ):
+        return "configured (env)"
+    return "pending (run config tool)"
 
 
 def _providers_configured() -> list[str]:
@@ -55,15 +63,6 @@ def _providers_configured_live() -> list[str]:
     return [p for env, p in _DEFAULT_PROVIDER_PRIORITY if creds.get(env)]
 
 
-def _creds_state() -> str:
-    """Return human-readable status of the credential store."""
-    from imagine_mcp.credential_state import _current_sub
-
-    if _current_sub.get():
-        return "multi-user (per-sub config)"
-    return "single-user (env/config.enc)"
-
-
 def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
     if not key or key not in _VALID_SET_KEYS:
         return {
@@ -79,7 +78,9 @@ def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
                 Literal["DEBUG", "INFO", "WARNING", "ERROR"], value
             )
         case "default_provider":
-            settings.default_provider = cast(Literal["gemini", "openai", "grok"], value)
+            settings.default_provider = cast(
+                Literal["gemini", "openai", "grok"], value
+            )
         case "default_tier":
             settings.default_tier = cast(Literal["poor", "rich"], value)
         case "cache_ttl_seconds":
@@ -90,14 +91,9 @@ def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
     return {"status": "ok", "key": key, "value": value}
 
 
-@asynccontextmanager
-async def lifespan(server: Server) -> AsyncIterator[None]:
-    yield
-
-
-def build_app() -> BearerMCPApp:
+def build_app() -> FastMCP:
     """Initialize the MCP application with all tools registered."""
-    app = BearerMCPApp("imagine-mcp", version=_get_version())
+    app = FastMCP("imagine-mcp", version=_get_version())
 
     @app.tool()
     def understand(
@@ -174,6 +170,8 @@ def build_app() -> BearerMCPApp:
                     "providers_configured": _providers_configured(),
                 }
             case "relay_status":
+                # Derive providers from live PerPluginStore + env so status
+                # is accurate even when env vars were not populated at startup.
                 _live_providers = _providers_configured_live()
                 return {
                     "status": "configured" if _live_providers else "pending",
@@ -186,6 +184,7 @@ def build_app() -> BearerMCPApp:
                     "providers_configured": _live_providers,
                 }
             case "relay_skip":
+                # Only claim "using env vars" when env vars are actually set.
                 _env_providers = _providers_configured()
                 if not _env_providers:
                     return {
@@ -238,67 +237,24 @@ def build_app() -> BearerMCPApp:
     )
     def help(topic: str = "understand") -> str:
         """Load documentation for a specific tool or topic."""
+        if topic not in VALID_HELP_TOPICS:
+            return f"Unknown topic {topic!r}. Valid: {sorted(VALID_HELP_TOPICS)}"
         doc_file = files("imagine_mcp.docs").joinpath(f"{topic}.md")
         return doc_file.read_text(encoding="utf-8")
 
-    from mcp_core.app import register_open_relay_tool
-
+    # mcp-core >=1.13: register_open_relay_tool takes public_url (str | None).
+    # In stdio mode PUBLIC_URL is unset → tool returns ``stdio_unsupported``.
+    # In HTTP mode the server's PUBLIC_URL env points at the externally
+    # reachable origin used to construct the ``/authorize`` link.
     register_open_relay_tool(app, "imagine-mcp", os.environ.get("PUBLIC_URL"))
 
     return app
 
 
-async def _per_request_sub_scope(claims: dict[str, Any], next_: Any) -> None:
-    from imagine_mcp.credential_state import _current_sub, _request_creds
-
-    token_sub = _current_sub.set(claims.get("sub"))
-    token_creds = _request_creds.set(None)
-    try:
-        await next_()
-    finally:
-        _current_sub.reset(token_sub)
-        _request_creds.reset(token_creds)
-
-
-async def run_http(port: int = 0) -> None:
-    from mcp_core.transport.local_server import run_http_server
-
-    from imagine_mcp.credential_state import save_credentials
-
-    public_url = os.environ.get("PUBLIC_URL")
-    if public_url:
-        if not os.environ.get("MCP_DCR_SERVER_SECRET"):
-            raise SystemExit(
-                "imagine-mcp refuses to start: PUBLIC_URL set but "
-                "MCP_DCR_SERVER_SECRET missing. Multi-user remote mode "
-                "requires the DCR secret."
-            )
-        host = os.environ.get("MCP_HOST", "0.0.0.0")
-        port = int(os.environ.get("MCP_PORT", "8080"))
-        mode_label = "http remote relay (multi-user)"
-    else:
-        host = "127.0.0.1"
-        mode_label = "http local relay"
-
-    app = build_app()
-    logger.info("imagine-mcp {} starting ({})", _get_version(), mode_label)
-    auth_disabled = os.environ.get("MCP_AUTH_DISABLE") == "1"
-
-    await run_http_server(
-        app,
-        server_name="imagine-mcp",
-        relay_schema=RELAY_SCHEMA,
-        port=port,
-        host=host,
-        open_browser=not public_url,
-        on_credentials_saved=save_credentials,
-        auth_scope=_per_request_sub_scope if public_url else None,
-        auth_disabled=auth_disabled,
-    )
-
-
 def main() -> None:
-    asyncio.run(run_http())
+    """Entry point for the MCP server."""
+    app = build_app()
+    app.run()
 
 
 if __name__ == "__main__":
