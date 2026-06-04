@@ -18,8 +18,8 @@ def mock_media_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_client = MagicMock()
     mock_client.get.return_value = mock_resp
 
-    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: mock_client)
-    monkeypatch.setattr("imagine_mcp.media.download_to_path", lambda url, dest: dest)
+    monkeypatch.setattr(gemini, "get_ssrf_safe_client", lambda: mock_client)
+    monkeypatch.setattr(gemini, "download_to_path", lambda url, dest: dest)
 
 
 def test_understand_image_mocked(
@@ -88,7 +88,7 @@ def test_understand_multimodal_mocked(
     def mock_detect(url):
         return "video" if url.endswith(".mp4") else "image"
 
-    monkeypatch.setattr("imagine_mcp.media.detect_media_type", mock_detect)
+    monkeypatch.setattr(gemini, "detect_media_type", mock_detect)
 
     result = gemini.understand_multimodal(
         urls=["https://example.com/a.png", "https://example.com/b.mp4"],
@@ -113,7 +113,7 @@ def test_understand_multimodal_with_media_types_mocked(
 
     # We don't mock detect_media_type here to ensure it's NOT called
     mock_detect = MagicMock()
-    monkeypatch.setattr("imagine_mcp.media.detect_media_type", mock_detect)
+    monkeypatch.setattr(gemini, "detect_media_type", mock_detect)
 
     result = gemini.understand_multimodal(
         urls=["https://example.com/a.png", "https://example.com/b.mp4"],
