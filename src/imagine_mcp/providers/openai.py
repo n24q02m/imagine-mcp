@@ -14,7 +14,6 @@ from imagine_mcp.config import settings
 from imagine_mcp.errors import (
     CredentialMissingError,
     ProviderAPIError,
-    ProviderUnsupportedError,
 )
 from imagine_mcp.models import get_model_id
 
@@ -70,12 +69,6 @@ def _client() -> Any:
     return _CLIENT
 
 
-def _reset_client() -> None:
-    global _CLIENT
-    _CLIENT = None
-    _SUB_CLIENTS.clear()
-
-
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
@@ -108,15 +101,6 @@ def understand_image(
         "provider": "openai",
         "tier": tier,
     }
-
-
-def understand_video(
-    url: str, prompt: str, tier: str, max_tokens: int = 2048
-) -> dict[str, Any]:
-    raise ProviderUnsupportedError(
-        "openai.understand.video: GPT-5.4 is image-only. "
-        "Extract frames externally or use provider='gemini'."
-    )
 
 
 def generate_image(
@@ -160,17 +144,3 @@ def generate_image(
         "provider": "openai",
         "tier": tier,
     }
-
-
-def generate_video(
-    prompt: str,
-    tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
-) -> dict[str, Any]:
-    raise ProviderUnsupportedError(
-        "openai.generate.video: Sora 2 API shutdown 2026-09-24. "
-        "Use provider='gemini' (Veo) or 'grok' (Grok Imagine)."
-    )
