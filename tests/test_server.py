@@ -18,9 +18,11 @@ def test_build_app_metadata():
     app = build_app()
     assert isinstance(app, FastMCP)
     assert app.name == "imagine"
-    assert app.instructions is not None
-    assert "Image/video understanding and generation" in app.instructions
-    assert "4 tools: understand, generate, config, help" in app.instructions
+    # Capture instructions to local variable to help type narrowing for 'ty'
+    instructions = app.instructions
+    assert instructions is not None
+    assert "Image/video understanding and generation" in instructions
+    assert "4 tools: understand, generate, config, help" in instructions
 
 
 def test_get_version():
