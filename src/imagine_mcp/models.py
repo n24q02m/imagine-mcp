@@ -413,3 +413,29 @@ def default_provider_for(action: str, media: str, tier: str) -> str:
     if candidates and candidates[0].quality_rank is not None:
         return candidates[0].provider
     return "gemini"
+
+
+_UNSUPPORTED_HINTS: Final[dict[tuple[str, str, str], str]] = {
+    ("openai", "understand", "video"): (
+        "OpenAI GPT-5.4 vision is image-only. Workarounds: "
+        "(1) use provider='gemini' (native multimodal), or "
+        "(2) extract frames externally and pass as image URLs."
+    ),
+    ("openai", "generate", "video"): (
+        "OpenAI Sora 2 API is shutting down 2026-09-24. "
+        "Use provider='gemini' (Veo 3.1) or 'grok' (Grok Imagine)."
+    ),
+    ("grok", "understand", "video"): (
+        "Grok production (4.20-0309-v2) is image-only. "
+        "Beta supports video but is not stable. Use provider='gemini' "
+        "for video understanding."
+    ),
+}
+
+
+def get_unsupported_message(provider: str, action: str, media: str) -> str:
+    """Return a descriptive error message for an unsupported action/media combo."""
+    hint = _UNSUPPORTED_HINTS.get((provider, action, media), "")
+    if hint:
+        return f"{provider}.{action}.{media}: {hint}"
+    return f"{provider}.{action}.{media}: {provider} does not support {action} {media}."
