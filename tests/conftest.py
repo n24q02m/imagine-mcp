@@ -21,6 +21,7 @@ def reset_clients():
 
 @pytest.fixture(autouse=True)
 def reset_contextvars():
-    from imagine_mcp.credential_state import _request_creds
+    from imagine_mcp.credential_state import _current_sub, _request_creds
 
+    _current_sub.set(None)
     _request_creds.set(None)
