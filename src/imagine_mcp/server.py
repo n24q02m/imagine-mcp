@@ -6,7 +6,7 @@ import asyncio
 import os
 from importlib.resources import files
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import platformdirs
 from fastmcp import FastMCP
@@ -43,59 +43,79 @@ def _creds_state() -> str:
     if any(
         os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
     ):
-        return "configured (env)"
-    return "pending (run config tool)"
+        return "CONFIGURED"
+    return "NEEDS_SETUP"
 
 
 def _providers_configured() -> list[str]:
-    """Check env vars for configured providers (shallow check)."""
-    from imagine_mcp.dispatcher import _DEFAULT_PROVIDER_PRIORITY
-
-    return [p for env, p in _DEFAULT_PROVIDER_PRIORITY if os.environ.get(env)]
+    out: list[str] = []
+    if os.environ.get("GEMINI_API_KEY"):
+        out.append("gemini")
+    if os.environ.get("OPENAI_API_KEY"):
+        out.append("openai")
+    if os.environ.get("XAI_API_KEY"):
+        out.append("grok")
+    return out
 
 
 def _providers_configured_live() -> list[str]:
-    """Check credentials_for_current_request for providers (deep check)."""
-    from imagine_mcp.credential_state import credentials_for_current_request
-    from imagine_mcp.dispatcher import _DEFAULT_PROVIDER_PRIORITY
+    """Like _providers_configured but also checks PerPluginStore.
 
-    creds = credentials_for_current_request()
-    return [p for env, p in _DEFAULT_PROVIDER_PRIORITY if creds.get(env)]
+    env vars may not be populated at startup (no lifespan apply_config call),
+    so this reads the store directly for an accurate live view.
+    """
+    from mcp_core.storage.per_plugin_store import PerPluginStore
+
+    from imagine_mcp.relay_setup import CREDENTIAL_KEYS, PLUGIN_NAME
+
+    saved = PerPluginStore(PLUGIN_NAME).load() or {}
+    _key_to_provider = {
+        "GEMINI_API_KEY": "gemini",
+        "OPENAI_API_KEY": "openai",
+        "XAI_API_KEY": "grok",
+    }
+    seen: set[str] = set()
+    out: list[str] = []
+    for key in CREDENTIAL_KEYS:
+        provider = _key_to_provider.get(key, key)
+        if provider in seen:
+            continue
+        if os.environ.get(key) or saved.get(key):
+            out.append(provider)
+            seen.add(provider)
+    return out
 
 
 def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
     if not key or key not in _VALID_SET_KEYS:
         return {
             "status": "error",
-            "message": f"Invalid key {key!r}. Valid: {sorted(_VALID_SET_KEYS)}",
+            "message": f"Invalid key. Valid: {sorted(_VALID_SET_KEYS)}",
         }
-    if value is None:
-        return {"status": "error", "message": "Value is required."}
-
-    match key:
-        case "log_level":
-            settings.log_level = cast(
-                Literal["DEBUG", "INFO", "WARNING", "ERROR"], value
-            )
-        case "default_provider":
-            settings.default_provider = cast(
-                Literal["gemini", "openai", "grok"], value
-            )
-        case "default_tier":
-            settings.default_tier = cast(Literal["poor", "rich"], value)
-        case "cache_ttl_seconds":
-            try:
-                settings.cache_ttl_seconds = int(value)
-            except ValueError:
-                return {"status": "error", "message": "Value must be an integer."}
-    return {"status": "ok", "key": key, "value": value}
+    return {
+        "status": "ok",
+        "message": f"Set {key}={value} (runtime only; persistent via mcp-core).",
+    }
 
 
 def build_app() -> FastMCP:
-    """Initialize the MCP application with all tools registered."""
-    app = FastMCP("imagine-mcp", version=_get_version())
+    """Create FastMCP app with 4 tools registered."""
+    app: FastMCP = FastMCP(
+        "imagine",
+        instructions=(
+            "Image/video understanding and generation across Gemini, OpenAI, Grok. "
+            "4 tools: understand, generate, config, help. "
+            "Call help(topic='understand'|'generate'|'config') for detailed docs."
+        ),
+    )
 
-    @app.tool()
+    @app.tool(
+        description=(
+            "Understand images and/or videos (multi-URL) with a prompt. "
+            "Gemini supports mixed image+video in one call; "
+            "OpenAI/Grok are image-only."
+        ),
+    )
     def understand(
         media_urls: list[str],
         prompt: str,
@@ -251,10 +271,94 @@ def build_app() -> FastMCP:
     return app
 
 
-def main() -> None:
-    """Entry point for the MCP server."""
+async def _per_request_sub_scope(claims: dict[str, Any], next_: Any) -> None:
+    """``auth_scope`` middleware: pin JWT sub into a contextvar for the request.
+
+    mcp-core invokes this after Bearer JWT verification with the decoded
+    claims dict. We push ``claims["sub"]`` into ``_current_sub`` so tool
+    handlers (``understand`` / ``generate``) and the dispatcher's auto-fallback
+    (``_default_provider``) can resolve credentials per-user via
+    ``credentials_for_current_request()``. ``contextvars.Context.set`` returns
+    a token that we ``reset()`` in ``finally`` so a request that errors out
+    cannot leak its sub into the next request handled by the same task.
+    """
+    from imagine_mcp.credential_state import _current_sub, _request_creds
+
+    token_sub = _current_sub.set(claims.get("sub"))
+    token_creds = _request_creds.set(None)
+    try:
+        await next_()
+    finally:
+        _current_sub.reset(token_sub)
+        _request_creds.reset(token_creds)
+
+
+async def run_http(port: int = 0) -> None:
+    """Unified HTTP daemon -- single-user (default) or multi-user remote.
+
+    Default (``PUBLIC_URL`` unset):
+        Local HTTP daemon on 127.0.0.1:<port> via mcp-core's
+        ``run_http_server``. Credential form at ``/authorize`` writes
+        keys to the encrypted ``config.enc`` (single-user, single config).
+
+    Multi-user remote (``PUBLIC_URL`` set):
+        Bind ``0.0.0.0:8080`` so the daemon is reachable behind a reverse
+        proxy. Each authorize session carries a fresh ``sub`` UUID
+        generated by ``mcp_core.auth.local_oauth_app``; LLM API keys are
+        scoped per-sub in ``IMAGINE_DATA_DIR/subs/<sub>/config.json``.
+        Refuses to start if ``MCP_DCR_SERVER_SECRET`` is missing -- DCR
+        requires a server secret to mint per-user JWTs safely.
+
+        ``auth_scope=_per_request_sub_scope`` is wired only in this branch
+        so single-user mode keeps reading ``os.environ`` unchanged.
+    """
+    from mcp_core.transport.local_server import run_http_server
+
+    from imagine_mcp.credential_state import save_credentials
+
+    public_url = os.environ.get("PUBLIC_URL")
+    if public_url:
+        if not os.environ.get("MCP_DCR_SERVER_SECRET"):
+            raise SystemExit(
+                "imagine-mcp refuses to start: PUBLIC_URL set but "
+                "MCP_DCR_SERVER_SECRET missing. Multi-user remote mode "
+                "requires the DCR secret."
+            )
+        host = os.environ.get("MCP_HOST", "0.0.0.0")  # nosec B104
+        port = int(os.environ.get("MCP_PORT", "8080"))
+        mode_label = "http remote relay (multi-user)"
+    else:
+        host = "127.0.0.1"
+        mode_label = "http local relay"
+
     app = build_app()
-    app.run()
+    logger.info("imagine-mcp {} starting ({})", _get_version(), mode_label)
+    # MCP_AUTH_DISABLE=1 skips Bearer JWT verification on /mcp -- for
+    # deployments behind an external auth boundary (reverse proxy / API
+    # gateway) that already enforces authentication. See mcp-core
+    # BearerMCPApp.auth_disabled (mcp-core >=1.15.0-beta.3).
+    auth_disabled = os.environ.get("MCP_AUTH_DISABLE") == "1"
+
+    await run_http_server(
+        app,
+        server_name="imagine-mcp",
+        relay_schema=RELAY_SCHEMA,
+        port=port,
+        host=host,
+        open_browser=not public_url,
+        on_credentials_saved=save_credentials,
+        auth_scope=_per_request_sub_scope if public_url else None,
+        auth_disabled=auth_disabled,
+    )
+
+
+def main() -> None:
+    """Sync wrapper for the HTTP mode entry point.
+
+    Kept as the public entry point for legacy callers. Default mode
+    dispatch (stdio / http) lives in ``imagine_mcp.__main__``.
+    """
+    asyncio.run(run_http())
 
 
 if __name__ == "__main__":
