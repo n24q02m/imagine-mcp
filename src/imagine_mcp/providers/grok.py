@@ -197,44 +197,78 @@ def generate_video(
     headers = {"Authorization": f"Bearer {_api_key()}"}
 
     if job_id is None:
-        payload: dict[str, Any] = {
-            "model": model,
-            "prompt": prompt,
-            "duration_seconds": duration_seconds,
-            "aspect_ratio": aspect_ratio,
-        }
-        if reference_image_url:
-            # Download source image and pass as base64 data URL
-            resp_img = get_ssrf_safe_client().get(
-                reference_image_url, follow_redirects=True, timeout=60
-            )
-            img_b64 = base64.b64encode(resp_img.content).decode()
-            mime_type = resp_img.headers.get("content-type", "image/png")
-            data_url = f"data:{mime_type};base64,{img_b64}"
-            payload["source_image"] = data_url
-
-        resp = get_ssrf_safe_client().post(
-            f"{_BASE_URL}/videos/generations",
-            json=payload,
+        return _submit_video_generation(
+            prompt=prompt,
+            model=model,
             headers=headers,
-            timeout=60,
-            follow_redirects=True,
+            reference_image_url=reference_image_url,
+            aspect_ratio=aspect_ratio,
+            duration_seconds=duration_seconds,
+            tier=tier,
         )
-        if resp.status_code != 200:
-            raise ProviderAPIError(
-                f"Grok video submit failed: {resp.text}",
-                status_code=resp.status_code,
-            )
-        data = resp.json()
-        return {
-            "job_id": data["id"],
-            "status": "pending",
-            "eta_seconds": data.get("eta_seconds", 30),
-            "model": model,
-            "provider": "grok",
-            "tier": tier,
-        }
 
+    return _poll_video_generation(
+        job_id=job_id,
+        model=model,
+        headers=headers,
+        tier=tier,
+    )
+
+
+def _submit_video_generation(
+    prompt: str,
+    model: str,
+    headers: dict[str, str],
+    reference_image_url: str | None,
+    aspect_ratio: str,
+    duration_seconds: int,
+    tier: str,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "duration_seconds": duration_seconds,
+        "aspect_ratio": aspect_ratio,
+    }
+    if reference_image_url:
+        # Download source image and pass as base64 data URL
+        resp_img = get_ssrf_safe_client().get(
+            reference_image_url, follow_redirects=True, timeout=60
+        )
+        img_b64 = base64.b64encode(resp_img.content).decode()
+        mime_type = resp_img.headers.get("content-type", "image/png")
+        data_url = f"data:{mime_type};base64,{img_b64}"
+        payload["source_image"] = data_url
+
+    resp = get_ssrf_safe_client().post(
+        f"{_BASE_URL}/videos/generations",
+        json=payload,
+        headers=headers,
+        timeout=60,
+        follow_redirects=True,
+    )
+    if resp.status_code != 200:
+        raise ProviderAPIError(
+            f"Grok video submit failed: {resp.text}",
+            status_code=resp.status_code,
+        )
+    data = resp.json()
+    return {
+        "job_id": data["id"],
+        "status": "pending",
+        "eta_seconds": data.get("eta_seconds", 30),
+        "model": model,
+        "provider": "grok",
+        "tier": tier,
+    }
+
+
+def _poll_video_generation(
+    job_id: str,
+    model: str,
+    headers: dict[str, str],
+    tier: str,
+) -> dict[str, Any]:
     safe_job_id = urllib.parse.quote(job_id, safe="")
     resp = get_ssrf_safe_client().get(
         f"{_BASE_URL}/videos/generations/{safe_job_id}",

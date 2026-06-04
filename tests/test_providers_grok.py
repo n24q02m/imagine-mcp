@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,11 +15,15 @@ def mock_media_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_resp = MagicMock()
     mock_resp.content = b"fake-image-bytes"
     mock_resp.headers = {"content-type": "image/png"}
+    mock_resp.status_code = 200
 
     mock_client = MagicMock()
     mock_client.get.return_value = mock_resp
+    mock_client.post.return_value = mock_resp
 
     monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: mock_client)
+    # Also monkeypatch where it's imported
+    monkeypatch.setattr(provider, "get_ssrf_safe_client", lambda: mock_client)
 
 
 def test_understand_video_raises() -> None:
@@ -45,3 +50,75 @@ def test_understand_image_mocked(
     assert result["text"] == "a parrot"
     assert result["model"] == "grok-4.20-0309-reasoning"
     assert result["provider"] == "grok"
+
+
+def test_generate_video_submit(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "fake-key")
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"id": "job-123", "eta_seconds": 45}
+
+    mock_client = MagicMock()
+    mock_client.post.return_value = mock_resp
+
+    monkeypatch.setattr(provider, "get_ssrf_safe_client", lambda: mock_client)
+
+    result = provider.generate_video(prompt="a sunset", tier="rich")
+    assert result["job_id"] == "job-123"
+    assert result["status"] == "pending"
+    assert result["eta_seconds"] == 45
+    assert result["provider"] == "grok"
+
+
+def test_generate_video_poll_pending(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "fake-key")
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"status": "pending", "eta_seconds": 10}
+
+    mock_client = MagicMock()
+    mock_client.get.return_value = mock_resp
+
+    monkeypatch.setattr(provider, "get_ssrf_safe_client", lambda: mock_client)
+
+    result = provider.generate_video(prompt="a sunset", tier="rich", job_id="job-123")
+    assert result["job_id"] == "job-123"
+    assert result["status"] == "pending"
+    assert result["eta_seconds"] == 10
+
+
+def test_generate_video_poll_done(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "fake-key")
+    monkeypatch.setattr("platformdirs.user_cache_dir", lambda _: str(tmp_path))
+
+    mock_status_resp = MagicMock()
+    mock_status_resp.status_code = 200
+    mock_status_resp.json.return_value = {
+        "status": "done",
+        "video_url": "https://example.com/video.mp4",
+    }
+
+    mock_video_resp = MagicMock()
+    mock_video_resp.status_code = 200
+    mock_video_resp.content = b"fake-video-bytes"
+
+    mock_client = MagicMock()
+    # First call is GET status, second call is GET video
+    mock_client.get.side_effect = [mock_status_resp, mock_video_resp]
+
+    monkeypatch.setattr(provider, "get_ssrf_safe_client", lambda: mock_client)
+
+    result = provider.generate_video(prompt="a sunset", tier="rich", job_id="job-123")
+    assert result["status"] == "done"
+    assert result["video_url"] == "https://example.com/video.mp4"
+    assert "video_path" in result
+    assert Path(result["video_path"]).exists()
+    assert Path(result["video_path"]).read_bytes() == b"fake-video-bytes"
