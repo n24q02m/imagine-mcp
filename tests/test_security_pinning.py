@@ -29,20 +29,11 @@ def test_validate_url_and_get_ip_private(monkeypatch):
         validate_url_and_get_ip("http://example.com/", "test")
 
 
-def test_ssrf_safe_transport_pinning(monkeypatch):
-    # This test verifies that handle_request rewrites the URL and sets headers.
-    def mock_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
-        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.215.14", 80))]
-
-    monkeypatch.setattr(socket, "getaddrinfo", mock_getaddrinfo)
-
-    # Mocking the actual network call so we don't need real internet
-    class MockTransport(httpx.HTTPTransport):
-        def handle_request(self, request):
-            return httpx.Response(200, content=b"ok", request=request)
-
+def test_ssrf_safe_transport_no_rewriting(monkeypatch):
+    # This test verifies that handle_request NO LONGER rewrites the URL.
     transport = SSRFSafeTransport()
-    # We need to reach super().handle_request, so we patch HTTPTransport.handle_request
+
+    # Patch super().handle_request to return the request for verification
     monkeypatch.setattr(
         httpx.HTTPTransport,
         "handle_request",
@@ -52,20 +43,62 @@ def test_ssrf_safe_transport_pinning(monkeypatch):
     request = httpx.Request("GET", "https://example.com/foo")
     transport.handle_request(request)
 
-    # Verification
-    assert str(request.url) == "https://93.184.215.14/foo"
-    assert request.headers["Host"] == "example.com"
-    assert request.extensions["sni_hostname"] == "example.com"
+    # Verification: URL is unchanged
+    assert str(request.url) == "https://example.com/foo"
+
+
+def test_ssrf_safe_network_backend_pinning(monkeypatch):
+    # This test verifies that the backend resolves and connects to the IP.
+    def mock_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.215.14", 80))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", mock_getaddrinfo)
+
+    import httpcore
+
+    from imagine_mcp.media import SSRFSafeNetworkBackend
+
+    # Mock the underlying sync backend
+    class MockBackend(httpcore.NetworkBackend):
+        def connect_tcp(
+            self, host, port, timeout=None, local_address=None, socket_options=None
+        ):
+            # Verify that we are connecting to the IP, not the hostname
+            assert host == "93.184.215.14"
+            return "mock_stream"
+
+        def connect_unix_socket(self, path, timeout=None, socket_options=None):
+            return "mock_stream"
+
+    safe_backend = SSRFSafeNetworkBackend(backend=MockBackend())
+    stream = safe_backend.connect_tcp("example.com", 80)
+    assert stream == "mock_stream"
 
 
 def test_ssrf_safe_transport_blocks_private(monkeypatch):
+    # This test verifies that even if the transport doesn't rewrite the URL,
+    # the underlying backend will still block private IPs.
+    # Since we can't easily mock the connection phase here without real httpcore calls,
+    # we just verify that validate_url_and_get_ip still works as expected.
     def mock_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
         return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("192.168.1.1", 80))]
 
     monkeypatch.setattr(socket, "getaddrinfo", mock_getaddrinfo)
 
-    transport = SSRFSafeTransport()
-    request = httpx.Request("GET", "http://internal.service/foo")
 
+    # In our new implementation, handle_request itself doesn't call validate_url_and_get_ip.
+    # It's called when the connection is made.
+    # So we test the backend directly for this.
+
+    from imagine_mcp.media import SSRFSafeNetworkBackend
+
+    safe_backend = SSRFSafeNetworkBackend()
     with pytest.raises(InvalidURLError, match="internal/private IP"):
+        safe_backend.connect_tcp("internal.service", 80)
+
+
+def test_ssrf_safe_transport_blocks_non_safe_schemes():
+    transport = SSRFSafeTransport()
+    request = httpx.Request("GET", "ftp://example.com/foo")
+    with pytest.raises(InvalidURLError, match="Invalid URL scheme"):
         transport.handle_request(request)
