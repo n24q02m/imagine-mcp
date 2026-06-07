@@ -14,16 +14,18 @@ import json
 import logging
 import re
 import sys
+import unicodedata
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
 import httpx
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, SoupStrainer, Tag
 
 log = logging.getLogger("refresh_ranks")
 
+MAX_RESPONSE_SIZE: int = 5 * 1024 * 1024  # 5MB
 
 LB_URLS: list[str] = [
     "https://artificialanalysis.ai/image/leaderboard/text-to-image",
@@ -119,6 +121,16 @@ def _infer_provider_from_id(model_id: str) -> str | None:
     return None
 
 
+def _sanitize_text(text: str, max_len: int = 500) -> str:
+    """Strip ALL control characters and truncate to prevent ReDoS/terminal injection."""
+    # Strip everything except printable characters.
+    # unicodedata.category(c)[0] == 'C' matches "Control", "Format", "Surrogate", etc.
+    # We also explicitly strip ANSI escape sequences if they survived category check
+    text = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", text)
+    sanitized = "".join(c for c in text if unicodedata.category(c)[0] != "C")
+    return sanitized[:max_len].strip()
+
+
 def _parse_row(
     cells: list[Tag], rank_i: int, name_i: int, provider_i: int, score_i: int, url: str
 ) -> LBRow | None:
@@ -126,15 +138,19 @@ def _parse_row(
     if len(cells) <= rank_i:
         return None
 
-    rank_match = re.search(r"\d+", cells[rank_i].get_text())
+    rank_raw = _sanitize_text(cells[rank_i].get_text(), max_len=50)
+    rank_match = re.search(r"\d+", rank_raw)
     if not rank_match:
         return None
     rank = int(rank_match.group())
 
     name_cell = cells[name_i]
     link = name_cell.find("a")
-    display = link.get_text(strip=True) if link else name_cell.get_text(strip=True)
+    display_raw = link.get_text(strip=True) if link else name_cell.get_text(strip=True)
+    display = _sanitize_text(display_raw, max_len=500)
+
     # Strip trailing "provider . type" annotations LMArena embeds
+    # Sanitizing and truncating 'display' above protects against ReDoS in re.split
     display = re.split(r"\s*·\s*|\s+xAI\s+|\s+OpenAI\s+|\s+Google\s+", display)[
         0
     ].strip()
@@ -146,7 +162,9 @@ def _parse_row(
 
     provider: str | None = None
     if provider_i >= 0:
-        provider_raw = cells[provider_i].get_text(strip=True)
+        provider_raw = _sanitize_text(
+            cells[provider_i].get_text(strip=True), max_len=100
+        )
         if provider_raw:
             provider = _normalize_provider(provider_raw)
     if not provider:
@@ -156,7 +174,8 @@ def _parse_row(
 
     score: float | None = None
     if score_i >= 0:
-        score_match = re.search(r"[\d.]+", cells[score_i].get_text())
+        score_raw = _sanitize_text(cells[score_i].get_text(), max_len=50)
+        score_match = re.search(r"[\d.]+", score_raw)
         if score_match:
             with contextlib.suppress(ValueError):
                 score = float(score_match.group())
@@ -166,49 +185,70 @@ def _parse_row(
 
 def parse_leaderboard(url: str, html: str) -> list[LBRow]:
     """Extract ranked rows filtered to {gemini, openai, grok}."""
-    soup = BeautifulSoup(html, "html.parser")
-    table = soup.find("table")
-    if not table:
-        log.warning("no table found: %s", url)
-        return []
-
-    thead = table.find("thead")
-    if not thead:
-        log.warning("no thead: %s", url)
-        return []
-    header_cells = [c.get_text(strip=True).lower() for c in thead.find_all("th")]
-
+    # Limit recursion depth for deep nesting protection
+    old_recursion_limit = sys.getrecursionlimit()
+    sys.setrecursionlimit(2000)
     try:
-        rank_i = header_cells.index("rank")
-    except ValueError:
-        log.warning("no rank column: %s", url)
-        return []
+        # Use SoupStrainer to only parse the table, reducing attack surface and memory
+        strainer = SoupStrainer("table")
+        soup = BeautifulSoup(html, "html.parser", parse_only=strainer)
+        # find() on a SoupStrainer-limited soup works normally
+        table = soup.find("table")
 
-    name_i = next((i for i, c in enumerate(header_cells) if c in ("model", "name")), 1)
-    provider_i = next((i for i, c in enumerate(header_cells) if "provider" in c), -1)
-    score_i = next(
-        (i for i, c in enumerate(header_cells) if c in ("score", "elo", "arena score")),
-        -1,
-    )
+        if not table:
+            log.warning("no table found: %s", url)
+            return []
 
-    tbody = table.find("tbody")
-    if not tbody:
-        return []
+        thead = table.find("thead")
+        if not thead:
+            log.warning("no thead: %s", url)
+            return []
+        header_cells = [
+            _sanitize_text(c.get_text(strip=True), max_len=100).lower()
+            for c in thead.find_all("th")
+        ]
 
-    rows: list[LBRow] = []
-    for tr in tbody.find_all("tr"):
-        row = _parse_row(
-            tr.find_all("td"),
-            rank_i=rank_i,
-            name_i=name_i,
-            provider_i=provider_i,
-            score_i=score_i,
-            url=url,
+        try:
+            rank_i = header_cells.index("rank")
+        except ValueError:
+            log.warning("no rank column: %s", url)
+            return []
+
+        name_i = next(
+            (i for i, c in enumerate(header_cells) if c in ("model", "name")), 1
         )
-        if row:
-            rows.append(row)
+        provider_i = next(
+            (i for i, c in enumerate(header_cells) if "provider" in c), -1
+        )
+        score_i = next(
+            (
+                i
+                for i, c in enumerate(header_cells)
+                if c in ("score", "elo", "arena score")
+            ),
+            -1,
+        )
 
-    return rows
+        tbody = table.find("tbody")
+        if not tbody:
+            return []
+
+        rows: list[LBRow] = []
+        for tr in tbody.find_all("tr"):
+            row = _parse_row(
+                tr.find_all("td"),
+                rank_i=rank_i,
+                name_i=name_i,
+                provider_i=provider_i,
+                score_i=score_i,
+                url=url,
+            )
+            if row:
+                rows.append(row)
+
+        return rows
+    finally:
+        sys.setrecursionlimit(old_recursion_limit)
 
 
 def merge_ranks(rows_aa: list[LBRow], rows_lmarena: list[LBRow]) -> dict[str, int]:
@@ -229,9 +269,24 @@ def fetch_all(client: httpx.Client) -> dict[str, list[LBRow]]:
     out: dict[str, list[LBRow]] = {}
     for url in LB_URLS:
         try:
-            r = client.get(url, timeout=30.0, follow_redirects=True)
-            r.raise_for_status()
-            out[url] = parse_leaderboard(url, r.text)
+            with client.stream("GET", url, timeout=30.0, follow_redirects=True) as r:
+                r.raise_for_status()
+
+                content_length = r.headers.get("Content-Length")
+                if content_length and int(content_length) > MAX_RESPONSE_SIZE:
+                    raise ValueError(f"Response too large: {content_length} bytes")
+
+                chunks: list[str] = []
+                total_bytes = 0
+                for chunk in r.iter_text():
+                    # Approximation of bytes for the limit check
+                    total_bytes += len(chunk.encode("utf-8", errors="replace"))
+                    if total_bytes > MAX_RESPONSE_SIZE:
+                        raise ValueError("Response body exceeded maximum size")
+                    chunks.append(chunk)
+
+                html = "".join(chunks)
+                out[url] = parse_leaderboard(url, html)
             log.info("fetched %s: %d rows after filter", url, len(out[url]))
         except Exception as exc:
             log.error("fetch failed %s: %s", url, exc)
