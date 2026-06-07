@@ -2,12 +2,15 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 
 from imagine_mcp.errors import MediaDetectError
 from imagine_mcp.media import (
+    SSRFSafeTransport,
     _extract_extension,
     detect_media_type,
+    get_ssrf_safe_client,
     resolve_image_mime,
     sniff_image_mime,
 )
@@ -122,3 +125,16 @@ def test_extract_extension() -> None:
     assert _extract_extension("https://example.com/foo.PNG") == ".png"
     assert _extract_extension("https://example.com/foo.mp4?q=1") == ".mp4"
     assert _extract_extension("https://example.com/foo") == ""
+
+
+def test_get_ssrf_safe_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Reset the global client to ensure a clean state
+    monkeypatch.setattr("imagine_mcp.media._CLIENT", None)
+
+    client = get_ssrf_safe_client()
+    assert isinstance(client, httpx.Client)
+    assert isinstance(client._transport, SSRFSafeTransport)
+
+    # Verify singleton behavior
+    client2 = get_ssrf_safe_client()
+    assert client is client2
