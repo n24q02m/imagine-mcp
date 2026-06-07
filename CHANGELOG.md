@@ -2,6 +2,34 @@
 
 <!-- version list -->
 
+## v1.6.0-beta.1 (2026-06-07)
+
+### Bug Fixes
+
+- Add tests for credentials_for_current_request
+  ([`d712f0c`](https://github.com/n24q02m/imagine-mcp/commit/d712f0cb84839fe9bb5ed54b0d2ec6a77bbf32bd))
+
+- Add tests for download_to_path
+  ([`fadcf15`](https://github.com/n24q02m/imagine-mcp/commit/fadcf1538282f87f22205f293eee708d439bd0fa))
+
+- Cache static help markdown reads
+  ([`a79cd90`](https://github.com/n24q02m/imagine-mcp/commit/a79cd900561d12c863b2bc2ffb31b4ac1e310155))
+
+- Clear help-content cache after test to prevent cross-test pollution
+  ([`05ddf94`](https://github.com/n24q02m/imagine-mcp/commit/05ddf94fd722d139d2db7de91d4eb036e380bb46))
+
+- Update actions/checkout digest to df4cb1c (Renovate)
+  ([`b2041ab`](https://github.com/n24q02m/imagine-mcp/commit/b2041ab3f4dae2508f87ca0e1682a678483b97ba))
+
+- Update non-major dependencies (Renovate)
+  ([`3929f0f`](https://github.com/n24q02m/imagine-mcp/commit/3929f0f49c267b02407ef641bc50b8a8c19b593d))
+
+### Features
+
+- Add comprehensive server.py test coverage
+  ([`0e266df`](https://github.com/n24q02m/imagine-mcp/commit/0e266df1698513a845e9b711349d8079b8cbfac5))
+
+
 ## v1.5.4 (2026-06-01)
 
 ### Bug Fixes
