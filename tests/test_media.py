@@ -8,11 +8,13 @@ import pytest
 
 from imagine_mcp.errors import InvalidURLError, MediaDetectError
 from imagine_mcp.media import (
+    SSRFSafeTransport,
     _extract_extension,
     detect_media_type,
     download_to_path,
     resolve_image_mime,
     sniff_image_mime,
+    validate_url_and_get_ip,
 )
 
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
@@ -190,3 +192,81 @@ def test_download_to_path_http_error(
 
     with pytest.raises(httpx.HTTPStatusError, match="404 Not Found"):
         download_to_path("https://example.com/404.png", dest)
+
+
+class TestSSRFProtection:
+    """Regression tests locking in the SSRF protections in media.py.
+
+    The transport must (1) reject URLs resolving to internal/private/loopback/
+    link-local IPs, (2) reject non-http(s) schemes, and (3) DNS-pin by rewriting
+    the request URL to the validated IP while setting ``sni_hostname`` to the
+    original host so TLS certificate verification still targets the hostname (not
+    the IP). These guard against httpx changing the ``sni_hostname`` extension
+    semantics (pyproject caps httpx <1.0 for this reason).
+    """
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://127.0.0.1/x",  # IPv4 loopback
+            "http://169.254.169.254/latest/meta-data",  # cloud metadata link-local
+            "http://10.0.0.1/",  # RFC1918 private
+            "http://192.168.1.1/",  # RFC1918 private
+            "http://[::1]/",  # IPv6 loopback
+        ],
+    )
+    def test_rejects_internal_ips(self, url: str) -> None:
+        with pytest.raises(InvalidURLError, match="internal/private IP"):
+            validate_url_and_get_ip(url, "redirect_url")
+
+    @pytest.mark.parametrize("url", ["file:///etc/passwd", "ftp://host/x", "gopher://h/"])
+    def test_rejects_non_http_scheme(self, url: str) -> None:
+        with pytest.raises(InvalidURLError, match="scheme"):
+            validate_url_and_get_ip(url, "redirect_url")
+
+    def test_rejects_missing_hostname(self) -> None:
+        with pytest.raises(InvalidURLError, match="missing hostname"):
+            validate_url_and_get_ip("http:///nohost", "redirect_url")
+
+    def test_transport_pins_ip_and_sets_sni(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """handle_request must rewrite host->validated IP and set sni_hostname to
+        the original host so TLS verification targets the hostname, not the IP."""
+        captured: dict = {}
+
+        def fake_validate(url: str, param: str) -> str:
+            return "93.184.216.34"  # pretend example.com resolved here (public)
+
+        def fake_super(self: SSRFSafeTransport, request: httpx.Request) -> httpx.Response:
+            captured["host"] = request.url.host
+            captured["sni"] = request.extensions.get("sni_hostname")
+            captured["host_header"] = request.headers.get("Host")
+            return httpx.Response(200)
+
+        monkeypatch.setattr("imagine_mcp.media.validate_url_and_get_ip", fake_validate)
+        monkeypatch.setattr(httpx.HTTPTransport, "handle_request", fake_super)
+
+        transport = SSRFSafeTransport()
+        req = httpx.Request("GET", "https://example.com/img.png")
+        transport.handle_request(req)
+
+        assert captured["host"] == "93.184.216.34"  # pinned to validated IP
+        assert captured["sni"] == "example.com"  # TLS verifies against hostname
+        assert captured["host_header"] == "example.com"  # virtual-host routing intact
+
+    def test_transport_passes_through_non_http_scheme(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Non-http(s) schemes bypass IP pinning (httpx will reject them itself)."""
+        called = {"validated": False}
+
+        def fake_validate(url: str, param: str) -> str:
+            called["validated"] = True
+            return "1.2.3.4"
+
+        monkeypatch.setattr("imagine_mcp.media.validate_url_and_get_ip", fake_validate)
+        monkeypatch.setattr(
+            httpx.HTTPTransport, "handle_request", lambda self, request: httpx.Response(200)
+        )
+        transport = SSRFSafeTransport()
+        transport.handle_request(httpx.Request("GET", "file:///etc/passwd"))
+        assert called["validated"] is False
