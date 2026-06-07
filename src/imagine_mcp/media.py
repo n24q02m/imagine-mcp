@@ -7,16 +7,13 @@ import ipaddress
 import os
 import socket
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import Any, Literal, cast
 from urllib.parse import urlparse
 
 import httpcore
 import httpx
 
 from imagine_mcp.errors import InvalidURLError, MediaDetectError
-
-if TYPE_CHECKING:
-    pass
 
 MediaType = Literal["image", "video"]
 
@@ -123,8 +120,12 @@ class SSRFSafeTransport(httpx.HTTPTransport):
         super().__init__(**kwargs)
         # Inject our security-hardened backend into the connection pool.
         # We use the internal _pool attribute which is standard for httpx.HTTPTransport.
-        if hasattr(self, "_pool") and hasattr(self._pool, "_network_backend"):
-            self._pool._network_backend = SSRFSafeBackend(self._pool._network_backend)
+        pool = getattr(self, "_pool", None)
+        if pool is not None:
+            backend = getattr(pool, "_network_backend", None)
+            if isinstance(backend, httpcore.NetworkBackend):
+                # Use setattr to satisfy type checkers for internal attribute access.
+                setattr(pool, "_network_backend", SSRFSafeBackend(backend))
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         url = request.url
@@ -155,7 +156,7 @@ def _validate_hostname_and_get_ip(hostname: str, port: int | None, param: str) -
             socket.getaddrinfo, hostname, port, socket.AF_UNSPEC
         )
         # Short timeout to fail fast on tarpit DNS
-        addr_info = future.result(timeout=2.0)
+        addr_info = cast(list[Any], future.result(timeout=2.0))
 
         for res in addr_info:
             # res[4] is the sockaddr tuple. The first element is the IP string.
