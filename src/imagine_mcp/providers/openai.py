@@ -17,6 +17,7 @@ from imagine_mcp.errors import (
     ProviderUnsupportedError,
 )
 from imagine_mcp.models import get_model_id
+from imagine_mcp.providers.base import VideoParams
 
 _CLIENT: Any = None
 # Per-sub client cache for HTTP multi-user mode. See providers/gemini.py
@@ -162,14 +163,7 @@ def generate_image(
     }
 
 
-def generate_video(
-    prompt: str,
-    tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
-) -> dict[str, Any]:
+def generate_video(params: VideoParams) -> dict[str, Any]:
     raise ProviderUnsupportedError(
         "openai.generate.video: Sora 2 API shutdown 2026-09-24. "
         "Use provider='gemini' (Veo) or 'grok' (Grok Imagine)."
