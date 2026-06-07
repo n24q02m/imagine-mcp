@@ -6,6 +6,7 @@ import pytest
 
 from imagine_mcp.errors import ProviderUnsupportedError
 from imagine_mcp.providers import openai as provider
+from imagine_mcp.providers.base import VideoParams
 
 
 @pytest.fixture
@@ -28,14 +29,16 @@ def test_understand_video_raises() -> None:
 
 def test_generate_video_raises() -> None:
     with pytest.raises(ProviderUnsupportedError):
-        provider.generate_video("a dog", "poor")
+        provider.generate_video(VideoParams(prompt="a dog", tier="poor"))
 
 
 def test_understand_image_mocked(
     mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fake = MagicMock()
-    fake.responses.create.return_value = MagicMock(output_text="a dog")
+    fake.chat.completions.create.return_value = MagicMock(
+        choices=[MagicMock(message=MagicMock(content="a dog"))]
+    )
     monkeypatch.setattr(provider, "_client", lambda: fake)
 
     result = provider.understand_image(
