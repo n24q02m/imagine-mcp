@@ -86,5 +86,8 @@ def test_ssrf_safe_transport_blocks_private(monkeypatch):
     transport = SSRFSafeTransport()
 
     # SSRFSafeBackend will raise InvalidURLError during connect_tcp
-    with httpx.Client(transport=transport) as client, pytest.raises(InvalidURLError, match="internal/private IP"):
+    with (
+        httpx.Client(transport=transport) as client,
+        pytest.raises(InvalidURLError, match="internal/private IP"),
+    ):
         client.get("http://internal.service/foo")
