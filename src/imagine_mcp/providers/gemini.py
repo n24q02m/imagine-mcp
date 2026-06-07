@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import concurrent.futures
 import os
 import uuid
 from pathlib import Path
@@ -14,6 +15,9 @@ from imagine_mcp.config import settings
 from imagine_mcp.errors import CredentialMissingError, ProviderAPIError
 from imagine_mcp.models import get_model_id
 
+_GEMINI_POOL = concurrent.futures.ThreadPoolExecutor(
+    max_workers=10, thread_name_prefix="gemini_media"
+)
 _CLIENT: Any = None
 # Per-sub client cache for HTTP multi-user mode. Keyed by JWT sub so each
 # user gets a client wired to their own ``GEMINI_API_KEY``. Single-user /
@@ -171,27 +175,39 @@ def understand_multimodal(
     tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
+    def _process_url(args: tuple[int, str]) -> Any:
+        i, u = args
+        # Performance optimization:
+        # Use pre-calculated media types if provided by the dispatcher
+        # This avoids O(N) sequential redundant network calls (HEAD requests)
+        # converting the latency to O(1) bounded by the dispatcher's thread pool.
+        mt = media_types[i] if media_types else detect_media_type(u)
+        if mt == "image":
+            img_resp = get_ssrf_safe_client().get(u, follow_redirects=True, timeout=60)
+            img_data = img_resp.content
+            mime_type = resolve_image_mime(
+                img_resp.headers.get("content-type"), img_data
+            )
+            return types.Part.from_bytes(data=img_data, mime_type=mime_type)
+        else:
+            tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
+            # Append to shared cleanup list before blocking ops
+            tmp_files.append(tmp_path)
+            download_to_path(u, tmp_path)
+            return client.files.upload(file=tmp_path)
+
     try:
-        for i, u in enumerate(urls):
-            # Performance optimization:
-            # Use pre-calculated media types if provided by the dispatcher
-            # This avoids O(N) sequential redundant network calls (HEAD requests)
-            # converting the latency to O(1) bounded by the dispatcher's thread pool.
-            mt = media_types[i] if media_types else detect_media_type(u)
-            if mt == "image":
-                img_resp = get_ssrf_safe_client().get(
-                    u, follow_redirects=True, timeout=60
-                )
-                img_data = img_resp.content
-                mime_type = resolve_image_mime(
-                    img_resp.headers.get("content-type"), img_data
-                )
-                parts.append(types.Part.from_bytes(data=img_data, mime_type=mime_type))
-            else:
-                tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
-                download_to_path(u, tmp_path)
-                tmp_files.append(tmp_path)
-                parts.append(client.files.upload(file=tmp_path))
+        # Map over URLs concurrently, maintaining original order
+        futures = [
+            _GEMINI_POOL.submit(_process_url, (i, u)) for i, u in enumerate(urls)
+        ]
+
+        # Wait for all futures to complete (or fail) before proceeding or cleaning up
+        concurrent.futures.wait(futures)
+
+        # Collect results, raising any exceptions that occurred
+        results = [f.result() for f in futures]
+        parts.extend(results)
 
         resp = client.models.generate_content(
             model=model,
