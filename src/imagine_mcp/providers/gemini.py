@@ -5,13 +5,21 @@ from __future__ import annotations
 import base64
 import os
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
 import platformdirs
+from google.genai import types
 
 from imagine_mcp.config import settings
 from imagine_mcp.errors import CredentialMissingError, ProviderAPIError
+from imagine_mcp.media import (
+    detect_media_type,
+    download_to_path,
+    get_ssrf_safe_client,
+    resolve_image_mime,
+)
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
@@ -19,6 +27,13 @@ _CLIENT: Any = None
 # user gets a client wired to their own ``GEMINI_API_KEY``. Single-user /
 # stdio mode still uses the module-level ``_CLIENT`` above.
 _SUB_CLIENTS: dict[str, Any] = {}
+
+# Performance optimization: Use ThreadPoolExecutor to parallelize media downloads
+# and Gemini file uploads in understand_multimodal. Bounded to 10 workers to
+# avoid overwhelming rate limits or network bandwidth.
+_GEMINI_POOL = ThreadPoolExecutor(
+    max_workers=10, thread_name_prefix="gemini_multimodal"
+)
 
 
 def _resolve_api_key() -> str | None:
@@ -80,13 +95,39 @@ def _reset_client() -> None:
     _SUB_CLIENTS.clear()
 
 
+def _process_multimodal_item(
+    url: str,
+    media_type: str | None,
+    client: Any,
+    tmp_dir: Path,
+) -> tuple[Any, Path | None]:
+    """Download and prepare a single multimodal item (image or video).
+
+    Returns:
+        A tuple of (Gemini Part or File, Optional Path to cleanup).
+    """
+    mt = media_type or detect_media_type(url)
+    if mt == "image":
+        img_resp = get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60)
+        img_data = img_resp.content
+        mime_type = resolve_image_mime(img_resp.headers.get("content-type"), img_data)
+        return types.Part.from_bytes(data=img_data, mime_type=mime_type), None
+
+    # Video: Download and upload to Gemini
+    tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
+    download_to_path(url, tmp_path)
+    try:
+        gfile = client.files.upload(file=tmp_path)
+        return gfile, tmp_path
+    except Exception:
+        if tmp_path.exists():
+            tmp_path.unlink()
+        raise
+
+
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
-    from google.genai import types
-
-    from imagine_mcp.media import get_ssrf_safe_client, resolve_image_mime
-
     client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
 
@@ -114,10 +155,6 @@ def understand_image(
 def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
-    from google.genai import types
-
-    from imagine_mcp.media import download_to_path
-
     client = _client()
     model = get_model_id("gemini", "understand", "video", tier)
 
@@ -154,15 +191,6 @@ def understand_multimodal(
     media_types: list[str] | None = None,
 ) -> dict[str, Any]:
     """Gemini native multimodal: mixed image+video URLs in a single call."""
-    from google.genai import types
-
-    from imagine_mcp.media import (
-        detect_media_type,
-        download_to_path,
-        get_ssrf_safe_client,
-        resolve_image_mime,
-    )
-
     client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
     parts: list[Any] = [prompt]
@@ -172,26 +200,20 @@ def understand_multimodal(
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
     try:
+        # Optimization: Use ThreadPoolExecutor to concurrently perform media download
+        # and Gemini file uploads, reducing latency from O(N) to O(1).
+        futures = []
         for i, u in enumerate(urls):
-            # Performance optimization:
-            # Use pre-calculated media types if provided by the dispatcher
-            # This avoids O(N) sequential redundant network calls (HEAD requests)
-            # converting the latency to O(1) bounded by the dispatcher's thread pool.
-            mt = media_types[i] if media_types else detect_media_type(u)
-            if mt == "image":
-                img_resp = get_ssrf_safe_client().get(
-                    u, follow_redirects=True, timeout=60
-                )
-                img_data = img_resp.content
-                mime_type = resolve_image_mime(
-                    img_resp.headers.get("content-type"), img_data
-                )
-                parts.append(types.Part.from_bytes(data=img_data, mime_type=mime_type))
-            else:
-                tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
-                download_to_path(u, tmp_path)
+            mt = media_types[i] if media_types else None
+            futures.append(
+                _GEMINI_POOL.submit(_process_multimodal_item, u, mt, client, tmp_dir)
+            )
+
+        for f in futures:
+            part, tmp_path = f.result()
+            parts.append(part)
+            if tmp_path:
                 tmp_files.append(tmp_path)
-                parts.append(client.files.upload(file=tmp_path))
 
         resp = client.models.generate_content(
             model=model,
@@ -218,10 +240,6 @@ def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
-    from google.genai import types
-
-    from imagine_mcp.media import get_ssrf_safe_client, resolve_image_mime
-
     client = _client()
     model = get_model_id("gemini", "generate", "image", tier)
     contents: list[Any] = [prompt]
@@ -269,8 +287,6 @@ def generate_video(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
-    from google.genai import types
-
     model = get_model_id("gemini", "generate", "video", tier)
     client = _client()
 
