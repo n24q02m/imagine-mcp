@@ -219,7 +219,9 @@ class TestSSRFProtection:
         with pytest.raises(InvalidURLError, match="internal/private IP"):
             validate_url_and_get_ip(url, "redirect_url")
 
-    @pytest.mark.parametrize("url", ["file:///etc/passwd", "ftp://host/x", "gopher://h/"])
+    @pytest.mark.parametrize(
+        "url", ["file:///etc/passwd", "ftp://host/x", "gopher://h/"]
+    )
     def test_rejects_non_http_scheme(self, url: str) -> None:
         with pytest.raises(InvalidURLError, match="scheme"):
             validate_url_and_get_ip(url, "redirect_url")
@@ -228,7 +230,9 @@ class TestSSRFProtection:
         with pytest.raises(InvalidURLError, match="missing hostname"):
             validate_url_and_get_ip("http:///nohost", "redirect_url")
 
-    def test_transport_pins_ip_and_sets_sni(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_transport_pins_ip_and_sets_sni(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """handle_request must rewrite host->validated IP and set sni_hostname to
         the original host so TLS verification targets the hostname, not the IP."""
         captured: dict = {}
@@ -236,7 +240,9 @@ class TestSSRFProtection:
         def fake_validate(url: str, param: str) -> str:
             return "93.184.216.34"  # pretend example.com resolved here (public)
 
-        def fake_super(self: SSRFSafeTransport, request: httpx.Request) -> httpx.Response:
+        def fake_super(
+            self: SSRFSafeTransport, request: httpx.Request
+        ) -> httpx.Response:
             captured["host"] = request.url.host
             captured["sni"] = request.extensions.get("sni_hostname")
             captured["host_header"] = request.headers.get("Host")
@@ -265,7 +271,9 @@ class TestSSRFProtection:
 
         monkeypatch.setattr("imagine_mcp.media.validate_url_and_get_ip", fake_validate)
         monkeypatch.setattr(
-            httpx.HTTPTransport, "handle_request", lambda self, request: httpx.Response(200)
+            httpx.HTTPTransport,
+            "handle_request",
+            lambda self, request: httpx.Response(200),
         )
         transport = SSRFSafeTransport()
         transport.handle_request(httpx.Request("GET", "file:///etc/passwd"))
