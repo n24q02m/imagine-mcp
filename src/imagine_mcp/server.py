@@ -33,16 +33,6 @@ def _get_version() -> str:
     return __version__
 
 
-def _creds_state() -> str:
-    # Read from os.environ -- settings singleton is frozen at import time
-    # and does not observe post-startup relay-saved credentials.
-    if any(
-        os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
-    ):
-        return "CONFIGURED"
-    return "NEEDS_SETUP"
-
-
 def _providers_configured() -> list[str]:
     out: list[str] = []
     if os.environ.get("GEMINI_API_KEY"):
@@ -186,7 +176,7 @@ def build_app() -> FastMCP:
                     }
                 return {
                     "status": "saved",
-                    "providers_configured": _providers_configured(),
+                    "providers_configured": _providers_configured_live(),
                 }
             case "relay_status":
                 # Derive providers from live PerPluginStore + env so status
@@ -224,8 +214,10 @@ def build_app() -> FastMCP:
             case "status":
                 return {
                     "version": _get_version(),
-                    "credentials_state": _creds_state(),
-                    "providers_configured": _providers_configured(),
+                    "credentials_state": "CONFIGURED"
+                    if (_live := _providers_configured_live())
+                    else "NEEDS_SETUP",
+                    "providers_configured": _live,
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
