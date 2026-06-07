@@ -97,6 +97,14 @@ def credentials_for_current_request() -> dict[str, str]:
         # over the bounded O(1) CLOUD_KEYS. This reduces latency significantly
         # when the environment has many variables.
         res = {k: v for k in CLOUD_KEYS if (v := os.environ.get(k))}
+
+        # Single-user HTTP mode: fallback to store if env vars missing.
+        # Stdio mode (not _is_http()) stays env-only via load_credentials guard.
+        if _is_http():
+            saved = load_credentials(None)
+            for k, v in saved.items():
+                if k in CLOUD_KEYS and k not in res:
+                    res[k] = v
     else:
         res = read_for_sub(sub)
 

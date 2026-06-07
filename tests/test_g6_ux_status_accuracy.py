@@ -33,7 +33,14 @@ def _relay_status() -> dict[str, Any]:
 
 def _relay_skip() -> dict[str, Any]:
     """Simulate config(action='relay_skip') using module-level helper."""
+    from imagine_mcp.credential_state import get_current_sub
     from imagine_mcp.server import _providers_configured
+
+    if get_current_sub():
+        return {
+            "status": "needs_setup",
+            "message": "Multi-user mode ignores environment variables. Run config(action='open_relay') to configure.",
+        }
 
     env_providers = _providers_configured()
     if not env_providers:
@@ -46,6 +53,10 @@ def _relay_skip() -> dict[str, Any]:
 
 class TestRelayStatusLiveDerivedState:
     """relay_status derives state from live PerPluginStore, not env-only."""
+
+    @pytest.fixture(autouse=True)
+    def ensure_http_mode(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("TRANSPORT_MODE", "http")
 
     def test_returns_configured_when_store_has_keys(
         self, monkeypatch: pytest.MonkeyPatch
@@ -139,3 +150,17 @@ class TestRelaySkipHonesty:
 
         assert result["status"] == "using_env"
         assert "openai" in result["providers"]
+
+    def test_returns_needs_setup_when_sub_set(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """relay_skip returns needs_setup when sub context is set."""
+        from imagine_mcp.credential_state import set_current_sub
+
+        set_current_sub("test-sub")
+        try:
+            result = _relay_skip()
+            assert result["status"] == "needs_setup"
+            assert "Multi-user mode ignores environment variables" in result["message"]
+        finally:
+            set_current_sub(None)
