@@ -1,0 +1,82 @@
+{
+  "fetched_at_utc": "2026-06-07T02:17:08.400658+00:00",
+  "urls": {
+    "https://artificialanalysis.ai/image/leaderboard/text-to-image": [],
+    "https://artificialanalysis.ai/image/leaderboard/editing": [],
+    "https://artificialanalysis.ai/video/leaderboard/text-to-video": [],
+    "https://artificialanalysis.ai/video/leaderboard/image-to-video": [],
+    "https://arena.ai/leaderboard/vision": [
+      {
+        "rank": 13,
+        "model_id": "gemini-3.1-pro-preview",
+        "provider": "gemini",
+        "score": 1278.0,
+        "cost_per_call_usd": null
+      },
+      {
+        "rank": 15,
+        "model_id": "gpt-5.4",
+        "provider": "openai",
+        "score": 1275.0,
+        "cost_per_call_usd": null
+      },
+      {
+        "rank": 38,
+        "model_id": "gemini-3.1-flash-lite-preview",
+        "provider": "gemini",
+        "score": 1237.0,
+        "cost_per_call_usd": null
+      }
+    ],
+    "https://arena.ai/leaderboard/text-to-image": [
+      {
+        "rank": 13,
+        "model_id": "grok-imagine-image",
+        "provider": "grok",
+        "score": 1174.0,
+        "cost_per_call_usd": null
+      },
+      {
+        "rank": 17,
+        "model_id": "grok-imagine-image-pro",
+        "provider": "grok",
+        "score": 1161.0,
+        "cost_per_call_usd": null
+      },
+      {
+        "rank": 40,
+        "model_id": "gpt-image-1-mini",
+        "provider": "openai",
+        "score": 1109.0,
+        "cost_per_call_usd": null
+      }
+    ],
+    "https://arena.ai/leaderboard/image-edit": [
+      {
+        "rank": 12,
+        "model_id": "grok-imagine-image",
+        "provider": "grok",
+        "score": 1329.0,
+        "cost_per_call_usd": null
+      },
+      {
+        "rank": 46,
+        "model_id": "gpt-image-1-mini",
+        "provider": "openai",
+        "score": 1124.0,
+        "cost_per_call_usd": null
+      }
+    ],
+    "https://arena.ai/leaderboard/text-to-video": [],
+    "https://arena.ai/leaderboard/image-to-video": [],
+    "https://arena.ai/leaderboard/video-edit": [
+      {
+        "rank": 3,
+        "model_id": "grok-imagine-video",
+        "provider": "grok",
+        "score": 1265.0,
+        "cost_per_call_usd": null
+      }
+    ]
+  }
+}
