@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import platformdirs
+from openai import OpenAI
 
 from imagine_mcp.config import settings
 from imagine_mcp.credential_state import (
@@ -27,11 +28,6 @@ from imagine_mcp.errors import (
 )
 from imagine_mcp.media import get_ssrf_safe_client
 from imagine_mcp.models import get_model_id
-
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = Any
 
 _CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
