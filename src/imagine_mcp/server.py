@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+from functools import cache
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Literal
@@ -18,6 +19,14 @@ from imagine_mcp.dispatcher import dispatch_generate, dispatch_understand
 from imagine_mcp.relay_schema import RELAY_SCHEMA
 
 VALID_HELP_TOPICS = {"understand", "generate", "config"}
+
+
+@cache
+def _get_help_content(topic: str) -> str:
+    """Read and cache documentation markdown files."""
+    doc_file = files("imagine_mcp.docs").joinpath(f"{topic}.md")
+    return doc_file.read_text(encoding="utf-8")
+
 
 _VALID_SET_KEYS = {
     "log_level",
@@ -258,8 +267,7 @@ def build_app() -> FastMCP:
         """Load documentation for a specific tool or topic."""
         if topic not in VALID_HELP_TOPICS:
             return f"Unknown topic {topic!r}. Valid: {sorted(VALID_HELP_TOPICS)}"
-        doc_file = files("imagine_mcp.docs").joinpath(f"{topic}.md")
-        return doc_file.read_text(encoding="utf-8")
+        return _get_help_content(topic)
 
     # mcp-core >=1.13: register_open_relay_tool takes public_url (str | None).
     # In stdio mode PUBLIC_URL is unset → tool returns ``stdio_unsupported``.
