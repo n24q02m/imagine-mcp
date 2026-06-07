@@ -22,6 +22,7 @@ def test_build_app_attributes() -> None:
     app = build_app()
     assert isinstance(app, FastMCP)
     assert app.name == "imagine"
+    assert app.instructions is not None
     assert "Image/video understanding and generation" in app.instructions
 
 
