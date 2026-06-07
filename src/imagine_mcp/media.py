@@ -124,8 +124,9 @@ class SSRFSafeTransport(httpx.HTTPTransport):
         if pool is not None:
             backend = getattr(pool, "_network_backend", None)
             if isinstance(backend, httpcore.NetworkBackend):
-                # Use setattr to satisfy type checkers for internal attribute access.
-                setattr(pool, "_network_backend", SSRFSafeBackend(backend))
+                # Use Any cast to bypass type checking for internal attribute assignment
+                # while avoiding setattr which triggers ruff B010.
+                cast(Any, pool)._network_backend = SSRFSafeBackend(backend)
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         url = request.url
