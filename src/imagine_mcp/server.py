@@ -34,13 +34,8 @@ def _get_version() -> str:
 
 
 def _creds_state() -> str:
-    # Read from os.environ -- settings singleton is frozen at import time
-    # and does not observe post-startup relay-saved credentials.
-    if any(
-        os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
-    ):
-        return "CONFIGURED"
-    return "NEEDS_SETUP"
+    """Return CONFIGURED if any providers are configured live, else NEEDS_SETUP."""
+    return "CONFIGURED" if _providers_configured_live() else "NEEDS_SETUP"
 
 
 def _providers_configured() -> list[str]:
@@ -55,16 +50,14 @@ def _providers_configured() -> list[str]:
 
 
 def _providers_configured_live() -> list[str]:
-    """Like _providers_configured but also checks PerPluginStore.
+    """Like _providers_configured but sub-aware and checks PerPluginStore.
 
     env vars may not be populated at startup (no lifespan apply_config call),
-    so this reads the store directly for an accurate live view.
+    so this uses credentials_for_current_request() for an accurate live view.
     """
-    from mcp_core.storage.per_plugin_store import PerPluginStore
+    from imagine_mcp.credential_state import credentials_for_current_request
 
-    from imagine_mcp.relay_setup import CREDENTIAL_KEYS, PLUGIN_NAME
-
-    saved = PerPluginStore(PLUGIN_NAME).load() or {}
+    creds = credentials_for_current_request()
     _key_to_provider = {
         "GEMINI_API_KEY": "gemini",
         "OPENAI_API_KEY": "openai",
@@ -72,11 +65,9 @@ def _providers_configured_live() -> list[str]:
     }
     seen: set[str] = set()
     out: list[str] = []
-    for key in CREDENTIAL_KEYS:
-        provider = _key_to_provider.get(key, key)
-        if provider in seen:
-            continue
-        if os.environ.get(key) or saved.get(key):
+    for key in ["GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY"]:
+        provider = _key_to_provider[key]
+        if provider not in seen and creds.get(key):
             out.append(provider)
             seen.add(provider)
     return out
@@ -186,7 +177,7 @@ def build_app() -> FastMCP:
                     }
                 return {
                     "status": "saved",
-                    "providers_configured": _providers_configured(),
+                    "providers_configured": _providers_configured_live(),
                 }
             case "relay_status":
                 # Derive providers from live PerPluginStore + env so status
@@ -204,6 +195,14 @@ def build_app() -> FastMCP:
                 }
             case "relay_skip":
                 # Only claim "using env vars" when env vars are actually set.
+                from imagine_mcp.credential_state import get_current_sub
+
+                if get_current_sub():
+                    return {
+                        "status": "needs_setup",
+                        "message": "Multi-user mode ignores environment variables. Run config(action='open_relay') to configure.",
+                    }
+
                 _env_providers = _providers_configured()
                 if not _env_providers:
                     return {
@@ -225,7 +224,7 @@ def build_app() -> FastMCP:
                 return {
                     "version": _get_version(),
                     "credentials_state": _creds_state(),
-                    "providers_configured": _providers_configured(),
+                    "providers_configured": _providers_configured_live(),
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
