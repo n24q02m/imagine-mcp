@@ -106,6 +106,7 @@ def build_app() -> FastMCP:
     """Create FastMCP app with 4 tools registered."""
     app: FastMCP = FastMCP(
         "imagine",
+        version=_get_version(),
         instructions=(
             "Image/video understanding and generation across Gemini, OpenAI, Grok. "
             "4 tools: understand, generate, config, help. "
