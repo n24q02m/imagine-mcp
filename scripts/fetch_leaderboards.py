@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, SoupStrainer, Tag
 
 log = logging.getLogger("refresh_ranks")
 
@@ -87,6 +87,9 @@ MODEL_ALIASES: dict[str, str] = {
     "grok-imagine-video": "grok-imagine-video",
 }
 
+# Limit leaderboard HTML size to 5MB to prevent DoS via memory exhaustion.
+MAX_LB_CONTENT_SIZE = 5 * 1024 * 1024
+
 
 @dataclass(frozen=True)
 class LBRow:
@@ -100,11 +103,16 @@ class LBRow:
 def resolve_alias(display_name: str) -> str | None:
     """Return canonical model_id for a leaderboard display name, or None if unknown."""
     key = display_name.strip()
+    # Basic length sanity check
+    if len(key) > 100:
+        return None
     return MODEL_ALIASES.get(key)
 
 
 def _normalize_provider(raw: str) -> str | None:
     key = raw.lower().strip().split("·")[0].strip()  # split on "middle dot"
+    if len(key) > 50:
+        return None
     return _PROVIDER_NORMALIZE.get(key)
 
 
@@ -126,7 +134,10 @@ def _parse_row(
     if len(cells) <= rank_i:
         return None
 
-    rank_match = re.search(r"\d+", cells[rank_i].get_text())
+    rank_text = cells[rank_i].get_text(strip=True)
+    if len(rank_text) > 10:
+        return None
+    rank_match = re.search(r"\d+", rank_text)
     if not rank_match:
         return None
     rank = int(rank_match.group())
@@ -134,6 +145,9 @@ def _parse_row(
     name_cell = cells[name_i]
     link = name_cell.find("a")
     display = link.get_text(strip=True) if link else name_cell.get_text(strip=True)
+    if len(display) > 200:
+        return None
+
     # Strip trailing "provider . type" annotations LMArena embeds
     display = re.split(r"\s*·\s*|\s+xAI\s+|\s+OpenAI\s+|\s+Google\s+", display)[
         0
@@ -156,18 +170,24 @@ def _parse_row(
 
     score: float | None = None
     if score_i >= 0:
-        score_match = re.search(r"[\d.]+", cells[score_i].get_text())
-        if score_match:
-            with contextlib.suppress(ValueError):
-                score = float(score_match.group())
+        score_text = cells[score_i].get_text(strip=True)
+        if len(score_text) < 20:
+            score_match = re.search(r"[\d.]+", score_text)
+            if score_match:
+                with contextlib.suppress(ValueError):
+                    score = float(score_match.group())
 
     return LBRow(rank=rank, model_id=model_id, provider=provider, score=score)
 
 
 def parse_leaderboard(url: str, html: str) -> list[LBRow]:
     """Extract ranked rows filtered to {gemini, openai, grok}."""
-    soup = BeautifulSoup(html, "html.parser")
-    table = soup.find("table")
+    # Use SoupStrainer to only parse the table, reducing attack surface.
+    strainer = SoupStrainer("table")
+    soup = BeautifulSoup(html, "html.parser", parse_only=strainer)
+
+    # If the root is the table, use it, otherwise find the first table.
+    table = soup if getattr(soup, "name", None) == "table" else soup.find("table")
     if not table:
         log.warning("no table found: %s", url)
         return []
@@ -229,9 +249,36 @@ def fetch_all(client: httpx.Client) -> dict[str, list[LBRow]]:
     out: dict[str, list[LBRow]] = {}
     for url in LB_URLS:
         try:
-            r = client.get(url, timeout=30.0, follow_redirects=True)
-            r.raise_for_status()
-            out[url] = parse_leaderboard(url, r.text)
+            # Stream the response to enforce the size limit before loading it into memory.
+            with client.stream("GET", url, timeout=30.0, follow_redirects=True) as r:
+                r.raise_for_status()
+
+                content_length = r.headers.get("Content-Length")
+                if content_length and int(content_length) > MAX_LB_CONTENT_SIZE:
+                    log.error(
+                        "Leaderboard %s too large (%s bytes)", url, content_length
+                    )
+                    out[url] = []
+                    continue
+
+                content_chunks = []
+                bytes_received = 0
+                for chunk in r.iter_bytes():
+                    bytes_received += len(chunk)
+                    if bytes_received > MAX_LB_CONTENT_SIZE:
+                        log.error(
+                            "Leaderboard %s exceeds 5MB limit during streaming", url
+                        )
+                        content_chunks = []
+                        break
+                    content_chunks.append(chunk)
+
+                if not content_chunks:
+                    out[url] = []
+                    continue
+
+                html = b"".join(content_chunks).decode("utf-8", errors="replace")
+                out[url] = parse_leaderboard(url, html)
             log.info("fetched %s: %d rows after filter", url, len(out[url]))
         except Exception as exc:
             log.error("fetch failed %s: %s", url, exc)
