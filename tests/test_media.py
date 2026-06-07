@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 
-from imagine_mcp.errors import MediaDetectError
+from imagine_mcp.errors import InvalidURLError, MediaDetectError
 from imagine_mcp.media import (
     _extract_extension,
     detect_media_type,
+    download_to_path,
     resolve_image_mime,
     sniff_image_mime,
 )
@@ -122,3 +125,68 @@ def test_extract_extension() -> None:
     assert _extract_extension("https://example.com/foo.PNG") == ".png"
     assert _extract_extension("https://example.com/foo.mp4?q=1") == ".mp4"
     assert _extract_extension("https://example.com/foo") == ""
+
+
+def test_download_to_path_success(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    dest = tmp_path / "subdir" / "test.png"
+    content = b"fake-image-bytes"
+
+    mock_response = MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.__exit__.return_value = None
+    mock_response.raise_for_status = MagicMock()
+    mock_response.iter_bytes = MagicMock(return_value=[content])
+
+    class MockClient:
+        def stream(self, method, url, **kw):
+            return mock_response
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+
+    result = download_to_path("https://example.com/test.png", dest)
+
+    assert result == dest
+    assert dest.exists()
+    assert dest.read_bytes() == content
+    mock_response.raise_for_status.assert_called_once()
+
+
+def test_download_to_path_invalid_url(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    dest = tmp_path / "test.png"
+
+    class MockClient:
+        def stream(self, method, url, **kw):
+            raise InvalidURLError("unsafe")
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+
+    with pytest.raises(
+        httpx.HTTPError, match="Download failed due to invalid redirect: unsafe"
+    ):
+        download_to_path("http://127.0.0.1/test.png", dest)
+
+
+def test_download_to_path_http_error(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    dest = tmp_path / "test.png"
+
+    mock_response = MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.__exit__.return_value = None
+    mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "404 Not Found", request=MagicMock(), response=MagicMock()
+    )
+
+    class MockClient:
+        def stream(self, method, url, **kw):
+            return mock_response
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+
+    with pytest.raises(httpx.HTTPStatusError, match="404 Not Found"):
+        download_to_path("https://example.com/404.png", dest)
