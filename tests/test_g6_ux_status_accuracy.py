@@ -14,6 +14,7 @@ before claiming "using_env" and returns needs_setup if none are set.
 
 from __future__ import annotations
 
+import sys
 from typing import Any
 from unittest.mock import patch
 
@@ -44,6 +45,16 @@ def _relay_skip() -> dict[str, Any]:
     return {"status": "using_env", "providers": env_providers}
 
 
+def _status() -> dict[str, Any]:
+    """Simulate config(action='status') using module-level helper."""
+    from imagine_mcp.server import _creds_state, _providers_configured_live
+
+    return {
+        "credentials_state": _creds_state(),
+        "providers_configured": _providers_configured_live(),
+    }
+
+
 class TestRelayStatusLiveDerivedState:
     """relay_status derives state from live PerPluginStore, not env-only."""
 
@@ -54,6 +65,11 @@ class TestRelayStatusLiveDerivedState:
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("XAI_API_KEY", raising=False)
+        monkeypatch.setattr(sys, "argv", ["imagine-mcp", "--http"])
+
+        from imagine_mcp.credential_state import _request_creds
+
+        _request_creds.set(None)
 
         with patch(
             "mcp_core.storage.per_plugin_store.PerPluginStore.load",
@@ -71,6 +87,11 @@ class TestRelayStatusLiveDerivedState:
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("XAI_API_KEY", raising=False)
+        monkeypatch.setattr(sys, "argv", ["imagine-mcp", "--http"])
+
+        from imagine_mcp.credential_state import _request_creds
+
+        _request_creds.set(None)
 
         with patch(
             "mcp_core.storage.per_plugin_store.PerPluginStore.load",
@@ -88,6 +109,11 @@ class TestRelayStatusLiveDerivedState:
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("XAI_API_KEY", raising=False)
+        monkeypatch.setattr(sys, "argv", ["imagine-mcp", "--http"])
+
+        from imagine_mcp.credential_state import _request_creds
+
+        _request_creds.set(None)
 
         with patch(
             "mcp_core.storage.per_plugin_store.PerPluginStore.load",
@@ -101,6 +127,11 @@ class TestRelayStatusLiveDerivedState:
     def test_no_duplicate_providers(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """If same key appears in both env and store, provider appears only once."""
         monkeypatch.setenv("GEMINI_API_KEY", "key-from-env")
+        monkeypatch.setattr(sys, "argv", ["imagine-mcp", "--http"])
+
+        from imagine_mcp.credential_state import _request_creds
+
+        _request_creds.set(None)
 
         with patch(
             "mcp_core.storage.per_plugin_store.PerPluginStore.load",
@@ -139,3 +170,51 @@ class TestRelaySkipHonesty:
 
         assert result["status"] == "using_env"
         assert "openai" in result["providers"]
+
+
+class TestStatusAccuracy:
+    """config(action='status') is accurate even without env vars (HTTP mode)."""
+
+    def test_status_accurate_with_store_keys(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """status returns CONFIGURED when store has keys but env is empty."""
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("XAI_API_KEY", raising=False)
+        monkeypatch.setattr(sys, "argv", ["imagine-mcp", "--http"])
+
+        from imagine_mcp.credential_state import _request_creds
+
+        _request_creds.set(None)
+
+        with patch(
+            "mcp_core.storage.per_plugin_store.PerPluginStore.load",
+            return_value={"OPENAI_API_KEY": "sk-123"},
+        ):
+            result = _status()
+
+        assert result["credentials_state"] == "CONFIGURED"
+        assert "openai" in result["providers_configured"]
+
+    def test_status_needs_setup_when_empty(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """status returns NEEDS_SETUP when both env and store are empty."""
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("XAI_API_KEY", raising=False)
+        monkeypatch.setattr(sys, "argv", ["imagine-mcp", "--http"])
+
+        from imagine_mcp.credential_state import _request_creds
+
+        _request_creds.set(None)
+
+        with patch(
+            "mcp_core.storage.per_plugin_store.PerPluginStore.load",
+            return_value={},
+        ):
+            result = _status()
+
+        assert result["credentials_state"] == "NEEDS_SETUP"
+        assert result["providers_configured"] == []

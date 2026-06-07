@@ -97,6 +97,11 @@ def credentials_for_current_request() -> dict[str, str]:
         # over the bounded O(1) CLOUD_KEYS. This reduces latency significantly
         # when the environment has many variables.
         res = {k: v for k in CLOUD_KEYS if (v := os.environ.get(k))}
+
+        # If env is empty, fallback to PerPluginStore ONLY in HTTP mode (single-user).
+        # Stdio mode follows an env-only policy.
+        if not res:
+            res = load_credentials(None)
     else:
         res = read_for_sub(sub)
 
