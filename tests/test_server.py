@@ -30,6 +30,16 @@ def test_get_version() -> None:
     assert _get_version() == __version__
 
 
+def test_build_app_reports_package_version() -> None:
+    # serverInfo.version must be the imagine-mcp package version, not the
+    # fastmcp package version (which used to leak through as "3.4.2").
+    app = build_app()
+    reported = app._mcp_server.create_initialization_options().server_version
+    assert reported == __version__
+    assert reported == _get_version()
+    assert reported != "3.4.2"
+
+
 def test_creds_state(monkeypatch) -> None:
     # No keys
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
