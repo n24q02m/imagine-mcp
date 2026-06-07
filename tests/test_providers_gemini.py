@@ -124,3 +124,55 @@ def test_understand_multimodal_with_media_types_mocked(
     assert result["text"] == "optimized mixed content description"
     assert not mock_detect.called
     assert fake_client.files.upload.called
+
+
+def test_understand_multimodal_parallel_mocked(
+    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify that multiple items are processed correctly and order is preserved."""
+    from google.genai import types
+
+    fake_client = MagicMock()
+    fake_response = MagicMock()
+    fake_response.text = "mixed parallel content description"
+    fake_client.models.generate_content.return_value = fake_response
+
+    # Use a real File-like mock that doesn't have inline_data
+    fake_gfile = MagicMock(spec=[])
+    fake_client.files.upload.return_value = fake_gfile
+    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+
+    # Mock detect_media_type to return image for .png and video for .mp4
+    def mock_detect(url):
+        return "video" if url.endswith(".mp4") else "image"
+
+    monkeypatch.setattr("imagine_mcp.media.detect_media_type", mock_detect)
+
+    # We use 3 URLs to better test parallelism/order
+    urls = [
+        "https://example.com/1.png",
+        "https://example.com/2.mp4",
+        "https://example.com/3.png",
+    ]
+    result = gemini.understand_multimodal(
+        urls=urls,
+        prompt="describe 3 items",
+        tier="rich",
+    )
+    assert result["text"] == "mixed parallel content description"
+    assert result["multimodal"] is True
+
+    # Verify generate_content was called with the correct parts in order
+    call_args = fake_client.models.generate_content.call_args
+    parts = call_args.kwargs["contents"]
+    assert len(parts) == 4  # prompt + 3 items
+    assert parts[0] == "describe 3 items"
+
+    # parts[1] is from 1.png (image Part)
+    # parts[2] is from 2.mp4 (video File)
+    # parts[3] is from 3.png (image Part)
+
+    # Check if they are the expected types/mocks
+    assert isinstance(parts[1], types.Part)
+    assert parts[2] == fake_gfile
+    assert isinstance(parts[3], types.Part)
