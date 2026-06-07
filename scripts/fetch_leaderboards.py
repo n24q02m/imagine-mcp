@@ -213,15 +213,15 @@ def parse_leaderboard(url: str, html: str) -> list[LBRow]:
 
 def merge_ranks(rows_aa: list[LBRow], rows_lmarena: list[LBRow]) -> dict[str, int]:
     """Return {canonical_model_id: quality_rank} using min(rank_aa, rank_lmarena)."""
+    # ⚡ Bolt: O(N) dictionary-based accumulator to efficiently process combined rank lists,
+    # eliminating slower O(N^2) nested list searches.
     result: dict[str, int] = {}
-    all_ids = {r.model_id for r in rows_aa} | {r.model_id for r in rows_lmarena}
-    for model_id in all_ids:
-        ranks: list[int] = []
-        for rows in (rows_aa, rows_lmarena):
-            match = next((r for r in rows if r.model_id == model_id), None)
-            if match:
-                ranks.append(match.rank)
-        result[model_id] = min(ranks) if ranks else 999
+    for rows in (rows_aa, rows_lmarena):
+        for row in rows:
+            if row.model_id in result:
+                result[row.model_id] = min(result[row.model_id], row.rank)
+            else:
+                result[row.model_id] = row.rank
     return result
 
 
