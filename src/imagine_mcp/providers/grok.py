@@ -28,6 +28,11 @@ from imagine_mcp.errors import (
 from imagine_mcp.media import get_ssrf_safe_client
 from imagine_mcp.models import get_model_id
 
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = Any
+
 _CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
 # Per-sub client cache for HTTP multi-user mode (see providers/gemini.py).
@@ -59,7 +64,6 @@ def _openai_compat_client() -> Any:
         cached = _SUB_CLIENTS.get(sub)
         if cached is not None:
             return cached
-        from openai import OpenAI
 
         client = OpenAI(
             api_key=_api_key(),
@@ -70,8 +74,6 @@ def _openai_compat_client() -> Any:
         return client
 
     if _CLIENT is None:
-        from openai import OpenAI
-
         _CLIENT = OpenAI(
             api_key=_api_key(),
             base_url=_BASE_URL,
@@ -122,8 +124,8 @@ def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
-        "grok.understand.video: Grok production (4.20-0309-v2) is image-only. "
-        "Beta supports video but is not stable. Use provider='gemini'."
+        "Grok production (4.20-0309-v2) is image-only. "
+        "Use provider='gemini' for video understanding."
     )
 
 
