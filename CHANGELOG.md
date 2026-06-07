@@ -2,6 +2,23 @@
 
 <!-- version list -->
 
+## v1.6.0-beta.2 (2026-06-07)
+
+### Bug Fixes
+
+- Apply ruff format to SSRF regression tests
+  ([#243](https://github.com/n24q02m/imagine-mcp/pull/243),
+  [`3fefe6c`](https://github.com/n24q02m/imagine-mcp/commit/3fefe6cfb4789fdeacb34c50117c4e5e57c460bc))
+
+- Pin httpx <1 + SSRF regression tests for SSRFSafeTransport
+  ([#243](https://github.com/n24q02m/imagine-mcp/pull/243),
+  [`3fefe6c`](https://github.com/n24q02m/imagine-mcp/commit/3fefe6cfb4789fdeacb34c50117c4e5e57c460bc))
+
+- Pin httpx <1 to lock SSRFSafeTransport sni_hostname behavior + add SSRF regression tests
+  ([#243](https://github.com/n24q02m/imagine-mcp/pull/243),
+  [`3fefe6c`](https://github.com/n24q02m/imagine-mcp/commit/3fefe6cfb4789fdeacb34c50117c4e5e57c460bc))
+
+
 ## v1.6.0-beta.1 (2026-06-07)
 
 ### Bug Fixes
