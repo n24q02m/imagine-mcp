@@ -20,9 +20,16 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, SoupStrainer, Tag
 
 log = logging.getLogger("refresh_ranks")
+
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def _sanitize_text(text: str, max_len: int = 500) -> str:
+    """Strip control characters and truncate to prevent terminal injection/ReDoS."""
+    return _CONTROL_RE.sub("", text).strip()[:max_len]
 
 
 LB_URLS: list[str] = [
@@ -80,11 +87,9 @@ MODEL_ALIASES: dict[str, str] = {
     "grok-4.20-0309-non-reasoning": "grok-4.20-0309-non-reasoning",
     # Grok generate
     "Aurora": "grok-imagine-image",
-    "grok-imagine-image": "grok-imagine-image",
     "Grok Imagine Pro": "grok-imagine-image-pro",
     "grok-imagine-image-pro": "grok-imagine-image-pro",
     "Grok Imagine Video": "grok-imagine-video",
-    "grok-imagine-video": "grok-imagine-video",
 }
 
 
@@ -126,14 +131,18 @@ def _parse_row(
     if len(cells) <= rank_i:
         return None
 
-    rank_match = re.search(r"\d+", cells[rank_i].get_text())
+    rank_match = re.search(r"\d+", _sanitize_text(cells[rank_i].get_text()))
     if not rank_match:
         return None
     rank = int(rank_match.group())
 
     name_cell = cells[name_i]
     link = name_cell.find("a")
-    display = link.get_text(strip=True) if link else name_cell.get_text(strip=True)
+    display = (
+        _sanitize_text(link.get_text(strip=True))
+        if link
+        else _sanitize_text(name_cell.get_text(strip=True))
+    )
     # Strip trailing "provider . type" annotations LMArena embeds
     display = re.split(r"\s*·\s*|\s+xAI\s+|\s+OpenAI\s+|\s+Google\s+", display)[
         0
@@ -146,7 +155,7 @@ def _parse_row(
 
     provider: str | None = None
     if provider_i >= 0:
-        provider_raw = cells[provider_i].get_text(strip=True)
+        provider_raw = _sanitize_text(cells[provider_i].get_text(strip=True))
         if provider_raw:
             provider = _normalize_provider(provider_raw)
     if not provider:
@@ -156,7 +165,7 @@ def _parse_row(
 
     score: float | None = None
     if score_i >= 0:
-        score_match = re.search(r"[\d.]+", cells[score_i].get_text())
+        score_match = re.search(r"[\d.]+", _sanitize_text(cells[score_i].get_text()))
         if score_match:
             with contextlib.suppress(ValueError):
                 score = float(score_match.group())
@@ -166,17 +175,23 @@ def _parse_row(
 
 def parse_leaderboard(url: str, html: str) -> list[LBRow]:
     """Extract ranked rows filtered to {gemini, openai, grok}."""
-    soup = BeautifulSoup(html, "html.parser")
-    table = soup.find("table")
+    old_limit = sys.getrecursionlimit()
+    sys.setrecursionlimit(2000)
+    try:
+        soup = BeautifulSoup(html, "html.parser", parse_only=SoupStrainer("table"))
+        table = soup.find("table")
+    finally:
+        sys.setrecursionlimit(old_limit)
     if not table:
         log.warning("no table found: %s", url)
         return []
-
     thead = table.find("thead")
     if not thead:
         log.warning("no thead: %s", url)
         return []
-    header_cells = [c.get_text(strip=True).lower() for c in thead.find_all("th")]
+    header_cells = [
+        _sanitize_text(c.get_text(strip=True)).lower() for c in thead.find_all("th")
+    ]
 
     try:
         rank_i = header_cells.index("rank")
@@ -227,11 +242,19 @@ def merge_ranks(rows_aa: list[LBRow], rows_lmarena: list[LBRow]) -> dict[str, in
 
 def fetch_all(client: httpx.Client) -> dict[str, list[LBRow]]:
     out: dict[str, list[LBRow]] = {}
+    max_size = 5 * 1024 * 1024
     for url in LB_URLS:
         try:
-            r = client.get(url, timeout=30.0, follow_redirects=True)
-            r.raise_for_status()
-            out[url] = parse_leaderboard(url, r.text)
+            with client.stream("GET", url, timeout=30.0, follow_redirects=True) as r:
+                r.raise_for_status()
+                content = []
+                size = 0
+                for chunk in r.iter_text():
+                    size += len(chunk.encode("utf-8"))
+                    if size > max_size:
+                        raise ValueError(f"Response too large: {url}")
+                    content.append(chunk)
+                out[url] = parse_leaderboard(url, "".join(content))
             log.info("fetched %s: %d rows after filter", url, len(out[url]))
         except Exception as exc:
             log.error("fetch failed %s: %s", url, exc)

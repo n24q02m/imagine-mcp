@@ -86,3 +86,31 @@ def test_every_canonical_id_has_alias() -> None:
     alias_values = set(MODEL_ALIASES.values())
     missing = canonical_ids - alias_values
     assert not missing, f"canonical IDs missing from MODEL_ALIASES: {missing}"
+
+
+def test_sanitize_text() -> None:
+    from scripts.fetch_leaderboards import _sanitize_text
+
+    # Control characters
+    assert _sanitize_text("Model\x00Name\x1f") == "ModelName"
+    # Long text
+    long_text = "a" * 1000
+    assert len(_sanitize_text(long_text)) == 500
+    # Normal text
+    assert _sanitize_text("  Gemini 3 Pro  ") == "Gemini 3 Pro"
+
+
+def test_parse_leaderboard_recursion_limit() -> None:
+    from scripts.fetch_leaderboards import parse_leaderboard
+
+    # Deeply nested HTML
+    deep_html = (
+        "<table><tbody>"
+        + "<tr><td>" * 300
+        + "Gemini 3 Pro"
+        + "</td></tr>" * 300
+        + "</tbody></table>"
+    )
+    # Should not raise RecursionError due to our limit and SoupStrainer
+    rows = parse_leaderboard("https://example.com", deep_html)
+    assert isinstance(rows, list)
