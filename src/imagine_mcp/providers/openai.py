@@ -16,7 +16,7 @@ from imagine_mcp.errors import (
     ProviderAPIError,
     ProviderUnsupportedError,
 )
-from imagine_mcp.models import get_model_id
+from imagine_mcp.models import get_model_id, get_unsupported_message
 
 _CLIENT: Any = None
 # Per-sub client cache for HTTP multi-user mode. See providers/gemini.py
@@ -114,8 +114,7 @@ def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
-        "openai.understand.video: GPT-5.4 is image-only. "
-        "Extract frames externally or use provider='gemini'."
+        get_unsupported_message("openai", "understand", "video")
     )
 
 
@@ -171,6 +170,5 @@ def generate_video(
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
-        "openai.generate.video: Sora 2 API shutdown 2026-09-24. "
-        "Use provider='gemini' (Veo) or 'grok' (Grok Imagine)."
+        get_unsupported_message("openai", "generate", "video")
     )

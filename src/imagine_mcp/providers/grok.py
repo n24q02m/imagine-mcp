@@ -26,7 +26,7 @@ from imagine_mcp.errors import (
     ProviderUnsupportedError,
 )
 from imagine_mcp.media import get_ssrf_safe_client
-from imagine_mcp.models import get_model_id
+from imagine_mcp.models import get_model_id, get_unsupported_message
 
 _CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
@@ -122,8 +122,7 @@ def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
-        "grok.understand.video: Grok production (4.20-0309-v2) is image-only. "
-        "Beta supports video but is not stable. Use provider='gemini'."
+        get_unsupported_message("grok", "understand", "video")
     )
 
 

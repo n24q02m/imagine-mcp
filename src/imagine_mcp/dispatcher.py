@@ -14,7 +14,7 @@ from imagine_mcp.errors import (
     ProviderUnsupportedError,
 )
 from imagine_mcp.media import detect_media_type, validate_url_and_get_ip
-from imagine_mcp.models import UNSUPPORTED, get_model_id
+from imagine_mcp.models import UNSUPPORTED, get_model_id, get_unsupported_message
 
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
@@ -32,22 +32,6 @@ _DEFAULT_PROVIDER_PRIORITY: tuple[tuple[str, str], ...] = (
 )
 
 _DISPATCH_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="dispatch")
-
-_UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
-    ("openai", "video", "understand"): (
-        "OpenAI GPT-5.4 vision is image-only. Workarounds: "
-        "(1) use provider='gemini' (native multimodal), or "
-        "(2) extract frames externally and pass as image URLs."
-    ),
-    ("openai", "video", "generate"): (
-        "OpenAI Sora 2 API is shutting down 2026-09-24. "
-        "Use provider='gemini' (Veo 3.1) or 'grok' (Grok Imagine)."
-    ),
-    ("grok", "video", "understand"): (
-        "Grok production (4.20-0309-v2) is image-only. "
-        "Use provider='gemini' for video understanding."
-    ),
-}
 
 
 def _validate_url(url: str, param: str) -> None:
@@ -104,11 +88,7 @@ def _load_provider(provider: str) -> Any:
 
 
 def _unsupported(provider: str, media: str, action: str) -> ProviderUnsupportedError:
-    hint = _UNSUPPORTED_HINTS.get((provider, media, action), "")
-    msg = f"{provider} does not support {action}.{media}."
-    if hint:
-        msg += " " + hint
-    return ProviderUnsupportedError(msg)
+    return ProviderUnsupportedError(get_unsupported_message(provider, action, media))
 
 
 def dispatch_understand(
