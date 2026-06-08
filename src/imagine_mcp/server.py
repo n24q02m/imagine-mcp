@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import os
-from functools import cache
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Literal
@@ -95,7 +95,7 @@ def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
     }
 
 
-@cache
+@functools.lru_cache(maxsize=32)
 def _get_help_content(topic: str) -> str:
     """Read markdown documentation file from package resources."""
     doc_file = files("imagine_mcp.docs").joinpath(f"{topic}.md")
@@ -244,11 +244,11 @@ def build_app() -> FastMCP:
             case "cache_clear":
                 from imagine_mcp.cache import ResponseCache
 
-                cache = ResponseCache(
+                resp_cache = ResponseCache(
                     path=Path(platformdirs.user_cache_dir("imagine-mcp")) / "cache",
                     default_ttl=settings.cache_ttl_seconds,
                 )
-                cache.clear()
+                resp_cache.clear()
                 return {"status": "ok", "message": "Cache cleared."}
             case _:
                 return {
