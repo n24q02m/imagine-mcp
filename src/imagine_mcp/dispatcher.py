@@ -15,6 +15,7 @@ from imagine_mcp.errors import (
 )
 from imagine_mcp.media import detect_media_type, validate_url_and_get_ip
 from imagine_mcp.models import UNSUPPORTED, get_model_id
+from imagine_mcp.providers.base import GenerateParams, ImageParams, VideoParams
 
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
@@ -75,10 +76,10 @@ def _default_provider() -> str:
 
     Single-user / stdio path: reads ``os.environ`` (credentials saved via the
     relay form / config.enc are written back into ``os.environ`` by
-    ``imagine_mcp.relay_setup.apply_config``).
+    ``imagine_mcp.relay_setup.apply_config`\").
 
     HTTP multi-user path (``auth_scope`` middleware sets ``_current_sub``):
-        Reads the per-sub config from ``~/.imagine-mcp/subs/<sub>/config.json``.
+        Reads the per-sub config from ``~/.imagine-mcp/subs/<sub>/config.json`\".
         ``os.environ`` is intentionally NOT consulted -- isolating users is
         the whole point of multi-user mode.
 
@@ -160,38 +161,43 @@ def dispatch_understand(
     return mod.understand_video(url, prompt, tier, max_tokens)
 
 
-def dispatch_generate(
-    media_type: str,
-    prompt: str,
-    provider: str | None,
-    tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
-) -> dict[str, Any]:
+def dispatch_generate(params: GenerateParams) -> dict[str, Any]:
     """Dispatch generate call to provider.
 
     When ``provider`` is ``None``, auto-resolve via :func:`_default_provider`
     (first provider whose API key is present in the environment).
     """
-    if provider is None:
-        provider = _default_provider()
-    _validate(provider, tier)
-    if media_type not in VALID_MEDIA_TYPES:
+    if params.provider is None:
+        params.provider = _default_provider()
+    _validate(params.provider, params.tier)
+    if params.media_type not in VALID_MEDIA_TYPES:
         raise InvalidMediaTypeError(
-            f"Unknown media_type {media_type!r}. Valid: {VALID_MEDIA_TYPES}"
+            f"Unknown media_type {params.media_type!r}. Valid: {VALID_MEDIA_TYPES}"
         )
-    if reference_image_url is not None:
-        _validate_url(reference_image_url, "reference_image_url")
+    if params.reference_image_url is not None:
+        _validate_url(params.reference_image_url, "reference_image_url")
 
-    model = get_model_id(provider, "generate", media_type, tier)
+    model = get_model_id(params.provider, "generate", params.media_type, params.tier)
     if model is UNSUPPORTED:
-        raise _unsupported(provider, media_type, "generate")
+        raise _unsupported(params.provider, params.media_type, "generate")
 
-    mod = _load_provider(provider)
-    if media_type == "image":
-        return mod.generate_image(prompt, tier, reference_image_url, aspect_ratio)
+    mod = _load_provider(params.provider)
+    if params.media_type == "image":
+        return mod.generate_image(
+            ImageParams(
+                prompt=params.prompt,
+                tier=params.tier,
+                reference_image_url=params.reference_image_url,
+                aspect_ratio=params.aspect_ratio,
+            )
+        )
     return mod.generate_video(
-        prompt, tier, reference_image_url, job_id, aspect_ratio, duration_seconds
+        VideoParams(
+            prompt=params.prompt,
+            tier=params.tier,
+            reference_image_url=params.reference_image_url,
+            job_id=params.job_id,
+            aspect_ratio=params.aspect_ratio,
+            duration_seconds=params.duration_seconds,
+        )
     )

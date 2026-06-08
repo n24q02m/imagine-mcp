@@ -16,6 +16,7 @@ from mcp_core.relay.tool_helpers import register_open_relay_tool
 
 from imagine_mcp.config import settings
 from imagine_mcp.dispatcher import dispatch_generate, dispatch_understand
+from imagine_mcp.providers.base import GenerateParams
 from imagine_mcp.relay_schema import RELAY_SCHEMA
 
 VALID_HELP_TOPICS = {"understand", "generate", "config"}
@@ -155,14 +156,16 @@ def build_app() -> FastMCP:
     ) -> dict[str, Any]:
         """Generate image or video."""
         return dispatch_generate(
-            media_type,
-            prompt,
-            provider,
-            tier,
-            reference_image_url,
-            job_id,
-            aspect_ratio,
-            duration_seconds,
+            GenerateParams(
+                media_type=media_type,
+                prompt=prompt,
+                provider=provider,
+                tier=tier,
+                reference_image_url=reference_image_url,
+                job_id=job_id,
+                aspect_ratio=aspect_ratio,
+                duration_seconds=duration_seconds,
+            )
         )
 
     @app.tool(

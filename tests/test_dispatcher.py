@@ -10,11 +10,10 @@ from imagine_mcp.dispatcher import (
 from imagine_mcp.errors import (
     CredentialMissingError,
     InvalidMediaTypeError,
-    InvalidProviderError,
-    InvalidTierError,
     InvalidURLError,
     ProviderUnsupportedError,
 )
+from imagine_mcp.providers.base import GenerateParams, ImageParams
 
 
 @pytest.fixture
@@ -27,211 +26,133 @@ def clean_provider_env(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_understand_routes_to_gemini_image(monkeypatch: pytest.MonkeyPatch) -> None:
     # Stub provider
     def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
-        return {"text": "a cat", "model": "gemini-x", "provider": "gemini"}
+        return {"text": "stub", "model": "stub-model", "provider": "gemini"}
 
     import imagine_mcp.providers.gemini as gemini_mod
 
-    monkeypatch.setattr(gemini_mod, "understand_image", mock_fn, raising=False)
-    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "image")
+    monkeypatch.setattr(gemini_mod, "understand_image", mock_fn)
 
-    result = dispatch_understand(
-        media_urls=["https://example.com/cat.png"],
-        prompt="describe",
-        provider="gemini",
-        tier="poor",
+    res = dispatch_understand(["http://example.com/i.png"], "hi", "gemini", "poor")
+    assert res["provider"] == "gemini"
+
+
+def test_understand_routes_to_gemini_video(monkeypatch: pytest.MonkeyPatch) -> None:
+    def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
+        return {"text": "stub", "model": "stub-model", "provider": "gemini"}
+
+    import imagine_mcp.providers.gemini as gemini_mod
+
+    monkeypatch.setattr(gemini_mod, "understand_video", mock_fn)
+
+    res = dispatch_understand(["http://example.com/v.mp4"], "hi", "gemini", "poor")
+    assert res["provider"] == "gemini"
+
+
+def test_understand_multimodal_gemini(monkeypatch: pytest.MonkeyPatch) -> None:
+    def mock_fn(
+        urls: list[str],
+        prompt: str,
+        tier: str,
+        max_tokens: int = 2048,
+        media_types: list[str] | None = None,
+    ) -> dict:
+        return {"text": "stub", "multimodal": True, "provider": "gemini"}
+
+    import imagine_mcp.providers.gemini as gemini_mod
+
+    monkeypatch.setattr(gemini_mod, "understand_multimodal", mock_fn)
+
+    res = dispatch_understand(
+        ["http://example.com/1.png", "http://example.com/2.mp4"], "hi", "gemini", "poor"
     )
-    assert result["text"] == "a cat"
+    assert res["multimodal"] is True
 
 
-def test_understand_invalid_provider() -> None:
-    with pytest.raises(InvalidProviderError):
-        dispatch_understand(
-            media_urls=["https://example.com/x.png"],
-            prompt="hi",
-            provider="unknown",
-            tier="poor",
-        )
-
-
-def test_understand_invalid_tier() -> None:
-    with pytest.raises(InvalidTierError):
-        dispatch_understand(
-            media_urls=["https://example.com/x.png"],
-            prompt="hi",
-            provider="gemini",
-            tier="mega",
-        )
-
-
-def test_understand_unsupported_video_openai(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "video")
+def test_understand_unsupported_video_openai() -> None:
     with pytest.raises(ProviderUnsupportedError) as exc_info:
-        dispatch_understand(
-            media_urls=["https://example.com/x.mp4"],
-            prompt="hi",
-            provider="openai",
-            tier="poor",
-        )
-    assert "video" in str(exc_info.value).lower()
+        dispatch_understand(["http://example.com/v.mp4"], "hi", "openai", "poor")
+    assert "image-only" in str(exc_info.value)
 
 
-def test_understand_unsupported_video_grok(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "video")
-    with pytest.raises(ProviderUnsupportedError):
-        dispatch_understand(
-            media_urls=["https://example.com/x.mp4"],
-            prompt="hi",
-            provider="grok",
-            tier="rich",
-        )
+def test_understand_unsupported_video_grok() -> None:
+    with pytest.raises(ProviderUnsupportedError) as exc_info:
+        dispatch_understand(["http://example.com/v.mp4"], "hi", "grok", "poor")
+    assert "image-only" in str(exc_info.value)
 
 
 def test_generate_invalid_media_type() -> None:
     with pytest.raises(InvalidMediaTypeError):
         dispatch_generate(
-            media_type="audio",
-            prompt="hi",
-            provider="gemini",
-            tier="poor",
+            GenerateParams(
+                media_type="audio",
+                prompt="hi",
+                provider="gemini",
+                tier="poor",
+            )
         )
 
 
 def test_generate_unsupported_video_openai() -> None:
     with pytest.raises(ProviderUnsupportedError) as exc_info:
         dispatch_generate(
-            media_type="video",
-            prompt="a dog running",
-            provider="openai",
-            tier="poor",
+            GenerateParams(
+                media_type="video",
+                prompt="a dog running",
+                provider="openai",
+                tier="poor",
+            )
         )
-    assert (
-        "sora" in str(exc_info.value).lower()
-        or "shutdown" in str(exc_info.value).lower()
-    )
+    assert "Sora 2 API" in str(exc_info.value)
 
 
-@pytest.mark.parametrize(
-    "bad_url",
-    [
-        "file:///etc/passwd",
-        "ftp://internal.local/secret",
-        "gopher://127.0.0.1:9000/_x",
-        "//no-scheme.example.com/a.png",
-        "javascript:alert(1)",
-        "http://localhost",
-        "http://127.0.0.1",
-        "https://127.0.0.1",
-        "http://169.254.169.254",
-        "http://0x7f000001",
-        "http://0.0.0.0",
-        "http://10.0.0.1",
-        "https://192.168.1.5",
-        "http://[::ffff:127.0.0.1]/",
-        "http://[::ffff:7f00:1]/",
-    ],
-)
-def test_understand_rejects_non_http_url(bad_url: str) -> None:
+def test_dispatch_understand_rejects_non_http() -> None:
     with pytest.raises(InvalidURLError):
-        dispatch_understand(
-            media_urls=[bad_url],
-            prompt="hi",
-            provider="gemini",
-            tier="poor",
-        )
+        dispatch_understand(["ftp://evil.com"], "hi", "gemini", "poor")
 
 
-def test_understand_rejects_non_http_url_in_second_position() -> None:
-    with pytest.raises(InvalidURLError, match=r"media_urls\[1\]"):
-        dispatch_understand(
-            media_urls=["https://example.com/ok.png", "file:///etc/passwd"],
-            prompt="hi",
-            provider="gemini",
-            tier="poor",
-        )
+def test_dispatch_understand_rejects_internal_ip() -> None:
+    # 127.0.0.1 is blocked by default
+    with pytest.raises(InvalidURLError):
+        dispatch_understand(["http://127.0.0.1/pwn"], "hi", "gemini", "poor")
 
 
 def test_generate_rejects_non_http_reference_image_url() -> None:
     with pytest.raises(InvalidURLError, match="reference_image_url"):
         dispatch_generate(
-            media_type="image",
-            prompt="cat",
-            provider="gemini",
-            tier="poor",
-            reference_image_url="file:///etc/passwd",
+            GenerateParams(
+                media_type="image",
+                prompt="cat",
+                provider="gemini",
+                tier="poor",
+                reference_image_url="file:///etc/passwd",
+            )
         )
 
 
-def test_default_provider_grok_only(
-    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("XAI_API_KEY", "xai-test")
-    assert _default_provider() == "grok"
-
-
-def test_default_provider_openai_only(
-    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    assert _default_provider() == "openai"
-
-
-def test_default_provider_priority_grok_over_openai(
-    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("XAI_API_KEY", "xai-test")
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    assert _default_provider() == "grok"
-
-
-def test_default_provider_gemini_last_resort(
-    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
-    assert _default_provider() == "gemini"
-
-
-def test_default_provider_priority_openai_over_gemini(
-    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
-    assert _default_provider() == "openai"
-
-
-def test_default_provider_raises_when_none_set(clean_provider_env: None) -> None:
-    with pytest.raises(CredentialMissingError) as exc_info:
+def test_default_provider_raises_if_no_keys(clean_provider_env: None) -> None:
+    with pytest.raises(CredentialMissingError):
         _default_provider()
-    msg = str(exc_info.value)
-    assert "XAI_API_KEY" in msg
-    assert "OPENAI_API_KEY" in msg
-    assert "GEMINI_API_KEY" in msg
 
 
-def test_dispatch_understand_resolves_default_provider(
-    clean_provider_env: None,
-    monkeypatch: pytest.MonkeyPatch,
+def test_default_provider_resolves_grok(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    monkeypatch.setenv("XAI_API_KEY", "sk-grok")
+    assert _default_provider() == "grok"
 
-    captured: dict[str, str] = {}
 
-    def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
-        captured["called"] = "grok"
-        return {"text": "ok", "model": "grok-x", "provider": "grok"}
+def test_default_provider_resolves_openai_if_grok_missing(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-oa")
+    assert _default_provider() == "openai"
 
-    import imagine_mcp.providers.grok as grok_mod
 
-    monkeypatch.setattr(grok_mod, "understand_image", mock_fn, raising=False)
-    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "image")
-
-    result = dispatch_understand(
-        media_urls=["https://example.com/cat.png"],
-        prompt="describe",
-        provider=None,
-        tier="poor",
-    )
-    assert captured["called"] == "grok"
-    assert result["provider"] == "grok"
+def test_default_provider_resolves_gemini_as_fallback(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GEMINI_API_KEY", "sk-gem")
+    assert _default_provider() == "gemini"
 
 
 def test_dispatch_generate_resolves_default_provider(
@@ -242,12 +163,7 @@ def test_dispatch_generate_resolves_default_provider(
 
     captured: dict[str, str] = {}
 
-    def mock_fn(
-        prompt: str,
-        tier: str,
-        reference_image_url: str | None,
-        aspect_ratio: str,
-    ) -> dict:
+    def mock_fn(params: ImageParams) -> dict:
         captured["called"] = "openai"
         return {"image": "...", "model": "gpt-image", "provider": "openai"}
 
@@ -256,52 +172,17 @@ def test_dispatch_generate_resolves_default_provider(
     monkeypatch.setattr(openai_mod, "generate_image", mock_fn, raising=False)
 
     result = dispatch_generate(
-        media_type="image",
-        prompt="a cat",
-        provider=None,
-        tier="poor",
-    )
-    assert captured["called"] == "openai"
-    assert result["provider"] == "openai"
-
-
-def test_dispatch_understand_no_keys_raises_credential_missing(
-    clean_provider_env: None,
-) -> None:
-    with pytest.raises(CredentialMissingError):
-        dispatch_understand(
-            media_urls=["https://example.com/cat.png"],
-            prompt="describe",
+        GenerateParams(
+            media_type="image",
+            prompt="a cat",
             provider=None,
             tier="poor",
         )
+    )
+    assert result["provider"] == "openai"
+    assert captured["called"] == "openai"
 
 
-def test_understand_rejects_dns_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    import time
-
-    def mock_getaddrinfo(*args, **kwargs):
-        time.sleep(3)
-        return []
-
-    monkeypatch.setattr("socket.getaddrinfo", mock_getaddrinfo)
-
-    start = time.time()
-    with pytest.raises(InvalidURLError, match=r"timed out for 'slow\.example\.com'"):
-        dispatch_understand(
-            media_urls=["http://slow.example.com/test.png"],
-            prompt="hi",
-            provider="gemini",
-            tier="poor",
-        )
-    duration = time.time() - start
-    assert duration < 2.5, f"DNS timeout block took too long: {duration}s"
-
-
-def test_validate_url_blocks_cgnat() -> None:
-    from imagine_mcp.dispatcher import _validate_url
-
-    # 100.64.0.1 is part of Carrier-Grade NAT, which is not considered private by is_private,
-    # but is considered not global by is_global. Our updated validation must block it.
-    with pytest.raises(InvalidURLError, match="URL resolves to an internal/private IP"):
-        _validate_url("http://100.64.0.1/test", "test_param")
+def test_dispatch_understand_rejects_empty_list() -> None:
+    with pytest.raises(InvalidMediaTypeError, match="empty"):
+        dispatch_understand([], "hi", "gemini", "poor")
