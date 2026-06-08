@@ -233,12 +233,12 @@ class TestSSRFProtection:
     def test_transport_pins_ip_and_sets_sni(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """handle_request must rewrite host->validated IP and set sni_hostname to
-        the original host so TLS verification targets the hostname, not the IP."""
+        """handle_request must set sni_hostname to the original host so TLS
+        verification targets the hostname, while the backend pins to the IP."""
         captured: dict = {}
 
-        def fake_validate(url: str, param: str) -> str:
-            return "93.184.216.34"  # pretend example.com resolved here (public)
+        def fake_validate_hostname(hostname: str, port: int | None, param: str) -> str:
+            return "93.184.216.34"
 
         def fake_super(
             self: SSRFSafeTransport, request: httpx.Request
@@ -248,16 +248,32 @@ class TestSSRFProtection:
             captured["host_header"] = request.headers.get("Host")
             return httpx.Response(200)
 
-        monkeypatch.setattr("imagine_mcp.media.validate_url_and_get_ip", fake_validate)
+        monkeypatch.setattr(
+            "imagine_mcp.media._validate_hostname_and_get_ip", fake_validate_hostname
+        )
         monkeypatch.setattr(httpx.HTTPTransport, "handle_request", fake_super)
 
         transport = SSRFSafeTransport()
         req = httpx.Request("GET", "https://example.com/img.png")
         transport.handle_request(req)
 
-        assert captured["host"] == "93.184.216.34"  # pinned to validated IP
+        # URL is NOT rewritten in the request object anymore
+        assert captured["host"] == "example.com"
         assert captured["sni"] == "example.com"  # TLS verifies against hostname
         assert captured["host_header"] == "example.com"  # virtual-host routing intact
+
+        # Verify pinning happens in the backend
+        captured_conn_host = []
+
+        def mock_connect_tcp(self, host, port, **kwargs):
+            captured_conn_host.append(host)
+            return MagicMock()
+
+        import httpcore
+
+        monkeypatch.setattr(httpcore.SyncBackend, "connect_tcp", mock_connect_tcp)
+        transport._pool._network_backend.connect_tcp("example.com", 443)
+        assert captured_conn_host[0] == "93.184.216.34"
 
     def test_transport_passes_through_non_http_scheme(
         self, monkeypatch: pytest.MonkeyPatch
