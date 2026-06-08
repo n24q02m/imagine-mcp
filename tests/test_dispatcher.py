@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from imagine_mcp.dispatcher import (
+    GenerateParams,
     _default_provider,
     dispatch_generate,
     dispatch_understand,
@@ -89,20 +90,16 @@ def test_understand_unsupported_video_grok(monkeypatch: pytest.MonkeyPatch) -> N
 def test_generate_invalid_media_type() -> None:
     with pytest.raises(InvalidMediaTypeError):
         dispatch_generate(
-            media_type="audio",
-            prompt="hi",
-            provider="gemini",
-            tier="poor",
+            GenerateParams(media_type="audio", prompt="hi", provider="gemini")
         )
 
 
 def test_generate_unsupported_video_openai() -> None:
     with pytest.raises(ProviderUnsupportedError) as exc_info:
         dispatch_generate(
-            media_type="video",
-            prompt="a dog running",
-            provider="openai",
-            tier="poor",
+            GenerateParams(
+                media_type="video", prompt="a dog running", provider="openai"
+            )
         )
     assert (
         "sora" in str(exc_info.value).lower()
@@ -153,11 +150,12 @@ def test_understand_rejects_non_http_url_in_second_position() -> None:
 def test_generate_rejects_non_http_reference_image_url() -> None:
     with pytest.raises(InvalidURLError, match="reference_image_url"):
         dispatch_generate(
-            media_type="image",
-            prompt="cat",
-            provider="gemini",
-            tier="poor",
-            reference_image_url="file:///etc/passwd",
+            GenerateParams(
+                media_type="image",
+                prompt="cat",
+                provider="gemini",
+                reference_image_url="file:///etc/passwd",
+            )
         )
 
 
@@ -242,12 +240,9 @@ def test_dispatch_generate_resolves_default_provider(
 
     captured: dict[str, str] = {}
 
-    def mock_fn(
-        prompt: str,
-        tier: str,
-        reference_image_url: str | None,
-        aspect_ratio: str,
-    ) -> dict:
+    from imagine_mcp.providers.base import ImageParams
+
+    def mock_fn(params: ImageParams) -> dict:
         captured["called"] = "openai"
         return {"image": "...", "model": "gpt-image", "provider": "openai"}
 
@@ -256,10 +251,7 @@ def test_dispatch_generate_resolves_default_provider(
     monkeypatch.setattr(openai_mod, "generate_image", mock_fn, raising=False)
 
     result = dispatch_generate(
-        media_type="image",
-        prompt="a cat",
-        provider=None,
-        tier="poor",
+        GenerateParams(media_type="image", prompt="a cat", provider=None)
     )
     assert captured["called"] == "openai"
     assert result["provider"] == "openai"
