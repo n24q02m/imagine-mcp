@@ -113,6 +113,9 @@ class SSRFSafeBackend(httpcore.NetworkBackend):
         # Explicitly block Unix sockets for enhanced SSRF security.
         raise InvalidURLError("Unix sockets are not allowed.")
 
+    def sleep(self, seconds: float) -> None:
+        return self._backend.sleep(seconds)
+
 
 class SSRFSafeTransport(httpx.HTTPTransport):
     """Custom transport that uses SSRFSafeBackend for DNS pinning."""
@@ -121,7 +124,7 @@ class SSRFSafeTransport(httpx.HTTPTransport):
         super().__init__(**kwargs)
         # Inject the custom backend into the internal connection pool.
         # This is safe because HTTPTransport.__init__ creates the pool.
-        self._pool._network_backend = SSRFSafeBackend()
+        self._pool._network_backend = SSRFSafeBackend()  # type: ignore
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         url = request.url
@@ -155,6 +158,7 @@ def _validate_hostname_and_get_ip(hostname: str, port: int | None, param: str) -
 
         for res in addr_info:
             # res[4] is the sockaddr tuple. The first element is the IP string.
+            # Explicitly stringify to satisfy type checkers.
             ip_str = str(res[4][0])
             ip_obj = ipaddress.ip_address(ip_str)
 
