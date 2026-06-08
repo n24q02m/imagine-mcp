@@ -154,15 +154,19 @@ def build_app() -> FastMCP:
         duration_seconds: int = 8,
     ) -> dict[str, Any]:
         """Generate image or video."""
+        from imagine_mcp.dispatcher import GenerateParams
+
         return dispatch_generate(
-            media_type,
-            prompt,
-            provider,
-            tier,
-            reference_image_url,
-            job_id,
-            aspect_ratio,
-            duration_seconds,
+            GenerateParams(
+                media_type=media_type,
+                prompt=prompt,
+                provider=provider,
+                tier=tier,
+                reference_image_url=reference_image_url,
+                job_id=job_id,
+                aspect_ratio=aspect_ratio,
+                duration_seconds=duration_seconds,
+            )
         )
 
     @app.tool(
