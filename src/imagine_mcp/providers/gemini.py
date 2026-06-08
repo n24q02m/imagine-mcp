@@ -3,15 +3,27 @@
 from __future__ import annotations
 
 import base64
+import concurrent.futures
 import os
 import uuid
 from pathlib import Path
 from typing import Any
 
 import platformdirs
+from google.genai import types
 
 from imagine_mcp.config import settings
+from imagine_mcp.credential_state import (
+    credentials_for_current_request,
+    get_current_sub,
+)
 from imagine_mcp.errors import CredentialMissingError, ProviderAPIError
+from imagine_mcp.media import (
+    detect_media_type,
+    download_to_path,
+    get_ssrf_safe_client,
+    resolve_image_mime,
+)
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
@@ -19,6 +31,10 @@ _CLIENT: Any = None
 # user gets a client wired to their own ``GEMINI_API_KEY``. Single-user /
 # stdio mode still uses the module-level ``_CLIENT`` above.
 _SUB_CLIENTS: dict[str, Any] = {}
+
+_GEMINI_POOL = concurrent.futures.ThreadPoolExecutor(
+    max_workers=10, thread_name_prefix="gemini_pool"
+)
 
 
 def _resolve_api_key() -> str | None:
@@ -29,11 +45,6 @@ def _resolve_api_key() -> str | None:
     compatibility, then ``credentials_for_current_request()`` which falls
     back to ``os.environ`` when no sub is active.
     """
-    from imagine_mcp.credential_state import (
-        credentials_for_current_request,
-        get_current_sub,
-    )
-
     if get_current_sub() is not None:
         return credentials_for_current_request().get("GEMINI_API_KEY")
     return settings.gemini_api_key or os.environ.get("GEMINI_API_KEY")
@@ -41,8 +52,6 @@ def _resolve_api_key() -> str | None:
 
 def _client() -> Any:
     global _CLIENT
-    from imagine_mcp.credential_state import get_current_sub
-
     sub = get_current_sub()
     if sub is not None:
         cached = _SUB_CLIENTS.get(sub)
@@ -83,10 +92,6 @@ def _reset_client() -> None:
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
-    from google.genai import types
-
-    from imagine_mcp.media import get_ssrf_safe_client, resolve_image_mime
-
     client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
 
@@ -114,10 +119,6 @@ def understand_image(
 def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
-    from google.genai import types
-
-    from imagine_mcp.media import download_to_path
-
     client = _client()
     model = get_model_id("gemini", "understand", "video", tier)
 
@@ -154,15 +155,6 @@ def understand_multimodal(
     media_types: list[str] | None = None,
 ) -> dict[str, Any]:
     """Gemini native multimodal: mixed image+video URLs in a single call."""
-    from google.genai import types
-
-    from imagine_mcp.media import (
-        detect_media_type,
-        download_to_path,
-        get_ssrf_safe_client,
-        resolve_image_mime,
-    )
-
     client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
     parts: list[Any] = [prompt]
@@ -171,27 +163,37 @@ def understand_multimodal(
     tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
+    def _process_one(i: int, u: str) -> tuple[int, Any, Path | None]:
+        # Performance optimization:
+        # Use pre-calculated media types if provided by the dispatcher
+        # This avoids O(N) sequential redundant network calls (HEAD requests)
+        # converting the latency to O(1) bounded by the dispatcher's thread pool.
+        mt = media_types[i] if media_types else detect_media_type(u)
+        if mt == "image":
+            img_resp = get_ssrf_safe_client().get(u, follow_redirects=True, timeout=60)
+            img_data = img_resp.content
+            mime_type = resolve_image_mime(
+                img_resp.headers.get("content-type"), img_data
+            )
+            return i, types.Part.from_bytes(data=img_data, mime_type=mime_type), None
+        else:
+            tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
+            download_to_path(u, tmp_path)
+            # client.files.upload might not be thread safe?
+            # The SDK docs don't say much, but usually these clients are fine.
+            # We'll call it here to keep it parallel.
+            return i, client.files.upload(file=tmp_path), tmp_path
+
     try:
-        for i, u in enumerate(urls):
-            # Performance optimization:
-            # Use pre-calculated media types if provided by the dispatcher
-            # This avoids O(N) sequential redundant network calls (HEAD requests)
-            # converting the latency to O(1) bounded by the dispatcher's thread pool.
-            mt = media_types[i] if media_types else detect_media_type(u)
-            if mt == "image":
-                img_resp = get_ssrf_safe_client().get(
-                    u, follow_redirects=True, timeout=60
-                )
-                img_data = img_resp.content
-                mime_type = resolve_image_mime(
-                    img_resp.headers.get("content-type"), img_data
-                )
-                parts.append(types.Part.from_bytes(data=img_data, mime_type=mime_type))
-            else:
-                tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
-                download_to_path(u, tmp_path)
-                tmp_files.append(tmp_path)
-                parts.append(client.files.upload(file=tmp_path))
+        futures = [_GEMINI_POOL.submit(_process_one, i, u) for i, u in enumerate(urls)]
+        results = [None] * len(urls)
+        for future in concurrent.futures.as_completed(futures):
+            idx, part, tpath = future.result()
+            results[idx] = part
+            if tpath:
+                tmp_files.append(tpath)
+
+        parts.extend(results)
 
         resp = client.models.generate_content(
             model=model,
@@ -218,10 +220,6 @@ def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
-    from google.genai import types
-
-    from imagine_mcp.media import get_ssrf_safe_client, resolve_image_mime
-
     client = _client()
     model = get_model_id("gemini", "generate", "image", tier)
     contents: list[Any] = [prompt]
@@ -269,8 +267,6 @@ def generate_video(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
-    from google.genai import types
-
     model = get_model_id("gemini", "generate", "video", tier)
     client = _client()
 
