@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+import pytest
+
 from imagine_mcp.credential_state import (
     CLOUD_KEYS,
     _request_creds,
+    clear_credentials,
     credentials_for_current_request,
+    get_current_sub,
+    load_credentials,
+    read_for_sub,
+    save_credentials,
     set_current_sub,
+    store_for_sub,
 )
 
 
@@ -24,28 +32,27 @@ def test_credentials_no_sub_reads_environ(monkeypatch):
     assert "OTHER_VAR" not in creds
 
 
-def test_credentials_with_sub_reads_store(tmp_path, monkeypatch):
-    """When sub is set, it reads from PerPluginStore (via read_for_sub)."""
-    # Force HTTP mode so read_for_sub works
-    monkeypatch.setenv("MCP_TRANSPORT", "http")
-    monkeypatch.setenv("CREDENTIAL_SECRET", "test-secret-value")
-    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+def test_credentials_with_sub_reads_store_mocked(monkeypatch):
+    """Test both branches of credentials_for_current_request by mocking read_for_sub."""
+    # Branch 1: sub is None
+    set_current_sub(None)
+    for k in CLOUD_KEYS:
+        monkeypatch.delenv(k, raising=False)
+    monkeypatch.setenv("XAI_API_KEY", "xai-val")
+    assert credentials_for_current_request() == {"XAI_API_KEY": "xai-val"}
 
-    from mcp_core.storage.per_plugin_store import PerPluginStore
+    # Branch 2: sub is set
+    set_current_sub("user-456")
 
-    from imagine_mcp.credential_state import PLUGIN_NAME
+    def mock_read(sub):
+        assert sub == "user-456"
+        return {"MOCK_KEY": "MOCK_VAL"}
 
-    sub_id = "user-123"
-    set_current_sub(sub_id)
+    monkeypatch.setattr("imagine_mcp.credential_state.read_for_sub", mock_read)
 
-    # Save some creds for this sub
-    PerPluginStore(PLUGIN_NAME, sub_id).save({"OPENAI_API_KEY": "sk-123"})
-
-    # Set different creds in environ - they should be IGNORED
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-env")
-
-    creds = credentials_for_current_request()
-    assert creds == {"OPENAI_API_KEY": "sk-123"}
+    # Must clear cache first because set_current_sub does it, but we already set it
+    # Actually set_current_sub("user-456") already cleared it.
+    assert credentials_for_current_request() == {"MOCK_KEY": "MOCK_VAL"}
 
 
 def test_credentials_caching(monkeypatch):
@@ -81,3 +88,93 @@ def test_set_current_sub_clears_cache(monkeypatch):
     _request_creds.set({"dummy": "data"})
     set_current_sub(None)
     assert _request_creds.get() is None
+
+
+def test_get_current_sub():
+    """Test get_current_sub returns the value from contextvar."""
+    set_current_sub("test-sub-456")
+    assert get_current_sub() == "test-sub-456"
+    set_current_sub(None)
+    assert get_current_sub() is None
+
+
+def test_read_for_sub_stdio(monkeypatch):
+    """read_for_sub returns {} in stdio mode."""
+    monkeypatch.delenv("MCP_TRANSPORT", raising=False)
+    monkeypatch.delenv("TRANSPORT_MODE", raising=False)
+    monkeypatch.setattr("sys.argv", ["imagine-mcp"])
+    assert read_for_sub("any-sub") == {}
+
+
+def test_load_credentials_stdio(monkeypatch):
+    """load_credentials returns {} in stdio mode."""
+    monkeypatch.delenv("MCP_TRANSPORT", raising=False)
+    monkeypatch.delenv("TRANSPORT_MODE", raising=False)
+    monkeypatch.setattr("sys.argv", ["imagine-mcp"])
+    assert load_credentials() == {}
+
+
+def test_store_for_sub(tmp_path, monkeypatch):
+    """store_for_sub persists config for a sub."""
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    monkeypatch.setenv("MCP_TRANSPORT", "http")
+    monkeypatch.setenv("CREDENTIAL_SECRET", "test-secret")
+
+    store_for_sub("user-999", {"XAI_API_KEY": "xai-val"})
+    assert read_for_sub("user-999") == {"XAI_API_KEY": "xai-val"}
+
+
+def test_clear_credentials(tmp_path, monkeypatch):
+    """clear_credentials removes stored config."""
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    monkeypatch.setenv("MCP_TRANSPORT", "http")
+    monkeypatch.setenv("CREDENTIAL_SECRET", "test-secret")
+
+    store_for_sub("user-888", {"GEMINI_API_KEY": "g-val"})
+    clear_credentials("user-888")
+    assert read_for_sub("user-888") == {}
+
+
+def test_save_credentials_multiuser(tmp_path, monkeypatch):
+    """save_credentials in multi-user mode (PUBLIC_URL set)."""
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    monkeypatch.setenv("MCP_TRANSPORT", "http")
+    monkeypatch.setenv("PUBLIC_URL", "https://imagine.example.com")
+    monkeypatch.setenv("CREDENTIAL_SECRET", "test-secret")
+
+    save_credentials({"API_KEY": "secret"}, context={"sub": "user-uuid"})
+    assert read_for_sub("user-uuid") == {"API_KEY": "secret"}
+
+
+def test_save_credentials_multiuser_no_sub(monkeypatch):
+    """save_credentials raises error if sub is missing in multi-user mode."""
+    monkeypatch.setenv("PUBLIC_URL", "https://imagine.example.com")
+    with pytest.raises(
+        RuntimeError, match="multi-user mode: SubjectContext sub required"
+    ):
+        save_credentials({"API_KEY": "secret"}, context={})
+    with pytest.raises(
+        RuntimeError, match="multi-user mode: SubjectContext sub required"
+    ):
+        save_credentials({"API_KEY": "secret"}, context=None)
+
+
+def test_save_credentials_single_user(tmp_path, monkeypatch):
+    """save_credentials in single-user mode."""
+    monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    monkeypatch.setenv("MCP_TRANSPORT", "http")
+    monkeypatch.delenv("PUBLIC_URL", raising=False)
+
+    # Mock apply_config to avoid side effects
+    mock_called = False
+
+    def mock_apply_config(config):
+        nonlocal mock_called
+        mock_called = True
+        assert config == {"SINGLE_USER_KEY": "val"}
+
+    monkeypatch.setattr("imagine_mcp.relay_setup.apply_config", mock_apply_config)
+
+    save_credentials({"SINGLE_USER_KEY": "val"})
+    assert load_credentials() == {"SINGLE_USER_KEY": "val"}
+    assert mock_called is True
