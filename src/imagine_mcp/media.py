@@ -6,10 +6,12 @@ import concurrent.futures
 import ipaddress
 import os
 import socket
+import typing
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
+import httpcore
 import httpx
 
 from imagine_mcp.errors import InvalidURLError, MediaDetectError
@@ -73,57 +75,83 @@ def resolve_image_mime(content_type: str | None, data: bytes) -> str:
     return _IMAGE_FALLBACK_MIME
 
 
-class SSRFSafeTransport(httpx.HTTPTransport):
-    """Custom transport that implements DNS pinning to prevent TOCTOU SSRF.
+class SSRFSafeBackend(httpcore.NetworkBackend):
+    """Custom network backend that implements DNS pinning to prevent TOCTOU SSRF.
 
     It resolves the hostname, validates the IP against local/private ranges,
-    and then rewrites the request URL to use the IP address directly.
+    and then pins the TCP connection to that IP while preserving the original
+    hostname for TLS certificate validation.
     """
+
+    def __init__(self) -> None:
+        self._backend = httpcore.SyncBackend()
+
+    def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: typing.Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.NetworkStream:
+        # Pin the request to a validated IP to prevent TOCTOU DNS rebinding.
+        ip = _validate_hostname_and_get_ip(host, port, "url")
+        return self._backend.connect_tcp(
+            host=ip,
+            port=port,
+            timeout=timeout,
+            local_address=local_address,
+            socket_options=socket_options,
+        )
+
+    def connect_unix_socket(
+        self,
+        path: str,
+        timeout: float | None = None,
+        socket_options: typing.Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.NetworkStream:
+        # Explicitly block Unix sockets for enhanced SSRF security.
+        raise InvalidURLError("Unix sockets are not allowed.")
+
+    def sleep(self, seconds: float) -> None:
+        return self._backend.sleep(seconds)
+
+
+class SSRFSafeTransport(httpx.HTTPTransport):
+    """Custom transport that uses SSRFSafeBackend for DNS pinning."""
+
+    def __init__(self, **kwargs: typing.Any) -> None:
+        super().__init__(**kwargs)
+        # Inject the custom backend into the internal connection pool.
+        # This is safe because HTTPTransport.__init__ creates the pool.
+        self._pool._network_backend = SSRFSafeBackend()  # type: ignore
 
     def handle_request(self, request: httpx.Request) -> httpx.Response:
         url = request.url
         if url.scheme.lower() not in _SAFE_URL_SCHEMES:
             return super().handle_request(request)
 
-        host = url.host
-        ip = validate_url_and_get_ip(str(url), "redirect_url")
-
-        # Pin the request to the validated IP to prevent TOCTOU DNS rebinding.
-        request.url = request.url.copy_with(host=ip)
-
         # Ensure Host header is set for virtual hosting.
         if "Host" not in request.headers:
-            request.headers["Host"] = host
+            request.headers["Host"] = url.host
 
         # Set SNI extension for TLS.
-        request.extensions["sni_hostname"] = host
+        request.extensions["sni_hostname"] = url.host
 
         return super().handle_request(request)
 
 
-def validate_url_and_get_ip(url: str, param: str) -> str:
-    """Verify URL scheme and resolve hostname to a public IP.
+def _validate_hostname_and_get_ip(hostname: str, port: int | None, param: str) -> str:
+    """Resolve hostname to a public IP and validate it.
 
     Returns the first validated IP address string.
-    Raises InvalidURLError if the URL is unsafe.
+    Raises InvalidURLError if resolution fails or returns an unsafe IP.
     """
-    parsed = urlparse(url)
-    scheme = parsed.scheme.lower()
-    if scheme not in _SAFE_URL_SCHEMES:
-        raise InvalidURLError(
-            f"Invalid {param} scheme {scheme!r}. Only http/https are allowed."
-        )
-
-    hostname = parsed.hostname
-    if not hostname:
-        raise InvalidURLError(f"Invalid {param}: missing hostname.")
-
     try:
         # Wrap the blocking getaddrinfo in a thread with a short timeout
         # to prevent DoS attacks via malicious DNS servers.
-        # Note: parsed.port may be None, which is fine for getaddrinfo.
         future = _DNS_RESOLVER_POOL.submit(
-            socket.getaddrinfo, hostname, parsed.port, socket.AF_UNSPEC
+            socket.getaddrinfo, hostname, port, socket.AF_UNSPEC
         )
         # Short timeout to fail fast on tarpit DNS
         addr_info = future.result(timeout=2.0)
@@ -157,6 +185,26 @@ def validate_url_and_get_ip(url: str, param: str) -> str:
         raise InvalidURLError(
             f"Invalid {param}: Could not resolve hostname {hostname!r}."
         ) from e
+
+
+def validate_url_and_get_ip(url: str, param: str) -> str:
+    """Verify URL scheme and resolve hostname to a public IP.
+
+    Returns the first validated IP address string.
+    Raises InvalidURLError if the URL is unsafe.
+    """
+    parsed = urlparse(url)
+    scheme = parsed.scheme.lower()
+    if scheme not in _SAFE_URL_SCHEMES:
+        raise InvalidURLError(
+            f"Invalid {param} scheme {scheme!r}. Only http/https are allowed."
+        )
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise InvalidURLError(f"Invalid {param}: missing hostname.")
+
+    return _validate_hostname_and_get_ip(hostname, parsed.port, param)
 
 
 _CLIENT: httpx.Client | None = None
