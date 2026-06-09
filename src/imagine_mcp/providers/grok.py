@@ -185,56 +185,60 @@ def generate_image(
     }
 
 
-def generate_video(
+def _submit_video_generation(
+    model: str,
     prompt: str,
     tier: str,
-    reference_image_url: str | None = None,
-    job_id: str | None = None,
-    aspect_ratio: str = "16:9",
-    duration_seconds: int = 8,
+    reference_image_url: str | None,
+    aspect_ratio: str,
+    duration_seconds: int,
+    headers: dict[str, str],
 ) -> dict[str, Any]:
-    model = get_model_id("grok", "generate", "video", tier)
-    headers = {"Authorization": f"Bearer {_api_key()}"}
-
-    if job_id is None:
-        payload: dict[str, Any] = {
-            "model": model,
-            "prompt": prompt,
-            "duration_seconds": duration_seconds,
-            "aspect_ratio": aspect_ratio,
-        }
-        if reference_image_url:
-            # Download source image and pass as base64 data URL
-            resp_img = get_ssrf_safe_client().get(
-                reference_image_url, follow_redirects=True, timeout=60
-            )
-            img_b64 = base64.b64encode(resp_img.content).decode()
-            mime_type = resp_img.headers.get("content-type", "image/png")
-            data_url = f"data:{mime_type};base64,{img_b64}"
-            payload["source_image"] = data_url
-
-        resp = get_ssrf_safe_client().post(
-            f"{_BASE_URL}/videos/generations",
-            json=payload,
-            headers=headers,
-            timeout=60,
-            follow_redirects=True,
+    payload: dict[str, Any] = {
+        "model": model,
+        "prompt": prompt,
+        "duration_seconds": duration_seconds,
+        "aspect_ratio": aspect_ratio,
+    }
+    if reference_image_url:
+        # Download source image and pass as base64 data URL
+        resp_img = get_ssrf_safe_client().get(
+            reference_image_url, follow_redirects=True, timeout=60
         )
-        if resp.status_code != 200:
-            raise ProviderAPIError(
-                f"Grok video submit failed: {resp.text}",
-                status_code=resp.status_code,
-            )
-        data = resp.json()
-        return {
-            "job_id": data["id"],
-            "status": "pending",
-            "eta_seconds": data.get("eta_seconds", 30),
-            "model": model,
-            "provider": "grok",
-            "tier": tier,
-        }
+        img_b64 = base64.b64encode(resp_img.content).decode()
+        mime_type = resp_img.headers.get("content-type", "image/png")
+        data_url = f"data:{mime_type};base64,{img_b64}"
+        payload["source_image"] = data_url
 
+    resp = get_ssrf_safe_client().post(
+        f"{_BASE_URL}/videos/generations",
+        json=payload,
+        headers=headers,
+        timeout=60,
+        follow_redirects=True,
+    )
+    if resp.status_code != 200:
+        raise ProviderAPIError(
+            f"Grok video submit failed: {resp.text}",
+            status_code=resp.status_code,
+        )
+    data = resp.json()
+    return {
+        "job_id": data["id"],
+        "status": "pending",
+        "eta_seconds": data.get("eta_seconds", 30),
+        "model": model,
+        "provider": "grok",
+        "tier": tier,
+    }
+
+
+def _poll_video_generation(
+    job_id: str,
+    model: str,
+    tier: str,
+    headers: dict[str, str],
+) -> dict[str, Any]:
     safe_job_id = urllib.parse.quote(job_id, safe="")
     resp = get_ssrf_safe_client().get(
         f"{_BASE_URL}/videos/generations/{safe_job_id}",
@@ -283,3 +287,28 @@ def generate_video(
         "provider": "grok",
         "tier": tier,
     }
+
+
+def generate_video(
+    prompt: str,
+    tier: str,
+    reference_image_url: str | None = None,
+    job_id: str | None = None,
+    aspect_ratio: str = "16:9",
+    duration_seconds: int = 8,
+) -> dict[str, Any]:
+    model = get_model_id("grok", "generate", "video", tier)
+    headers = {"Authorization": f"Bearer {_api_key()}"}
+
+    if job_id is None:
+        return _submit_video_generation(
+            model,
+            prompt,
+            tier,
+            reference_image_url,
+            aspect_ratio,
+            duration_seconds,
+            headers,
+        )
+
+    return _poll_video_generation(job_id, model, tier, headers)
