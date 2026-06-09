@@ -2,6 +2,26 @@
 
 <!-- version list -->
 
+## v1.6.1-beta.1 (2026-06-09)
+
+### Bug Fixes
+
+- Fix ssl validation failure during dns pinning
+  ([#262](https://github.com/n24q02m/imagine-mcp/pull/262),
+  [`69b6a09`](https://github.com/n24q02m/imagine-mcp/commit/69b6a098a3b79e5e65204fee91ab0848e527f604))
+
+- Gitignore bot/merge junk artifacts (*.orig/*.rej/*.patch/*.diff/*.cover/*.bak)
+  ([#246](https://github.com/n24q02m/imagine-mcp/pull/246),
+  [`b4ff03d`](https://github.com/n24q02m/imagine-mcp/commit/b4ff03de07f424bc5252b4601d502f97d6a57e3b))
+
+- 🔒 [SECURITY] fix ssl validation when rewriting requests to ips
+  ([#262](https://github.com/n24q02m/imagine-mcp/pull/262),
+  [`69b6a09`](https://github.com/n24q02m/imagine-mcp/commit/69b6a098a3b79e5e65204fee91ab0848e527f604))
+
+- **deps**: Update non-major dependencies ([#248](https://github.com/n24q02m/imagine-mcp/pull/248),
+  [`037beae`](https://github.com/n24q02m/imagine-mcp/commit/037beaed05a7fe7f8f2e43c67c43832d493cdffd))
+
+
 ## v1.6.0 (2026-06-07)
 
 ### Bug Fixes
