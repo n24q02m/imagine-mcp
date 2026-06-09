@@ -87,9 +87,11 @@ MODEL_ALIASES: dict[str, str] = {
     "grok-4.20-0309-non-reasoning": "grok-4.20-0309-non-reasoning",
     # Grok generate
     "Aurora": "grok-imagine-image",
+    "grok-imagine-image": "grok-imagine-image",
     "Grok Imagine Pro": "grok-imagine-image-pro",
     "grok-imagine-image-pro": "grok-imagine-image-pro",
     "Grok Imagine Video": "grok-imagine-video",
+    "grok-imagine-video": "grok-imagine-video",
 }
 
 
