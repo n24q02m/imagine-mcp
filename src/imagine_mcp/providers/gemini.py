@@ -52,6 +52,8 @@ def _resolve_api_key() -> str | None:
 
 def _client() -> Any:
     global _CLIENT
+    from imagine_mcp.credential_state import get_current_sub
+
     sub = get_current_sub()
     if sub is not None:
         cached = _SUB_CLIENTS.get(sub)
@@ -163,35 +165,42 @@ def understand_multimodal(
     tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
-    def _process_one(i: int, u: str) -> tuple[int, Any, Path | None]:
-        # Performance optimization:
-        # Use pre-calculated media types if provided by the dispatcher
-        # This avoids O(N) sequential redundant network calls (HEAD requests)
-        # converting the latency to O(1) bounded by the dispatcher's thread pool.
-        mt = media_types[i] if media_types else detect_media_type(u)
+    def _process_one(i: int, u: str, mt: str, tpath: Path | None) -> tuple[int, Any]:
         if mt == "image":
             img_resp = get_ssrf_safe_client().get(u, follow_redirects=True, timeout=60)
             img_data = img_resp.content
             mime_type = resolve_image_mime(
                 img_resp.headers.get("content-type"), img_data
             )
-            return i, types.Part.from_bytes(data=img_data, mime_type=mime_type), None
+            return i, types.Part.from_bytes(data=img_data, mime_type=mime_type)
         else:
-            tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
-            download_to_path(u, tmp_path)
-            # client.files.upload might not be thread safe?
-            # The SDK docs don't say much, but usually these clients are fine.
-            # We'll call it here to keep it parallel.
-            return i, client.files.upload(file=tmp_path), tmp_path
+            # tpath is pre-calculated and added to cleanup list in the main thread
+            # to prevent leaks if the main thread catches an exception early.
+            assert tpath is not None
+            download_to_path(u, tpath)
+            return i, client.files.upload(file=tpath)
 
     try:
-        futures = [_GEMINI_POOL.submit(_process_one, i, u) for i, u in enumerate(urls)]
-        results = [None] * len(urls)
-        for future in concurrent.futures.as_completed(futures):
-            idx, part, tpath = future.result()
-            results[idx] = part
-            if tpath:
+        futures = []
+        for i, u in enumerate(urls):
+            # Performance optimization: Use pre-calculated media types if provided.
+            # This avoids O(N) sequential redundant network calls (HEAD requests).
+            mt = media_types[i] if media_types else detect_media_type(u)
+            tpath = None
+            if mt != "image":
+                tpath = tmp_dir / f"{uuid.uuid4().hex}.mp4"
                 tmp_files.append(tpath)
+            futures.append(_GEMINI_POOL.submit(_process_one, i, u, mt, tpath))
+
+        # Performance optimization: Parallelize downloads and uploads.
+        # Use wait() instead of as_completed() to ensure all threads finish
+        # before any exception from f.result() propagates, preventing file leaks.
+        concurrent.futures.wait(futures)
+
+        results = [None] * len(urls)
+        for f in futures:
+            idx, part = f.result()
+            results[idx] = part
 
         parts.extend(results)
 
