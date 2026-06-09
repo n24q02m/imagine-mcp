@@ -6,7 +6,6 @@ import pytest
 
 from imagine_mcp.errors import ProviderAPIError
 from imagine_mcp.providers import gemini
-from imagine_mcp.providers.base import ImageParams
 
 
 def test_generate_image_missing_data(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -26,7 +25,7 @@ def test_generate_image_missing_data(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(gemini, "_client", lambda: fake_client)
 
     with pytest.raises(ProviderAPIError, match="Gemini returned no image") as exc_info:
-        gemini.generate_image(ImageParams(prompt="a sunset", tier="poor"))
+        gemini.generate_image(prompt="a sunset", tier="poor")
 
     assert exc_info.value.status_code == 500
 
@@ -47,6 +46,6 @@ def test_generate_image_empty_inline_data(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(gemini, "_client", lambda: fake_client)
 
     with pytest.raises(ProviderAPIError, match="Gemini returned no image") as exc_info:
-        gemini.generate_image(ImageParams(prompt="a sunset", tier="poor"))
+        gemini.generate_image(prompt="a sunset", tier="poor")
 
     assert exc_info.value.status_code == 500

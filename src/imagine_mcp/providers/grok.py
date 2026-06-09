@@ -27,7 +27,6 @@ from imagine_mcp.errors import (
 )
 from imagine_mcp.media import get_ssrf_safe_client
 from imagine_mcp.models import get_model_id
-from imagine_mcp.providers.base import ImageParams, VideoParams
 
 _CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
@@ -128,15 +127,20 @@ def understand_video(
     )
 
 
-def generate_image(params: ImageParams) -> dict[str, Any]:
-    model = get_model_id("grok", "generate", "image", params.tier)
+def generate_image(
+    prompt: str,
+    tier: str,
+    reference_image_url: str | None = None,
+    aspect_ratio: str = "1:1",
+) -> dict[str, Any]:
+    model = get_model_id("grok", "generate", "image", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
-    payload: dict[str, Any] = {"model": model, "prompt": params.prompt, "n": 1}
+    payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
 
-    if params.reference_image_url:
+    if reference_image_url:
         # Download reference image and pass as base64 data URL
         resp_img = get_ssrf_safe_client().get(
-            params.reference_image_url, follow_redirects=True, timeout=60
+            reference_image_url, follow_redirects=True, timeout=60
         )
         img_b64 = base64.b64encode(resp_img.content).decode()
         mime_type = resp_img.headers.get("content-type", "image/png")
@@ -177,25 +181,32 @@ def generate_image(params: ImageParams) -> dict[str, Any]:
         "image_base64": img_b64,
         "model": model,
         "provider": "grok",
-        "tier": params.tier,
+        "tier": tier,
     }
 
 
-def generate_video(params: VideoParams) -> dict[str, Any]:
-    model = get_model_id("grok", "generate", "video", params.tier)
+def generate_video(
+    prompt: str,
+    tier: str,
+    reference_image_url: str | None = None,
+    job_id: str | None = None,
+    aspect_ratio: str = "16:9",
+    duration_seconds: int = 8,
+) -> dict[str, Any]:
+    model = get_model_id("grok", "generate", "video", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
 
-    if params.job_id is None:
+    if job_id is None:
         payload: dict[str, Any] = {
             "model": model,
-            "prompt": params.prompt,
-            "duration_seconds": params.duration_seconds,
-            "aspect_ratio": params.aspect_ratio,
+            "prompt": prompt,
+            "duration_seconds": duration_seconds,
+            "aspect_ratio": aspect_ratio,
         }
-        if params.reference_image_url:
+        if reference_image_url:
             # Download source image and pass as base64 data URL
             resp_img = get_ssrf_safe_client().get(
-                params.reference_image_url, follow_redirects=True, timeout=60
+                reference_image_url, follow_redirects=True, timeout=60
             )
             img_b64 = base64.b64encode(resp_img.content).decode()
             mime_type = resp_img.headers.get("content-type", "image/png")
@@ -221,10 +232,10 @@ def generate_video(params: VideoParams) -> dict[str, Any]:
             "eta_seconds": data.get("eta_seconds", 30),
             "model": model,
             "provider": "grok",
-            "tier": params.tier,
+            "tier": tier,
         }
 
-    safe_job_id = urllib.parse.quote(params.job_id, safe="")
+    safe_job_id = urllib.parse.quote(job_id, safe="")
     resp = get_ssrf_safe_client().get(
         f"{_BASE_URL}/videos/generations/{safe_job_id}",
         headers=headers,
@@ -240,7 +251,7 @@ def generate_video(params: VideoParams) -> dict[str, Any]:
 
     if data["status"] == "pending":
         return {
-            "job_id": params.job_id,
+            "job_id": job_id,
             "status": "pending",
             "eta_seconds": data.get("eta_seconds", 15),
         }
@@ -266,9 +277,9 @@ def generate_video(params: VideoParams) -> dict[str, Any]:
     return {
         "video_path": str(out_path),
         "video_url": video_url,
-        "job_id": params.job_id,
+        "job_id": job_id,
         "status": "done",
         "model": model,
         "provider": "grok",
-        "tier": params.tier,
+        "tier": tier,
     }

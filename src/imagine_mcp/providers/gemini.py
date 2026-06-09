@@ -13,7 +13,6 @@ import platformdirs
 from imagine_mcp.config import settings
 from imagine_mcp.errors import CredentialMissingError, ProviderAPIError
 from imagine_mcp.models import get_model_id
-from imagine_mcp.providers.base import ImageParams, VideoParams
 
 _CLIENT: Any = None
 # Per-sub client cache for HTTP multi-user mode. Keyed by JWT sub so each
@@ -213,18 +212,23 @@ def understand_multimodal(
     }
 
 
-def generate_image(params: ImageParams) -> dict[str, Any]:
+def generate_image(
+    prompt: str,
+    tier: str,
+    reference_image_url: str | None = None,
+    aspect_ratio: str = "1:1",
+) -> dict[str, Any]:
     from google.genai import types
 
     from imagine_mcp.media import get_ssrf_safe_client, resolve_image_mime
 
     client = _client()
-    model = get_model_id("gemini", "generate", "image", params.tier)
-    contents: list[Any] = [params.prompt]
+    model = get_model_id("gemini", "generate", "image", tier)
+    contents: list[Any] = [prompt]
 
-    if params.reference_image_url:
+    if reference_image_url:
         img_resp = get_ssrf_safe_client().get(
-            params.reference_image_url, follow_redirects=True, timeout=60
+            reference_image_url, follow_redirects=True, timeout=60
         )
         img_data = img_resp.content
         mime_type = resolve_image_mime(img_resp.headers.get("content-type"), img_data)
@@ -253,25 +257,32 @@ def generate_image(params: ImageParams) -> dict[str, Any]:
         "image_base64": base64.b64encode(image_data).decode(),
         "model": model,
         "provider": "gemini",
-        "tier": params.tier,
+        "tier": tier,
     }
 
 
-def generate_video(params: VideoParams) -> dict[str, Any]:
+def generate_video(
+    prompt: str,
+    tier: str,
+    reference_image_url: str | None = None,
+    job_id: str | None = None,
+    aspect_ratio: str = "16:9",
+    duration_seconds: int = 8,
+) -> dict[str, Any]:
     from google.genai import types
 
-    model = get_model_id("gemini", "generate", "video", params.tier)
+    model = get_model_id("gemini", "generate", "video", tier)
     client = _client()
 
-    if params.job_id is None:
+    if job_id is None:
         # Original code did not use reference_image_url here.
         # Keeping it consistent for now but ensuring we don't pass it to the backend.
         op = client.models.generate_videos(
             model=model,
-            prompt=params.prompt,
+            prompt=prompt,
             config=types.GenerateVideosConfig(
-                aspect_ratio=params.aspect_ratio,
-                duration_seconds=params.duration_seconds,
+                aspect_ratio=aspect_ratio,
+                duration_seconds=duration_seconds,
                 person_generation="allow_all",
             ),
         )
@@ -281,12 +292,12 @@ def generate_video(params: VideoParams) -> dict[str, Any]:
             "eta_seconds": 60,
             "model": model,
             "provider": "gemini",
-            "tier": params.tier,
+            "tier": tier,
         }
 
-    op = client.operations.get(params.job_id)
+    op = client.operations.get(job_id)
     if not op.done:
-        return {"job_id": params.job_id, "status": "pending", "eta_seconds": 30}
+        return {"job_id": job_id, "status": "pending", "eta_seconds": 30}
 
     if op.error:
         raise ProviderAPIError(f"Gemini job error: {op.error}", status_code=500)
@@ -300,9 +311,9 @@ def generate_video(params: VideoParams) -> dict[str, Any]:
 
     return {
         "video_path": str(out_path),
-        "job_id": params.job_id,
+        "job_id": job_id,
         "status": "done",
         "model": model,
         "provider": "gemini",
-        "tier": params.tier,
+        "tier": tier,
     }

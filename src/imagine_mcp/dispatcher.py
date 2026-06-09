@@ -15,7 +15,7 @@ from imagine_mcp.errors import (
 )
 from imagine_mcp.media import detect_media_type, validate_url_and_get_ip
 from imagine_mcp.models import UNSUPPORTED, get_model_id
-from imagine_mcp.providers.base import GenerateParams, ImageParams, VideoParams
+from imagine_mcp.providers.base import GenerateParams
 
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
@@ -184,20 +184,13 @@ def dispatch_generate(params: GenerateParams) -> dict[str, Any]:
     mod = _load_provider(params.provider)
     if params.media_type == "image":
         return mod.generate_image(
-            ImageParams(
-                prompt=params.prompt,
-                tier=params.tier,
-                reference_image_url=params.reference_image_url,
-                aspect_ratio=params.aspect_ratio,
-            )
+            params.prompt, params.tier, params.reference_image_url, params.aspect_ratio
         )
     return mod.generate_video(
-        VideoParams(
-            prompt=params.prompt,
-            tier=params.tier,
-            reference_image_url=params.reference_image_url,
-            job_id=params.job_id,
-            aspect_ratio=params.aspect_ratio,
-            duration_seconds=params.duration_seconds,
-        )
+        params.prompt,
+        params.tier,
+        params.reference_image_url,
+        params.job_id,
+        params.aspect_ratio,
+        params.duration_seconds,
     )

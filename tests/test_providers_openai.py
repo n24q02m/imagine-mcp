@@ -6,7 +6,6 @@ import pytest
 
 from imagine_mcp.errors import ProviderUnsupportedError
 from imagine_mcp.providers import openai as provider
-from imagine_mcp.providers.base import VideoParams
 
 
 @pytest.fixture
@@ -29,7 +28,7 @@ def test_understand_video_raises() -> None:
 
 def test_generate_video_raises() -> None:
     with pytest.raises(ProviderUnsupportedError):
-        provider.generate_video(VideoParams("a dog", "poor"))
+        provider.generate_video("a dog", "poor")
 
 
 def test_understand_image_mocked(

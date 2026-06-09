@@ -17,7 +17,6 @@ from imagine_mcp.errors import (
     ProviderUnsupportedError,
 )
 from imagine_mcp.models import get_model_id
-from imagine_mcp.providers.base import ImageParams, VideoParams
 
 _CLIENT: Any = None
 # Per-sub client cache for HTTP multi-user mode. See providers/gemini.py
@@ -120,26 +119,29 @@ def understand_video(
     )
 
 
-def generate_image(params: ImageParams) -> dict[str, Any]:
-    model = get_model_id("openai", "generate", "image", params.tier)
+def generate_image(
+    prompt: str,
+    tier: str,
+    reference_image_url: str | None = None,
+    aspect_ratio: str = "1:1",
+) -> dict[str, Any]:
+    model = get_model_id("openai", "generate", "image", tier)
     size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
-    size = size_map.get(params.aspect_ratio, "1024x1024")
+    size = size_map.get(aspect_ratio, "1024x1024")
 
-    if params.reference_image_url:
+    if reference_image_url:
         from imagine_mcp.media import get_ssrf_safe_client
 
         img_bytes = (
             get_ssrf_safe_client()
-            .get(params.reference_image_url, follow_redirects=True, timeout=60)
+            .get(reference_image_url, follow_redirects=True, timeout=60)
             .content
         )
         resp = _client().images.edit(
-            model=model, image=img_bytes, prompt=params.prompt, size=size
+            model=model, image=img_bytes, prompt=prompt, size=size
         )
     else:
-        resp = _client().images.generate(
-            model=model, prompt=params.prompt, size=size, n=1
-        )
+        resp = _client().images.generate(model=model, prompt=prompt, size=size, n=1)
 
     img_b64 = resp.data[0].b64_json
     if not img_b64:
@@ -156,11 +158,18 @@ def generate_image(params: ImageParams) -> dict[str, Any]:
         "image_base64": img_b64,
         "model": model,
         "provider": "openai",
-        "tier": params.tier,
+        "tier": tier,
     }
 
 
-def generate_video(params: VideoParams) -> dict[str, Any]:
+def generate_video(
+    prompt: str,
+    tier: str,
+    reference_image_url: str | None = None,
+    job_id: str | None = None,
+    aspect_ratio: str = "16:9",
+    duration_seconds: int = 8,
+) -> dict[str, Any]:
     raise ProviderUnsupportedError(
         "openai.generate.video: Sora 2 API shutdown 2026-09-24. "
         "Use provider='gemini' (Veo) or 'grok' (Grok Imagine)."

@@ -13,7 +13,7 @@ from imagine_mcp.errors import (
     InvalidURLError,
     ProviderUnsupportedError,
 )
-from imagine_mcp.providers.base import GenerateParams, ImageParams
+from imagine_mcp.providers.base import GenerateParams
 
 
 @pytest.fixture
@@ -163,7 +163,12 @@ def test_dispatch_generate_resolves_default_provider(
 
     captured: dict[str, str] = {}
 
-    def mock_fn(params: ImageParams) -> dict:
+    def mock_fn(
+        prompt: str,
+        tier: str,
+        reference_image_url: str | None,
+        aspect_ratio: str,
+    ) -> dict:
         captured["called"] = "openai"
         return {"image": "...", "model": "gpt-image", "provider": "openai"}
 
