@@ -103,13 +103,13 @@ def _get_help_content(topic: str) -> str:
 
 
 def build_app() -> FastMCP:
-    """Create FastMCP app with 4 tools registered."""
+    """Create FastMCP app with registered tools."""
     app: FastMCP = FastMCP(
         "imagine",
         version=_get_version(),
         instructions=(
             "Image/video understanding and generation across Gemini, OpenAI, Grok. "
-            "4 tools: understand, generate, config, help. "
+            "5 tools: understand, generate, config, help. "
             "Call help(topic='understand'|'generate'|'config') for detailed docs."
         ),
     )

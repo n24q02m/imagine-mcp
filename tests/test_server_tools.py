@@ -1,4 +1,4 @@
-"""Verify the 4 tools are registered and tool validation works (in-process)."""
+"""Verify the tools are registered and tool validation works (in-process)."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import asyncio
 from imagine_mcp.server import VALID_HELP_TOPICS, build_app
 
 
-def test_four_tools_registered() -> None:
+def test_tools_registered() -> None:
     app = build_app()
     tools = asyncio.run(app.list_tools())
     tool_names = {t.name for t in tools}

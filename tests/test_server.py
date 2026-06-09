@@ -26,6 +26,15 @@ def test_build_app_attributes() -> None:
     assert "Image/video understanding and generation" in app.instructions
 
 
+@pytest.mark.asyncio
+async def test_build_app_tools() -> None:
+    app = build_app()
+    tools = await app.list_tools()
+    assert len(tools) >= 4
+    tool_names = {t.name for t in tools}
+    assert {"understand", "generate", "config", "help"}.issubset(tool_names)
+
+
 def test_get_version() -> None:
     assert _get_version() == __version__
 
