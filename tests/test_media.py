@@ -12,6 +12,7 @@ from imagine_mcp.media import (
     _extract_extension,
     detect_media_type,
     download_to_path,
+    get_ssrf_safe_client,
     resolve_image_mime,
     sniff_image_mime,
     validate_url_and_get_ip,
@@ -278,3 +279,17 @@ class TestSSRFProtection:
         transport = SSRFSafeTransport()
         transport.handle_request(httpx.Request("GET", "file:///etc/passwd"))
         assert called["validated"] is False
+
+
+def test_get_ssrf_safe_client() -> None:
+    client1 = get_ssrf_safe_client()
+    assert isinstance(client1, httpx.Client)
+
+    # Singleton behavior
+    client2 = get_ssrf_safe_client()
+    assert client1 is client2
+
+    # Verify transport
+    # Note: client._transport is private but used for verification here.
+    # In httpx, the transport is accessible via the _transport attribute on the client.
+    assert isinstance(client1._transport, SSRFSafeTransport)
