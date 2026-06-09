@@ -12,6 +12,7 @@ from imagine_mcp.media import (
     _extract_extension,
     detect_media_type,
     download_to_path,
+    get_ssrf_safe_client,
     resolve_image_mime,
     sniff_image_mime,
     validate_url_and_get_ip,
@@ -278,3 +279,127 @@ class TestSSRFProtection:
         transport = SSRFSafeTransport()
         transport.handle_request(httpx.Request("GET", "file:///etc/passwd"))
         assert called["validated"] is False
+
+
+def test_get_ssrf_safe_client_singleton() -> None:
+    client1 = get_ssrf_safe_client()
+    client2 = get_ssrf_safe_client()
+    assert client1 is client2
+    assert isinstance(client1, httpx.Client)
+    assert isinstance(client1._transport, SSRFSafeTransport)
+
+
+def test_validate_url_and_get_ip_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    import socket
+
+    # Mock socket.getaddrinfo to return a public IPv4
+    # addr_info format: (family, type, proto, canonname, sockaddr)
+    # sockaddr for AF_INET is (address, port)
+    mock_addr_info = [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))
+    ]
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: mock_addr_info)
+
+    ip = validate_url_and_get_ip("http://example.com/foo", "param")
+    assert ip == "93.184.216.34"
+
+
+def test_validate_url_and_get_ip_ipv4_mapped_ipv6(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import socket
+
+    # Mock socket.getaddrinfo to return an IPv4-mapped IPv6 address (::ffff:93.184.216.34)
+    # sockaddr for AF_INET6 is (address, port, flow info, scope id)
+    mock_addr_info = [
+        (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::ffff:93.184.216.34", 80, 0, 0))
+    ]
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: mock_addr_info)
+
+    ip = validate_url_and_get_ip("http://example.com/foo", "param")
+    # It should extract the underlying IPv4 if it's mapped
+    assert ip == "::ffff:93.184.216.34"
+
+
+def test_validate_url_and_get_ip_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    import concurrent.futures
+
+    def mock_result(timeout=None):
+        raise concurrent.futures.TimeoutError()
+
+    mock_future = MagicMock()
+    mock_future.result.side_effect = mock_result
+
+    monkeypatch.setattr(
+        "imagine_mcp.media._DNS_RESOLVER_POOL.submit",
+        lambda *args, **kwargs: mock_future,
+    )
+
+    with pytest.raises(InvalidURLError, match="DNS resolution timed out"):
+        validate_url_and_get_ip("http://example.com/foo", "param")
+
+
+def test_validate_url_and_get_ip_gaierror(monkeypatch: pytest.MonkeyPatch) -> None:
+    import socket
+
+    def mock_getaddrinfo(*args, **kwargs):
+        raise socket.gaierror(-2, "Name or service not known")
+
+    monkeypatch.setattr(socket, "getaddrinfo", mock_getaddrinfo)
+
+    with pytest.raises(InvalidURLError, match="Could not resolve hostname"):
+        validate_url_and_get_ip("http://nonexistent.example.com", "param")
+
+
+def test_validate_url_and_get_ip_no_ips(monkeypatch: pytest.MonkeyPatch) -> None:
+    import socket
+
+    monkeypatch.setattr(socket, "getaddrinfo", lambda *args, **kwargs: [])
+
+    with pytest.raises(InvalidURLError, match="No valid IP found"):
+        validate_url_and_get_ip("http://example.com", "param")
+
+
+def test_transport_sets_missing_host_header(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured: dict = {}
+
+    def fake_validate(url: str, param: str) -> str:
+        return "93.184.216.34"
+
+    def fake_super(self, request: httpx.Request) -> httpx.Response:
+        captured["host_header"] = request.headers.get("Host")
+        return httpx.Response(200)
+
+    monkeypatch.setattr("imagine_mcp.media.validate_url_and_get_ip", fake_validate)
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", fake_super)
+
+    transport = SSRFSafeTransport()
+    # Create request without Host header
+    req = httpx.Request("GET", "https://example.com/img.png")
+    if "Host" in req.headers:
+        del req.headers["Host"]
+
+    transport.handle_request(req)
+    assert captured["host_header"] == "example.com"
+
+
+def test_detect_media_type_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class MockClient:
+        def head(self, url, **kw):
+            raise httpx.HTTPError("HEAD failed")
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+    with pytest.raises(MediaDetectError, match="HEAD request failed"):
+        detect_media_type("https://example.com/foo")
+
+
+def test_detect_media_type_invalid_url_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class MockClient:
+        def head(self, url, **kw):
+            raise InvalidURLError("unsafe")
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+    with pytest.raises(
+        MediaDetectError, match="HEAD request failed due to invalid redirect"
+    ):
+        detect_media_type("https://example.com/foo")
