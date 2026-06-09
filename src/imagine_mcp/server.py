@@ -35,9 +35,13 @@ def _get_version() -> str:
 
 
 def _creds_state() -> str:
-    # Derive state from live PerPluginStore + env so status
-    # is accurate even when env vars were not populated at startup.
-    return "CONFIGURED" if _providers_configured_live() else "NEEDS_SETUP"
+    # Read from os.environ -- settings singleton is frozen at import time
+    # and does not observe post-startup relay-saved credentials.
+    if any(
+        os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
+    ):
+        return "CONFIGURED"
+    return "NEEDS_SETUP"
 
 
 def _providers_configured() -> list[str]:
@@ -191,7 +195,7 @@ def build_app() -> FastMCP:
                     }
                 return {
                     "status": "saved",
-                    "providers_configured": _providers_configured_live(),
+                    "providers_configured": _providers_configured(),
                 }
             case "relay_status":
                 # Derive providers from live PerPluginStore + env so status
@@ -230,7 +234,7 @@ def build_app() -> FastMCP:
                 return {
                     "version": _get_version(),
                     "credentials_state": _creds_state(),
-                    "providers_configured": _providers_configured_live(),
+                    "providers_configured": _providers_configured(),
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
