@@ -6,6 +6,7 @@ Dedicated endpoints for images and videos via httpx.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import os
 import urllib.parse
@@ -25,21 +26,16 @@ from imagine_mcp.errors import (
     ProviderAPIError,
     ProviderUnsupportedError,
 )
-from imagine_mcp.media import get_ssrf_safe_client
+from imagine_mcp.media import get_ssrf_safe_async_client
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
-# Per-sub client cache for HTTP multi-user mode (see providers/gemini.py).
 _SUB_CLIENTS: dict[str, Any] = {}
 
 
 def _api_key() -> str:
-    """Return XAI_API_KEY for the current request scope.
-
-    Multi-user HTTP requests pull from the per-sub config; single-user /
-    stdio falls back to settings + os.environ.
-    """
+    """Return XAI_API_KEY for the current request scope."""
     if get_current_sub() is not None:
         key = credentials_for_current_request().get("XAI_API_KEY")
     else:
@@ -59,23 +55,23 @@ def _openai_compat_client() -> Any:
         cached = _SUB_CLIENTS.get(sub)
         if cached is not None:
             return cached
-        from openai import OpenAI
+        from openai import AsyncOpenAI
 
-        client = OpenAI(
+        client = AsyncOpenAI(
             api_key=_api_key(),
             base_url=_BASE_URL,
-            http_client=get_ssrf_safe_client(),
+            http_client=get_ssrf_safe_async_client(),
         )
         _SUB_CLIENTS[sub] = client
         return client
 
     if _CLIENT is None:
-        from openai import OpenAI
+        from openai import AsyncOpenAI
 
-        _CLIENT = OpenAI(
+        _CLIENT = AsyncOpenAI(
             api_key=_api_key(),
             base_url=_BASE_URL,
-            http_client=get_ssrf_safe_client(),
+            http_client=get_ssrf_safe_async_client(),
         )
     return _CLIENT
 
@@ -86,18 +82,20 @@ def _reset_client() -> None:
     _SUB_CLIENTS.clear()
 
 
-def understand_image(
+async def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     model = get_model_id("grok", "understand", "image", tier)
 
     # Download image securely and pass as base64 data URL to prevent backend SSRF
-    resp_img = get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60)
+    resp_img = await get_ssrf_safe_async_client().get(
+        url, follow_redirects=True, timeout=60
+    )
     img_b64 = base64.b64encode(resp_img.content).decode()
     mime_type = resp_img.headers.get("content-type", "image/png")
     data_url = f"data:{mime_type};base64,{img_b64}"
 
-    resp = _openai_compat_client().chat.completions.create(
+    resp = await _openai_compat_client().chat.completions.create(
         model=model,
         messages=[
             {
@@ -118,7 +116,7 @@ def understand_image(
     }
 
 
-def understand_video(
+async def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
@@ -127,7 +125,7 @@ def understand_video(
     )
 
 
-def generate_image(
+async def generate_image(
     prompt: str,
     tier: str,
     reference_image_url: str | None = None,
@@ -139,7 +137,7 @@ def generate_image(
 
     if reference_image_url:
         # Download reference image and pass as base64 data URL
-        resp_img = get_ssrf_safe_client().get(
+        resp_img = await get_ssrf_safe_async_client().get(
             reference_image_url, follow_redirects=True, timeout=60
         )
         img_b64 = base64.b64encode(resp_img.content).decode()
@@ -147,7 +145,7 @@ def generate_image(
         data_url = f"data:{mime_type};base64,{img_b64}"
         payload["reference_image"] = data_url
 
-    resp = get_ssrf_safe_client().post(
+    resp = await get_ssrf_safe_async_client().post(
         f"{_BASE_URL}/images/generations",
         json=payload,
         headers=headers,
@@ -165,16 +163,18 @@ def generate_image(
     if not img_b64:
         img_url = data["data"][0].get("url")
         img_b64 = base64.b64encode(
-            get_ssrf_safe_client()
-            .get(img_url, follow_redirects=True, timeout=60)
-            .content
+            (
+                await get_ssrf_safe_async_client().get(
+                    img_url, follow_redirects=True, timeout=60
+                )
+            ).content
         ).decode()
 
     img_bytes = base64.b64decode(img_b64)
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(out_dir.mkdir, parents=True, exist_ok=True)
     out_path = out_dir / f"{uuid.uuid4().hex}.png"
-    out_path.write_bytes(img_bytes)
+    await asyncio.to_thread(out_path.write_bytes, img_bytes)
 
     return {
         "image_path": str(out_path),
@@ -185,7 +185,7 @@ def generate_image(
     }
 
 
-def generate_video(
+async def generate_video(
     prompt: str,
     tier: str,
     reference_image_url: str | None = None,
@@ -205,7 +205,7 @@ def generate_video(
         }
         if reference_image_url:
             # Download source image and pass as base64 data URL
-            resp_img = get_ssrf_safe_client().get(
+            resp_img = await get_ssrf_safe_async_client().get(
                 reference_image_url, follow_redirects=True, timeout=60
             )
             img_b64 = base64.b64encode(resp_img.content).decode()
@@ -213,7 +213,7 @@ def generate_video(
             data_url = f"data:{mime_type};base64,{img_b64}"
             payload["source_image"] = data_url
 
-        resp = get_ssrf_safe_client().post(
+        resp = await get_ssrf_safe_async_client().post(
             f"{_BASE_URL}/videos/generations",
             json=payload,
             headers=headers,
@@ -236,7 +236,7 @@ def generate_video(
         }
 
     safe_job_id = urllib.parse.quote(job_id, safe="")
-    resp = get_ssrf_safe_client().get(
+    resp = await get_ssrf_safe_async_client().get(
         f"{_BASE_URL}/videos/generations/{safe_job_id}",
         headers=headers,
         timeout=30,
@@ -264,15 +264,15 @@ def generate_video(
 
     video_url = data["video_url"]
     video_bytes = (
-        get_ssrf_safe_client()
-        .get(video_url, follow_redirects=True, timeout=120)
-        .content
-    )
+        await get_ssrf_safe_async_client().get(
+            video_url, follow_redirects=True, timeout=120
+        )
+    ).content
 
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(out_dir.mkdir, parents=True, exist_ok=True)
     out_path = out_dir / f"{uuid.uuid4().hex}.mp4"
-    out_path.write_bytes(video_bytes)
+    await asyncio.to_thread(out_path.write_bytes, video_bytes)
 
     return {
         "video_path": str(out_path),

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -8,8 +8,11 @@ from imagine_mcp.errors import ProviderAPIError
 from imagine_mcp.providers import gemini
 
 
-def test_generate_image_missing_data(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_generate_image_missing_data(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_client = MagicMock()
+    fake_client.aio.models.generate_content = AsyncMock()
+
     fake_response = MagicMock()
 
     # Mocking resp.candidates[0].content.parts
@@ -21,17 +24,22 @@ def test_generate_image_missing_data(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_response.candidates = [MagicMock()]
     fake_response.candidates[0].content.parts = [fake_part]
 
-    fake_client.models.generate_content.return_value = fake_response
+    fake_client.aio.models.generate_content.return_value = fake_response
     monkeypatch.setattr(gemini, "_client", lambda: fake_client)
 
     with pytest.raises(ProviderAPIError, match="Gemini returned no image") as exc_info:
-        gemini.generate_image(prompt="a sunset", tier="poor")
+        await gemini.generate_image(prompt="a sunset", tier="poor")
 
     assert exc_info.value.status_code == 500
 
 
-def test_generate_image_empty_inline_data(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_generate_image_empty_inline_data(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     fake_client = MagicMock()
+    fake_client.aio.models.generate_content = AsyncMock()
+
     fake_response = MagicMock()
 
     # Mocking resp.candidates[0].content.parts
@@ -42,10 +50,10 @@ def test_generate_image_empty_inline_data(monkeypatch: pytest.MonkeyPatch) -> No
     fake_response.candidates = [MagicMock()]
     fake_response.candidates[0].content.parts = [fake_part]
 
-    fake_client.models.generate_content.return_value = fake_response
+    fake_client.aio.models.generate_content.return_value = fake_response
     monkeypatch.setattr(gemini, "_client", lambda: fake_client)
 
     with pytest.raises(ProviderAPIError, match="Gemini returned no image") as exc_info:
-        gemini.generate_image(prompt="a sunset", tier="poor")
+        await gemini.generate_image(prompt="a sunset", tier="poor")
 
     assert exc_info.value.status_code == 500

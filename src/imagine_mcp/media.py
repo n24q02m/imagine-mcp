@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import concurrent.futures
 import ipaddress
 import os
@@ -117,6 +118,42 @@ class SSRFSafeBackend(httpcore.NetworkBackend):
         return self._backend.sleep(seconds)
 
 
+class AsyncSSRFSafeBackend(httpcore.AsyncNetworkBackend):
+    """Async version of SSRFSafeBackend."""
+
+    def __init__(self) -> None:
+        self._backend = httpcore.AnyIOBackend()
+
+    async def connect_tcp(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None = None,
+        local_address: str | None = None,
+        socket_options: typing.Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.AsyncNetworkStream:
+        # Blocking DNS resolution offloaded to thread.
+        ip = await asyncio.to_thread(_validate_hostname_and_get_ip, host, port, "url")
+        return await self._backend.connect_tcp(
+            host=ip,
+            port=port,
+            timeout=timeout,
+            local_address=local_address,
+            socket_options=socket_options,
+        )
+
+    async def connect_unix_socket(
+        self,
+        path: str,
+        timeout: float | None = None,
+        socket_options: typing.Iterable[httpcore.SOCKET_OPTION] | None = None,
+    ) -> httpcore.AsyncNetworkStream:
+        raise InvalidURLError("Unix sockets are not allowed.")
+
+    async def sleep(self, seconds: float) -> None:
+        return await self._backend.sleep(seconds)
+
+
 class SSRFSafeTransport(httpx.HTTPTransport):
     """Custom transport that uses SSRFSafeBackend for DNS pinning."""
 
@@ -139,6 +176,26 @@ class SSRFSafeTransport(httpx.HTTPTransport):
         request.extensions["sni_hostname"] = url.host
 
         return super().handle_request(request)
+
+
+class AsyncSSRFSafeTransport(httpx.AsyncHTTPTransport):
+    """Async version of SSRFSafeTransport."""
+
+    def __init__(self, **kwargs: typing.Any) -> None:
+        super().__init__(**kwargs)
+        self._pool._network_backend = AsyncSSRFSafeBackend()  # type: ignore
+
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
+        url = request.url
+        if url.scheme.lower() not in _SAFE_URL_SCHEMES:
+            return await super().handle_async_request(request)
+
+        if "Host" not in request.headers:
+            request.headers["Host"] = url.host
+
+        request.extensions["sni_hostname"] = url.host
+
+        return await super().handle_async_request(request)
 
 
 def _validate_hostname_and_get_ip(hostname: str, port: int | None, param: str) -> str:
@@ -208,6 +265,7 @@ def validate_url_and_get_ip(url: str, param: str) -> str:
 
 
 _CLIENT: httpx.Client | None = None
+_ASYNC_CLIENT: httpx.AsyncClient | None = None
 
 
 def get_ssrf_safe_client() -> httpx.Client:
@@ -215,6 +273,13 @@ def get_ssrf_safe_client() -> httpx.Client:
     if _CLIENT is None:
         _CLIENT = httpx.Client(transport=SSRFSafeTransport())
     return _CLIENT
+
+
+def get_ssrf_safe_async_client() -> httpx.AsyncClient:
+    global _ASYNC_CLIENT
+    if _ASYNC_CLIENT is None:
+        _ASYNC_CLIENT = httpx.AsyncClient(transport=AsyncSSRFSafeTransport())
+    return _ASYNC_CLIENT
 
 
 def detect_media_type(url: str) -> MediaType:
@@ -251,6 +316,36 @@ def detect_media_type(url: str) -> MediaType:
     )
 
 
+async def detect_media_type_async(url: str) -> MediaType:
+    """Async version of detect_media_type."""
+    ext = _extract_extension(url)
+    if ext in _IMAGE_EXT:
+        return "image"
+    if ext in _VIDEO_EXT:
+        return "video"
+
+    try:
+        client = get_ssrf_safe_async_client()
+        resp = await client.head(url, follow_redirects=True, timeout=10)
+        resp.raise_for_status()
+    except httpx.HTTPError as e:
+        raise MediaDetectError(f"HEAD request failed for {url}: {e}") from e
+    except InvalidURLError as e:
+        raise MediaDetectError(
+            f"HEAD request failed due to invalid redirect for {url}: {e}"
+        ) from e
+
+    ctype = resp.headers.get("content-type", "").lower()
+    if ctype.startswith(_IMAGE_MIME_PREFIX):
+        return "image"
+    if ctype.startswith(_VIDEO_MIME_PREFIX):
+        return "video"
+
+    raise MediaDetectError(
+        f"Ambiguous media for {url}: no known extension and content-type={ctype!r}."
+    )
+
+
 def _extract_extension(url: str) -> str:
     """Return lowercase file extension including dot, or '' if none."""
     path = url.split("?", 1)[0].split("#", 1)[0]
@@ -268,6 +363,20 @@ def download_to_path(url: str, dest: Path) -> Path:
             with dest.open("wb") as f:
                 for chunk in resp.iter_bytes(chunk_size=65536):
                     f.write(chunk)
+    except InvalidURLError as e:
+        raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
+    return dest
+
+
+async def download_to_path_async(url: str, dest: Path) -> Path:
+    """Async version of download_to_path."""
+    await asyncio.to_thread(dest.parent.mkdir, parents=True, exist_ok=True)
+    try:
+        client = get_ssrf_safe_async_client()
+        async with client.stream("GET", url, follow_redirects=True, timeout=60) as resp:
+            resp.raise_for_status()
+            content = await resp.aread()
+            await asyncio.to_thread(dest.write_bytes, content)
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
     return dest

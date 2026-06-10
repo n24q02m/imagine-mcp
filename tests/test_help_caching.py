@@ -1,10 +1,12 @@
-import asyncio
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from imagine_mcp.server import _get_help_content, build_app
 
 
-def test_help_caching():
+@pytest.mark.asyncio
+async def test_help_caching():
     # Clear cache if it exists (for repeated test runs in same process, though unlikely here)
     _get_help_content.cache_clear()
 
@@ -19,15 +21,15 @@ def test_help_caching():
             # Call help twice
             # FastMCP tools can be called directly if we find them
             help_tool = None
-            for tool in asyncio.run(app.list_tools()):
+            for tool in await app.list_tools():
                 if tool.name == "help":
                     help_tool = tool.fn
                     break
 
             assert help_tool is not None
 
-            res1 = help_tool("understand")
-            res2 = help_tool("understand")
+            res1 = await help_tool("understand")
+            res2 = await help_tool("understand")
 
             assert res1 == "cached content"
             assert res2 == "cached content"
