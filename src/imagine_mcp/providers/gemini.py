@@ -7,7 +7,7 @@ import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import platformdirs
 from google import genai
@@ -25,7 +25,7 @@ from imagine_mcp.media import (
     get_ssrf_safe_client,
     resolve_image_mime,
 )
-from imagine_mcp.models import get_model_id
+from imagine_mcp.models import UNSUPPORTED, get_model_id
 
 _CLIENT: genai.Client | None = None
 # Per-sub client cache for HTTP multi-user mode. Keyed by JWT sub so each
@@ -92,6 +92,10 @@ def understand_image(
 ) -> dict[str, Any]:
     client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
+    if model is UNSUPPORTED:
+        raise ProviderAPIError(
+            "Gemini does not support image understanding in this tier"
+        )
 
     # Download image securely to prevent backend SSRF
     img_resp = get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60)
@@ -99,7 +103,7 @@ def understand_image(
     mime_type = resolve_image_mime(img_resp.headers.get("content-type"), img_data)
 
     resp = client.models.generate_content(
-        model=model,
+        model=cast(str, model),
         contents=[
             prompt,
             types.Part.from_bytes(data=img_data, mime_type=mime_type),
@@ -119,6 +123,10 @@ def understand_video(
 ) -> dict[str, Any]:
     client = _client()
     model = get_model_id("gemini", "understand", "video", tier)
+    if model is UNSUPPORTED:
+        raise ProviderAPIError(
+            "Gemini does not support video understanding in this tier"
+        )
 
     # Download video securely and upload to Gemini
     tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
@@ -129,7 +137,7 @@ def understand_video(
     try:
         gfile = client.files.upload(file=tmp_path)
         resp = client.models.generate_content(
-            model=model,
+            model=cast(str, model),
             contents=[prompt, gfile],
             config=types.GenerateContentConfig(max_output_tokens=max_tokens),
         )
@@ -155,6 +163,10 @@ def understand_multimodal(
     """Gemini native multimodal: mixed image+video URLs in a single call."""
     client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
+    if model is UNSUPPORTED:
+        raise ProviderAPIError(
+            "Gemini does not support multimodal understanding in this tier"
+        )
 
     tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
@@ -182,7 +194,8 @@ def understand_multimodal(
             return types.Part.from_bytes(data=img_data, mime_type=mime_type)
         else:
             # tmp_path is guaranteed to be non-None if mt != "image"
-            download_to_path(url, tmp_path)  # type: ignore
+            assert tmp_path is not None
+            download_to_path(url, tmp_path)
             return client.files.upload(file=tmp_path)
 
     try:
@@ -197,7 +210,7 @@ def understand_multimodal(
         parts: list[Any] = [prompt] + [f.result() for f in futures]
 
         resp = client.models.generate_content(
-            model=model,
+            model=cast(str, model),
             contents=parts,
             config=types.GenerateContentConfig(max_output_tokens=max_tokens),
         )
@@ -223,6 +236,9 @@ def generate_image(
 ) -> dict[str, Any]:
     client = _client()
     model = get_model_id("gemini", "generate", "image", tier)
+    if model is UNSUPPORTED:
+        raise ProviderAPIError("Gemini does not support image generation in this tier")
+
     contents: list[Any] = [prompt]
 
     if reference_image_url:
@@ -234,15 +250,20 @@ def generate_image(
         contents.append(types.Part.from_bytes(data=img_data, mime_type=mime_type))
 
     resp = client.models.generate_content(
-        model=model,
+        model=cast(str, model),
         contents=contents,
         config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
     )
     image_data: bytes | None = None
-    for part in resp.candidates[0].content.parts:
-        if hasattr(part, "inline_data") and part.inline_data:
-            image_data = part.inline_data.data
-            break
+    if (
+        resp.candidates
+        and resp.candidates[0].content
+        and resp.candidates[0].content.parts
+    ):
+        for part in resp.candidates[0].content.parts:
+            if hasattr(part, "inline_data") and part.inline_data:
+                image_data = part.inline_data.data
+                break
     if not image_data:
         raise ProviderAPIError("Gemini returned no image", status_code=500)
 
@@ -269,13 +290,16 @@ def generate_video(
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
     model = get_model_id("gemini", "generate", "video", tier)
+    if model is UNSUPPORTED:
+        raise ProviderAPIError("Gemini does not support video generation in this tier")
+
     client = _client()
 
     if job_id is None:
         # Original code did not use reference_image_url here.
         # Keeping it consistent for now but ensuring we don't pass it to the backend.
         op = client.models.generate_videos(
-            model=model,
+            model=cast(str, model),
             prompt=prompt,
             config=types.GenerateVideosConfig(
                 aspect_ratio=aspect_ratio,
@@ -292,12 +316,17 @@ def generate_video(
             "tier": tier,
         }
 
-    op = client.operations.get(job_id)
+    op = client.operations.get(name=job_id)
     if not op.done:
         return {"job_id": job_id, "status": "pending", "eta_seconds": 30}
 
     if op.error:
         raise ProviderAPIError(f"Gemini job error: {op.error}", status_code=500)
+
+    if not op.response or not op.response.generated_videos:
+        raise ProviderAPIError(
+            "Gemini job finished but returned no video", status_code=500
+        )
 
     video = op.response.generated_videos[0]
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
