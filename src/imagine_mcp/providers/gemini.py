@@ -137,7 +137,8 @@ def understand_multimodal(
             mt = media_types[i] if media_types else detect_media_type(u)
             if mt == "image":
                 img_resp = get_ssrf_safe_client().get(
-                    u, follow_redirects=True, timeout=60)
+                    u, follow_redirects=True, timeout=60
+                )
                 img_data = img_resp.content
                 mime_type = resolve_image_mime(
                     img_resp.headers.get("content-type"), img_data
