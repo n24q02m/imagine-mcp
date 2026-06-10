@@ -6,6 +6,7 @@ import concurrent.futures
 import ipaddress
 import os
 import socket
+import threading
 import typing
 from pathlib import Path
 from typing import Literal
@@ -208,13 +209,29 @@ def validate_url_and_get_ip(url: str, param: str) -> str:
 
 
 _CLIENT: httpx.Client | None = None
+_CLIENT_LOCK = threading.Lock()
 
 
 def get_ssrf_safe_client() -> httpx.Client:
+    """Return a shared, thread-safe, SSRF-safe httpx.Client singleton.
+
+    The client uses SSRFSafeTransport to prevent server-side request forgery
+    by pinning DNS resolutions to validated public IPs.
+    """
     global _CLIENT
     if _CLIENT is None:
-        _CLIENT = httpx.Client(transport=SSRFSafeTransport())
+        with _CLIENT_LOCK:
+            if _CLIENT is None:
+                _CLIENT = httpx.Client(transport=SSRFSafeTransport())
     return _CLIENT
+
+
+def _reset_ssrf_safe_client() -> None:
+    """Reset the shared client singleton (internal use for tests)."""
+    global _CLIENT
+    if _CLIENT is not None:
+        _CLIENT.close()
+        _CLIENT = None
 
 
 def detect_media_type(url: str) -> MediaType:

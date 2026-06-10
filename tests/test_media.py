@@ -294,3 +294,33 @@ class TestSSRFProtection:
         transport = SSRFSafeTransport()
         transport.handle_request(httpx.Request("GET", "file:///etc/passwd"))
         assert called["validated"] is False
+
+
+def test_get_ssrf_safe_client_singleton() -> None:
+    """Verify that get_ssrf_safe_client always returns the same instance."""
+    from imagine_mcp.media import _reset_ssrf_safe_client, get_ssrf_safe_client
+
+    _reset_ssrf_safe_client()
+
+    client1 = get_ssrf_safe_client()
+    client2 = get_ssrf_safe_client()
+
+    assert client1 is client2
+    assert isinstance(client1, httpx.Client)
+
+
+def test_get_ssrf_safe_client_thread_safety() -> None:
+    """Verify that get_ssrf_safe_client is thread-safe and returns the same instance."""
+    import concurrent.futures
+
+    from imagine_mcp.media import _reset_ssrf_safe_client, get_ssrf_safe_client
+
+    _reset_ssrf_safe_client()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(get_ssrf_safe_client) for _ in range(20)]
+        results = [f.result() for f in futures]
+
+    first_client = results[0]
+    for client in results:
+        assert client is first_client
