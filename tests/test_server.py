@@ -290,7 +290,7 @@ async def test_run_http_remote_relay(monkeypatch) -> None:
         await run_http()
         mock_run.assert_called_once()
         _args, kwargs = mock_run.call_args
-        assert kwargs["host"] == "0.0.0.0"
+        assert kwargs["host"] == "127.0.0.1"
         assert kwargs["open_browser"] is False
         assert kwargs["auth_scope"] is not None
 
@@ -318,3 +318,18 @@ def test_main_calls_run_http() -> None:
             main()
             mock_run.assert_called_once()
         coro.close()
+
+
+@pytest.mark.asyncio
+async def test_run_http_remote_relay_custom_host(monkeypatch) -> None:
+    from imagine_mcp.server import run_http
+
+    monkeypatch.setenv("PUBLIC_URL", "https://ex.com")
+    monkeypatch.setenv("MCP_DCR_SERVER_SECRET", "secret")
+    monkeypatch.setenv("MCP_HOST", "192.168.1.100")
+
+    with patch("mcp_core.transport.local_server.run_http_server") as mock_run:
+        await run_http()
+        mock_run.assert_called_once()
+        _args, kwargs = mock_run.call_args
+        assert kwargs["host"] == "192.168.1.100"

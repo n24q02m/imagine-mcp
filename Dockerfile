@@ -62,6 +62,7 @@ ENTRYPOINT ["python", "-m", "imagine_mcp"]
 # ========================
 FROM runtime AS http
 ENV MCP_TRANSPORT=http \
-    MCP_PORT=8080
+    MCP_PORT=8080 \
+    MCP_HOST=0.0.0.0
 EXPOSE 8080
 ENTRYPOINT ["python", "-m", "imagine_mcp"]
