@@ -48,6 +48,7 @@ mcp-name: io.github.n24q02m/imagine-mcp
 - [Status](#status)
 - [Documentation](#documentation)
 - [Tools](#tools)
+- [Comparison](#comparison)
 - [Security](#security)
 - [Build from Source](#build-from-source)
 - [Trust Model](#trust-model)
@@ -114,6 +115,19 @@ Full docs at **[mcp.n24q02m.com/servers/imagine-mcp/setup/](https://mcp.n24q02m.
 | `config__open_relay` | -- | Framework-injected helper (mcp-core) equivalent to `config(action="open_relay")`; opens the browser credential form. |
 
 Model IDs per provider x action x tier are leaderboard-ranked; see [`docs/models.md`](docs/models.md) (auto-regenerated from `src/imagine_mcp/models.py`).
+
+## Comparison
+
+How imagine-mcp stacks up against direct competitors in each pillar:
+
+| Capability | imagine-mcp | EverArt MCP | fal.ai MCP | Replicate Flux MCP |
+|---|---|---|---|---|
+| Image/video understanding | Yes (describe / classify / reason over image + video URLs) | No | No | No |
+| Image generation | Yes (text-to-image + image-to-image via `reference_image_url`) | Yes (single `generate_image`) | Yes (text/image-to-image, edit, inpaint) | Yes (single `generate_image`) |
+| Video generation | Yes (text-to-video + image-to-video, async `job_id` poll) | No | Yes (text/image-to-video) | No |
+| Multi-provider backends | Yes (Gemini / OpenAI / Grok, auto-fallback) | No (EverArt only) | No (fal.ai only) | No (Replicate Flux only) |
+| Quality/cost tiers | Yes (`poor` cheap-fast vs `rich` high-quality per provider) | No | No | No |
+| Self-hostable / open source | Yes (MIT, stdio + HTTP self-host) | Yes (MIT, archived) | Yes (MIT) | Yes (MIT, archived) |
 
 ## Security
 
