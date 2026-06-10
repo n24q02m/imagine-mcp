@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import concurrent.futures
+import socket
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -192,6 +194,30 @@ def test_download_to_path_http_error(
 
     with pytest.raises(httpx.HTTPStatusError, match="404 Not Found"):
         download_to_path("https://example.com/404.png", dest)
+
+
+def test_validate_url_dns_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_future = MagicMock()
+    mock_future.result.side_effect = concurrent.futures.TimeoutError()
+
+    mock_pool = MagicMock()
+    mock_pool.submit.return_value = mock_future
+
+    monkeypatch.setattr("imagine_mcp.media._DNS_RESOLVER_POOL", mock_pool)
+
+    with pytest.raises(InvalidURLError, match="DNS resolution timed out"):
+        validate_url_and_get_ip("https://example.com/img.png", "image_url")
+
+
+def test_validate_url_gaierror(monkeypatch: pytest.MonkeyPatch) -> None:
+    # We mock socket.getaddrinfo because it is what is called by the thread pool
+    monkeypatch.setattr(
+        "socket.getaddrinfo",
+        MagicMock(side_effect=socket.gaierror(-2, "Name or service not known")),
+    )
+
+    with pytest.raises(InvalidURLError, match="Could not resolve hostname"):
+        validate_url_and_get_ip("https://nonexistent.example.com/img.png", "image_url")
 
 
 class TestSSRFProtection:
