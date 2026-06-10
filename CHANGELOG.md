@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.6.2-beta.1 (2026-06-10)
+
+### Bug Fixes
+
+- Add Comparison capability matrix to README
+  ([#271](https://github.com/n24q02m/imagine-mcp/pull/271),
+  [`563adfc`](https://github.com/n24q02m/imagine-mcp/commit/563adfcd5602dedbc3ab1a1317febaa07e6935b0))
+
+- Correct stale env var, CLI flag, docs-site links and tool inventory in docs
+  ([#270](https://github.com/n24q02m/imagine-mcp/pull/270),
+  [`91cfae2`](https://github.com/n24q02m/imagine-mcp/commit/91cfae2812ac97ae7639a0adb75d1935f50fcf16))
+
+
 ## v1.6.1 (2026-06-09)
 
 
