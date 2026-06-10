@@ -37,11 +37,11 @@ uv run pre-commit install --hook-type commit-msg
 ### Run locally
 
 ```bash
-mise run dev                  # http local relay mode (default)
-uv run imagine-mcp --stdio    # stdio proxy mode
+mise run dev                  # http local relay mode (--http)
+uv run imagine-mcp            # stdio mode (default, no flag)
 
 # Optional: set env vars so the server skips the relay form
-export GOOGLE_AI_STUDIO_API_KEY=...
+export GEMINI_API_KEY=...
 export OPENAI_API_KEY=...
 export XAI_API_KEY=...
 ```
