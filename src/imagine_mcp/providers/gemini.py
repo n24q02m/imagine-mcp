@@ -3,81 +3,38 @@
 from __future__ import annotations
 
 import base64
-import os
 import uuid
 from pathlib import Path
 from typing import Any
 
 import platformdirs
 
-from imagine_mcp.config import settings
-from imagine_mcp.errors import CredentialMissingError, ProviderAPIError
+from imagine_mcp.errors import ProviderAPIError
 from imagine_mcp.models import get_model_id
-
-_CLIENT: Any = None
-# Per-sub client cache for HTTP multi-user mode. Keyed by JWT sub so each
-# user gets a client wired to their own ``GEMINI_API_KEY``. Single-user /
-# stdio mode still uses the module-level ``_CLIENT`` above.
-_SUB_CLIENTS: dict[str, Any] = {}
+from imagine_mcp.providers.base import ClientManager
 
 
-def _resolve_api_key() -> str | None:
-    """Return the GEMINI_API_KEY for the current request scope.
+def _create_client(api_key: str) -> Any:
+    from google import genai
 
-    Multi-user HTTP path uses the per-sub config from PerPluginStore. The
-    settings singleton is read first (frozen at import) for backwards
-    compatibility, then ``credentials_for_current_request()`` which falls
-    back to ``os.environ`` when no sub is active.
-    """
-    from imagine_mcp.credential_state import (
-        credentials_for_current_request,
-        get_current_sub,
-    )
+    return genai.Client(api_key=api_key)
 
-    if get_current_sub() is not None:
-        return credentials_for_current_request().get("GEMINI_API_KEY")
-    return settings.gemini_api_key or os.environ.get("GEMINI_API_KEY")
+
+_manager = ClientManager(
+    provider_name="Gemini",
+    env_var="GEMINI_API_KEY",
+    settings_attr="gemini_api_key",
+    client_factory=_create_client,
+)
 
 
 def _client() -> Any:
-    global _CLIENT
-    from imagine_mcp.credential_state import get_current_sub
-
-    sub = get_current_sub()
-    if sub is not None:
-        cached = _SUB_CLIENTS.get(sub)
-        if cached is not None:
-            return cached
-        api_key = _resolve_api_key()
-        if not api_key:
-            raise CredentialMissingError(
-                "Gemini API key missing. Run config(action='open_relay') for "
-                "browser-based setup, or set GEMINI_API_KEY."
-            )
-        from google import genai
-
-        client = genai.Client(api_key=api_key)
-        _SUB_CLIENTS[sub] = client
-        return client
-
-    if _CLIENT is None:
-        api_key = _resolve_api_key()
-        if not api_key:
-            raise CredentialMissingError(
-                "Gemini API key missing. Run config(action='open_relay') for "
-                "browser-based setup, or set GEMINI_API_KEY."
-            )
-        from google import genai
-
-        _CLIENT = genai.Client(api_key=api_key)
-    return _CLIENT
+    return _manager.get_client()
 
 
 def _reset_client() -> None:
     """Test hook: force _client() to re-read settings."""
-    global _CLIENT
-    _CLIENT = None
-    _SUB_CLIENTS.clear()
+    _manager.reset()
 
 
 def understand_image(
@@ -180,8 +137,7 @@ def understand_multimodal(
             mt = media_types[i] if media_types else detect_media_type(u)
             if mt == "image":
                 img_resp = get_ssrf_safe_client().get(
-                    u, follow_redirects=True, timeout=60
-                )
+                    u, follow_redirects=True, timeout=60)
                 img_data = img_resp.content
                 mime_type = resolve_image_mime(
                     img_resp.headers.get("content-type"), img_data

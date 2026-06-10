@@ -7,7 +7,6 @@ Dedicated endpoints for images and videos via httpx.
 from __future__ import annotations
 
 import base64
-import os
 import urllib.parse
 import uuid
 from pathlib import Path
@@ -15,75 +14,45 @@ from typing import Any
 
 import platformdirs
 
-from imagine_mcp.config import settings
-from imagine_mcp.credential_state import (
-    credentials_for_current_request,
-    get_current_sub,
-)
 from imagine_mcp.errors import (
-    CredentialMissingError,
     ProviderAPIError,
     ProviderUnsupportedError,
 )
 from imagine_mcp.media import get_ssrf_safe_client
 from imagine_mcp.models import get_model_id
+from imagine_mcp.providers.base import ClientManager
 
-_CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
-# Per-sub client cache for HTTP multi-user mode (see providers/gemini.py).
-_SUB_CLIENTS: dict[str, Any] = {}
+
+
+def _create_client(api_key: str) -> Any:
+    from openai import OpenAI
+
+    return OpenAI(
+        api_key=api_key,
+        base_url=_BASE_URL,
+        http_client=get_ssrf_safe_client(),
+    )
+
+
+_manager = ClientManager(
+    provider_name="xAI (Grok)",
+    env_var="XAI_API_KEY",
+    settings_attr="xai_api_key",
+    client_factory=_create_client,
+)
 
 
 def _api_key() -> str:
-    """Return XAI_API_KEY for the current request scope.
-
-    Multi-user HTTP requests pull from the per-sub config; single-user /
-    stdio falls back to settings + os.environ.
-    """
-    if get_current_sub() is not None:
-        key = credentials_for_current_request().get("XAI_API_KEY")
-    else:
-        key = settings.xai_api_key or os.environ.get("XAI_API_KEY")
-    if not key:
-        raise CredentialMissingError(
-            "xAI (Grok) API key missing. Run config(action='open_relay') for "
-            "browser-based setup, or set XAI_API_KEY."
-        )
-    return key
+    return _manager.get_api_key()
 
 
 def _openai_compat_client() -> Any:
-    global _CLIENT
-    sub = get_current_sub()
-    if sub is not None:
-        cached = _SUB_CLIENTS.get(sub)
-        if cached is not None:
-            return cached
-        from openai import OpenAI
-
-        client = OpenAI(
-            api_key=_api_key(),
-            base_url=_BASE_URL,
-            http_client=get_ssrf_safe_client(),
-        )
-        _SUB_CLIENTS[sub] = client
-        return client
-
-    if _CLIENT is None:
-        from openai import OpenAI
-
-        _CLIENT = OpenAI(
-            api_key=_api_key(),
-            base_url=_BASE_URL,
-            http_client=get_ssrf_safe_client(),
-        )
-    return _CLIENT
+    return _manager.get_client()
 
 
 def _reset_client() -> None:
-    global _CLIENT
-    _CLIENT = None
-    _SUB_CLIENTS.clear()
+    _manager.reset()
 
 
 def understand_image(

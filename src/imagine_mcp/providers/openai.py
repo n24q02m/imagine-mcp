@@ -3,77 +3,41 @@
 from __future__ import annotations
 
 import base64
-import os
 import uuid
 from pathlib import Path
 from typing import Any
 
 import platformdirs
 
-from imagine_mcp.config import settings
 from imagine_mcp.errors import (
-    CredentialMissingError,
     ProviderAPIError,
     ProviderUnsupportedError,
 )
 from imagine_mcp.models import get_model_id
-
-_CLIENT: Any = None
-# Per-sub client cache for HTTP multi-user mode. See providers/gemini.py
-# for rationale; module-level ``_CLIENT`` still serves stdio + single-user.
-_SUB_CLIENTS: dict[str, Any] = {}
+from imagine_mcp.providers.base import ClientManager
 
 
-def _resolve_api_key() -> str | None:
-    """Return OPENAI_API_KEY for the current request scope (per-sub or env)."""
-    from imagine_mcp.credential_state import (
-        credentials_for_current_request,
-        get_current_sub,
-    )
+def _create_client(api_key: str) -> Any:
+    from openai import OpenAI
 
-    if get_current_sub() is not None:
-        return credentials_for_current_request().get("OPENAI_API_KEY")
-    return settings.openai_api_key or os.environ.get("OPENAI_API_KEY")
+    return OpenAI(api_key=api_key)
+
+
+_manager = ClientManager(
+    provider_name="OpenAI",
+    env_var="OPENAI_API_KEY",
+    settings_attr="openai_api_key",
+    client_factory=_create_client,
+)
 
 
 def _client() -> Any:
-    global _CLIENT
-    from imagine_mcp.credential_state import get_current_sub
-
-    sub = get_current_sub()
-    if sub is not None:
-        cached = _SUB_CLIENTS.get(sub)
-        if cached is not None:
-            return cached
-        api_key = _resolve_api_key()
-        if not api_key:
-            raise CredentialMissingError(
-                "OpenAI API key missing. Run config(action='open_relay') for "
-                "browser-based setup, or set OPENAI_API_KEY."
-            )
-        from openai import OpenAI
-
-        client = OpenAI(api_key=api_key)
-        _SUB_CLIENTS[sub] = client
-        return client
-
-    if _CLIENT is None:
-        api_key = _resolve_api_key()
-        if not api_key:
-            raise CredentialMissingError(
-                "OpenAI API key missing. Run config(action='open_relay') for "
-                "browser-based setup, or set OPENAI_API_KEY."
-            )
-        from openai import OpenAI
-
-        _CLIENT = OpenAI(api_key=api_key)
-    return _CLIENT
+    return _manager.get_client()
 
 
 def _reset_client() -> None:
-    global _CLIENT
-    _CLIENT = None
-    _SUB_CLIENTS.clear()
+    """Test hook: force client to re-read settings."""
+    _manager.reset()
 
 
 def understand_image(
