@@ -5,20 +5,36 @@ from __future__ import annotations
 import base64
 import os
 import uuid
+from concurrent.futures import ThreadPoolExecutor, wait
 from pathlib import Path
 from typing import Any
 
 import platformdirs
+from google import genai
+from google.genai import types
 
 from imagine_mcp.config import settings
+from imagine_mcp.credential_state import (
+    credentials_for_current_request,
+    get_current_sub,
+)
 from imagine_mcp.errors import CredentialMissingError, ProviderAPIError
+from imagine_mcp.media import (
+    detect_media_type,
+    download_to_path,
+    get_ssrf_safe_client,
+    resolve_image_mime,
+)
 from imagine_mcp.models import get_model_id
 
-_CLIENT: Any = None
+_CLIENT: genai.Client | None = None
 # Per-sub client cache for HTTP multi-user mode. Keyed by JWT sub so each
 # user gets a client wired to their own ``GEMINI_API_KEY``. Single-user /
 # stdio mode still uses the module-level ``_CLIENT`` above.
-_SUB_CLIENTS: dict[str, Any] = {}
+_SUB_CLIENTS: dict[str, genai.Client] = {}
+
+# Parallel pool for media downloads/uploads
+_GEMINI_POOL = ThreadPoolExecutor(max_workers=10)
 
 
 def _resolve_api_key() -> str | None:
@@ -29,19 +45,13 @@ def _resolve_api_key() -> str | None:
     compatibility, then ``credentials_for_current_request()`` which falls
     back to ``os.environ`` when no sub is active.
     """
-    from imagine_mcp.credential_state import (
-        credentials_for_current_request,
-        get_current_sub,
-    )
-
     if get_current_sub() is not None:
         return credentials_for_current_request().get("GEMINI_API_KEY")
     return settings.gemini_api_key or os.environ.get("GEMINI_API_KEY")
 
 
-def _client() -> Any:
+def _client() -> genai.Client:
     global _CLIENT
-    from imagine_mcp.credential_state import get_current_sub
 
     sub = get_current_sub()
     if sub is not None:
@@ -54,7 +64,6 @@ def _client() -> Any:
                 "Gemini API key missing. Run config(action='open_relay') for "
                 "browser-based setup, or set GEMINI_API_KEY."
             )
-        from google import genai
 
         client = genai.Client(api_key=api_key)
         _SUB_CLIENTS[sub] = client
@@ -67,8 +76,6 @@ def _client() -> Any:
                 "Gemini API key missing. Run config(action='open_relay') for "
                 "browser-based setup, or set GEMINI_API_KEY."
             )
-        from google import genai
-
         _CLIENT = genai.Client(api_key=api_key)
     return _CLIENT
 
@@ -83,10 +90,6 @@ def _reset_client() -> None:
 def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
-    from google.genai import types
-
-    from imagine_mcp.media import get_ssrf_safe_client, resolve_image_mime
-
     client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
 
@@ -114,10 +117,6 @@ def understand_image(
 def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
-    from google.genai import types
-
-    from imagine_mcp.media import download_to_path
-
     client = _client()
     model = get_model_id("gemini", "understand", "video", tier)
 
@@ -154,44 +153,48 @@ def understand_multimodal(
     media_types: list[str] | None = None,
 ) -> dict[str, Any]:
     """Gemini native multimodal: mixed image+video URLs in a single call."""
-    from google.genai import types
-
-    from imagine_mcp.media import (
-        detect_media_type,
-        download_to_path,
-        get_ssrf_safe_client,
-        resolve_image_mime,
-    )
-
     client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
-    parts: list[Any] = [prompt]
-    tmp_files: list[Path] = []
 
     tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
     tmp_dir.mkdir(parents=True, exist_ok=True)
 
+    # Pre-allocate temporary paths in the main thread for safe concurrent cleanup
+    tmp_files: list[Path] = []
+    pre_media: list[tuple[str, str, Path | None]] = []
+    for i, u in enumerate(urls):
+        mt = media_types[i] if media_types else detect_media_type(u)
+        tmp_path = None
+        if mt != "image":
+            tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
+            tmp_files.append(tmp_path)
+        pre_media.append((u, mt, tmp_path))
+
+    def process_media_task(url: str, mt: str, tmp_path: Path | None) -> Any:
+        if mt == "image":
+            img_resp = get_ssrf_safe_client().get(
+                url, follow_redirects=True, timeout=60
+            )
+            img_data = img_resp.content
+            mime_type = resolve_image_mime(
+                img_resp.headers.get("content-type"), img_data
+            )
+            return types.Part.from_bytes(data=img_data, mime_type=mime_type)
+        else:
+            # tmp_path is guaranteed to be non-None if mt != "image"
+            download_to_path(url, tmp_path)  # type: ignore
+            return client.files.upload(file=tmp_path)
+
     try:
-        for i, u in enumerate(urls):
-            # Performance optimization:
-            # Use pre-calculated media types if provided by the dispatcher
-            # This avoids O(N) sequential redundant network calls (HEAD requests)
-            # converting the latency to O(1) bounded by the dispatcher's thread pool.
-            mt = media_types[i] if media_types else detect_media_type(u)
-            if mt == "image":
-                img_resp = get_ssrf_safe_client().get(
-                    u, follow_redirects=True, timeout=60
-                )
-                img_data = img_resp.content
-                mime_type = resolve_image_mime(
-                    img_resp.headers.get("content-type"), img_data
-                )
-                parts.append(types.Part.from_bytes(data=img_data, mime_type=mime_type))
-            else:
-                tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
-                download_to_path(u, tmp_path)
-                tmp_files.append(tmp_path)
-                parts.append(client.files.upload(file=tmp_path))
+        # Parallelize media downloads and uploads to avoid O(N) sequential latency.
+        # Futures are executed in _GEMINI_POOL; we wait for all to complete
+        # to ensure any exceptions are propagated and all files are cleaned up.
+        futures = [
+            _GEMINI_POOL.submit(process_media_task, u, mt, tp)
+            for u, mt, tp in pre_media
+        ]
+        wait(futures)
+        parts: list[Any] = [prompt] + [f.result() for f in futures]
 
         resp = client.models.generate_content(
             model=model,
@@ -218,10 +221,6 @@ def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
-    from google.genai import types
-
-    from imagine_mcp.media import get_ssrf_safe_client, resolve_image_mime
-
     client = _client()
     model = get_model_id("gemini", "generate", "image", tier)
     contents: list[Any] = [prompt]
@@ -269,8 +268,6 @@ def generate_video(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
-    from google.genai import types
-
     model = get_model_id("gemini", "generate", "video", tier)
     client = _client()
 
