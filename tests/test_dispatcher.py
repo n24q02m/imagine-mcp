@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from imagine_mcp.dispatcher import (
@@ -24,17 +26,23 @@ def clean_provider_env(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv(var, raising=False)
 
 
-def test_understand_routes_to_gemini_image(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_understand_routes_to_gemini_image(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # Stub provider
-    def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
+    async def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
         return {"text": "a cat", "model": "gemini-x", "provider": "gemini"}
 
     import imagine_mcp.providers.gemini as gemini_mod
 
     monkeypatch.setattr(gemini_mod, "understand_image", mock_fn, raising=False)
-    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "image")
+    monkeypatch.setattr(
+        "imagine_mcp.dispatcher.detect_media_type_async",
+        AsyncMock(return_value="image"),
+    )
 
-    result = dispatch_understand(
+    result = await dispatch_understand(
         media_urls=["https://example.com/cat.png"],
         prompt="describe",
         provider="gemini",
@@ -43,9 +51,10 @@ def test_understand_routes_to_gemini_image(monkeypatch: pytest.MonkeyPatch) -> N
     assert result["text"] == "a cat"
 
 
-def test_understand_invalid_provider() -> None:
+@pytest.mark.asyncio
+async def test_understand_invalid_provider() -> None:
     with pytest.raises(InvalidProviderError):
-        dispatch_understand(
+        await dispatch_understand(
             media_urls=["https://example.com/x.png"],
             prompt="hi",
             provider="unknown",
@@ -53,9 +62,10 @@ def test_understand_invalid_provider() -> None:
         )
 
 
-def test_understand_invalid_tier() -> None:
+@pytest.mark.asyncio
+async def test_understand_invalid_tier() -> None:
     with pytest.raises(InvalidTierError):
-        dispatch_understand(
+        await dispatch_understand(
             media_urls=["https://example.com/x.png"],
             prompt="hi",
             provider="gemini",
@@ -63,10 +73,16 @@ def test_understand_invalid_tier() -> None:
         )
 
 
-def test_understand_unsupported_video_openai(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "video")
+@pytest.mark.asyncio
+async def test_understand_unsupported_video_openai(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "imagine_mcp.dispatcher.detect_media_type_async",
+        AsyncMock(return_value="video"),
+    )
     with pytest.raises(ProviderUnsupportedError) as exc_info:
-        dispatch_understand(
+        await dispatch_understand(
             media_urls=["https://example.com/x.mp4"],
             prompt="hi",
             provider="openai",
@@ -75,10 +91,16 @@ def test_understand_unsupported_video_openai(monkeypatch: pytest.MonkeyPatch) ->
     assert "video" in str(exc_info.value).lower()
 
 
-def test_understand_unsupported_video_grok(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "video")
+@pytest.mark.asyncio
+async def test_understand_unsupported_video_grok(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "imagine_mcp.dispatcher.detect_media_type_async",
+        AsyncMock(return_value="video"),
+    )
     with pytest.raises(ProviderUnsupportedError):
-        dispatch_understand(
+        await dispatch_understand(
             media_urls=["https://example.com/x.mp4"],
             prompt="hi",
             provider="grok",
@@ -86,9 +108,10 @@ def test_understand_unsupported_video_grok(monkeypatch: pytest.MonkeyPatch) -> N
         )
 
 
-def test_generate_invalid_media_type() -> None:
+@pytest.mark.asyncio
+async def test_generate_invalid_media_type() -> None:
     with pytest.raises(InvalidMediaTypeError):
-        dispatch_generate(
+        await dispatch_generate(
             media_type="audio",
             prompt="hi",
             provider="gemini",
@@ -96,9 +119,10 @@ def test_generate_invalid_media_type() -> None:
         )
 
 
-def test_generate_unsupported_video_openai() -> None:
+@pytest.mark.asyncio
+async def test_generate_unsupported_video_openai() -> None:
     with pytest.raises(ProviderUnsupportedError) as exc_info:
-        dispatch_generate(
+        await dispatch_generate(
             media_type="video",
             prompt="a dog running",
             provider="openai",
@@ -130,9 +154,10 @@ def test_generate_unsupported_video_openai() -> None:
         "http://[::ffff:7f00:1]/",
     ],
 )
-def test_understand_rejects_non_http_url(bad_url: str) -> None:
+@pytest.mark.asyncio
+async def test_understand_rejects_non_http_url(bad_url: str) -> None:
     with pytest.raises(InvalidURLError):
-        dispatch_understand(
+        await dispatch_understand(
             media_urls=[bad_url],
             prompt="hi",
             provider="gemini",
@@ -140,9 +165,10 @@ def test_understand_rejects_non_http_url(bad_url: str) -> None:
         )
 
 
-def test_understand_rejects_non_http_url_in_second_position() -> None:
+@pytest.mark.asyncio
+async def test_understand_rejects_non_http_url_in_second_position() -> None:
     with pytest.raises(InvalidURLError, match=r"media_urls\[1\]"):
-        dispatch_understand(
+        await dispatch_understand(
             media_urls=["https://example.com/ok.png", "file:///etc/passwd"],
             prompt="hi",
             provider="gemini",
@@ -150,9 +176,10 @@ def test_understand_rejects_non_http_url_in_second_position() -> None:
         )
 
 
-def test_generate_rejects_non_http_reference_image_url() -> None:
+@pytest.mark.asyncio
+async def test_generate_rejects_non_http_reference_image_url() -> None:
     with pytest.raises(InvalidURLError, match="reference_image_url"):
-        dispatch_generate(
+        await dispatch_generate(
             media_type="image",
             prompt="cat",
             provider="gemini",
@@ -207,7 +234,8 @@ def test_default_provider_raises_when_none_set(clean_provider_env: None) -> None
     assert "GEMINI_API_KEY" in msg
 
 
-def test_dispatch_understand_resolves_default_provider(
+@pytest.mark.asyncio
+async def test_dispatch_understand_resolves_default_provider(
     clean_provider_env: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -215,16 +243,19 @@ def test_dispatch_understand_resolves_default_provider(
 
     captured: dict[str, str] = {}
 
-    def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
+    async def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
         captured["called"] = "grok"
         return {"text": "ok", "model": "grok-x", "provider": "grok"}
 
     import imagine_mcp.providers.grok as grok_mod
 
     monkeypatch.setattr(grok_mod, "understand_image", mock_fn, raising=False)
-    monkeypatch.setattr("imagine_mcp.dispatcher.detect_media_type", lambda u: "image")
+    monkeypatch.setattr(
+        "imagine_mcp.dispatcher.detect_media_type_async",
+        AsyncMock(return_value="image"),
+    )
 
-    result = dispatch_understand(
+    result = await dispatch_understand(
         media_urls=["https://example.com/cat.png"],
         prompt="describe",
         provider=None,
@@ -234,7 +265,8 @@ def test_dispatch_understand_resolves_default_provider(
     assert result["provider"] == "grok"
 
 
-def test_dispatch_generate_resolves_default_provider(
+@pytest.mark.asyncio
+async def test_dispatch_generate_resolves_default_provider(
     clean_provider_env: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -242,7 +274,7 @@ def test_dispatch_generate_resolves_default_provider(
 
     captured: dict[str, str] = {}
 
-    def mock_fn(
+    async def mock_fn(
         prompt: str,
         tier: str,
         reference_image_url: str | None,
@@ -255,7 +287,7 @@ def test_dispatch_generate_resolves_default_provider(
 
     monkeypatch.setattr(openai_mod, "generate_image", mock_fn, raising=False)
 
-    result = dispatch_generate(
+    result = await dispatch_generate(
         media_type="image",
         prompt="a cat",
         provider=None,
@@ -265,11 +297,12 @@ def test_dispatch_generate_resolves_default_provider(
     assert result["provider"] == "openai"
 
 
-def test_dispatch_understand_no_keys_raises_credential_missing(
+@pytest.mark.asyncio
+async def test_dispatch_understand_no_keys_raises_credential_missing(
     clean_provider_env: None,
 ) -> None:
     with pytest.raises(CredentialMissingError):
-        dispatch_understand(
+        await dispatch_understand(
             media_urls=["https://example.com/cat.png"],
             prompt="describe",
             provider=None,
@@ -277,7 +310,8 @@ def test_dispatch_understand_no_keys_raises_credential_missing(
         )
 
 
-def test_understand_rejects_dns_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.asyncio
+async def test_understand_rejects_dns_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     import time
 
     def mock_getaddrinfo(*args, **kwargs):
@@ -288,7 +322,7 @@ def test_understand_rejects_dns_timeout(monkeypatch: pytest.MonkeyPatch) -> None
 
     start = time.time()
     with pytest.raises(InvalidURLError, match=r"timed out for 'slow\.example\.com'"):
-        dispatch_understand(
+        await dispatch_understand(
             media_urls=["http://slow.example.com/test.png"],
             prompt="hi",
             provider="gemini",
@@ -298,10 +332,11 @@ def test_understand_rejects_dns_timeout(monkeypatch: pytest.MonkeyPatch) -> None
     assert duration < 2.5, f"DNS timeout block took too long: {duration}s"
 
 
-def test_validate_url_blocks_cgnat() -> None:
+@pytest.mark.asyncio
+async def test_validate_url_blocks_cgnat() -> None:
     from imagine_mcp.dispatcher import _validate_url
 
     # 100.64.0.1 is part of Carrier-Grade NAT, which is not considered private by is_private,
     # but is considered not global by is_global. Our updated validation must block it.
     with pytest.raises(InvalidURLError, match="URL resolves to an internal/private IP"):
-        _validate_url("http://100.64.0.1/test", "test_param")
+        await _validate_url("http://100.64.0.1/test", "test_param")

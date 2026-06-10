@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -10,23 +10,28 @@ from imagine_mcp.providers import grok as provider
 
 @pytest.fixture
 def mock_media_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Mock get_ssrf_safe_client to avoid real network calls."""
+    """Mock async media fetchers to avoid real network calls."""
     mock_resp = MagicMock()
     mock_resp.content = b"fake-image-bytes"
     mock_resp.headers = {"content-type": "image/png"}
 
-    mock_client = MagicMock()
+    mock_client = AsyncMock()
     mock_client.get.return_value = mock_resp
+    mock_client.post.return_value = mock_resp
 
-    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: mock_client)
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
+    )
 
 
-def test_understand_video_raises() -> None:
+@pytest.mark.asyncio
+async def test_understand_video_raises() -> None:
     with pytest.raises(ProviderUnsupportedError):
-        provider.understand_video("https://example.com/x.mp4", "describe", "poor")
+        await provider.understand_video("https://example.com/x.mp4", "describe", "poor")
 
 
-def test_understand_image_mocked(
+@pytest.mark.asyncio
+async def test_understand_image_mocked(
     mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     fake_client = MagicMock()
@@ -36,10 +41,11 @@ def test_understand_image_mocked(
     choice.message = msg
     resp = MagicMock()
     resp.choices = [choice]
-    fake_client.chat.completions.create.return_value = resp
+
+    fake_client.chat.completions.create = AsyncMock(return_value=resp)
     monkeypatch.setattr(provider, "_openai_compat_client", lambda: fake_client)
 
-    result = provider.understand_image(
+    result = await provider.understand_image(
         url="https://example.com/parrot.png", prompt="describe", tier="rich"
     )
     assert result["text"] == "a parrot"

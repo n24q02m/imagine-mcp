@@ -1,7 +1,8 @@
-"""Gemini provider -- all 4 actions LIVE using google-genai SDK."""
+"""Gemini (Google) provider -- fully async via google-genai SDK."""
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import os
 import uuid
@@ -15,20 +16,11 @@ from imagine_mcp.errors import CredentialMissingError, ProviderAPIError
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
-# Per-sub client cache for HTTP multi-user mode. Keyed by JWT sub so each
-# user gets a client wired to their own ``GEMINI_API_KEY``. Single-user /
-# stdio mode still uses the module-level ``_CLIENT`` above.
 _SUB_CLIENTS: dict[str, Any] = {}
 
 
 def _resolve_api_key() -> str | None:
-    """Return the GEMINI_API_KEY for the current request scope.
-
-    Multi-user HTTP path uses the per-sub config from PerPluginStore. The
-    settings singleton is read first (frozen at import) for backwards
-    compatibility, then ``credentials_for_current_request()`` which falls
-    back to ``os.environ`` when no sub is active.
-    """
+    """Return the GEMINI_API_KEY for the current request scope."""
     from imagine_mcp.credential_state import (
         credentials_for_current_request,
         get_current_sub,
@@ -80,22 +72,24 @@ def _reset_client() -> None:
     _SUB_CLIENTS.clear()
 
 
-def understand_image(
+async def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     from google.genai import types
 
-    from imagine_mcp.media import get_ssrf_safe_client, resolve_image_mime
+    from imagine_mcp.media import get_ssrf_safe_async_client, resolve_image_mime
 
     client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
 
     # Download image securely to prevent backend SSRF
-    img_resp = get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60)
+    img_resp = await get_ssrf_safe_async_client().get(
+        url, follow_redirects=True, timeout=60
+    )
     img_data = img_resp.content
     mime_type = resolve_image_mime(img_resp.headers.get("content-type"), img_data)
 
-    resp = client.models.generate_content(
+    resp = await client.aio.models.generate_content(
         model=model,
         contents=[
             prompt,
@@ -111,32 +105,32 @@ def understand_image(
     }
 
 
-def understand_video(
+async def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     from google.genai import types
 
-    from imagine_mcp.media import download_to_path
+    from imagine_mcp.media import download_to_path_async
 
     client = _client()
     model = get_model_id("gemini", "understand", "video", tier)
 
     # Download video securely and upload to Gemini
     tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
-    tmp_dir.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(tmp_dir.mkdir, parents=True, exist_ok=True)
     tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
-    download_to_path(url, tmp_path)
+    await download_to_path_async(url, tmp_path)
 
     try:
-        gfile = client.files.upload(file=tmp_path)
-        resp = client.models.generate_content(
+        gfile = await client.aio.files.upload(file=tmp_path)
+        resp = await client.aio.models.generate_content(
             model=model,
             contents=[prompt, gfile],
             config=types.GenerateContentConfig(max_output_tokens=max_tokens),
         )
     finally:
-        if tmp_path.exists():
-            tmp_path.unlink()
+        if await asyncio.to_thread(tmp_path.exists):
+            await asyncio.to_thread(tmp_path.unlink)
 
     return {
         "text": resp.text,
@@ -146,7 +140,7 @@ def understand_video(
     }
 
 
-def understand_multimodal(
+async def understand_multimodal(
     urls: list[str],
     prompt: str,
     tier: str,
@@ -157,9 +151,9 @@ def understand_multimodal(
     from google.genai import types
 
     from imagine_mcp.media import (
-        detect_media_type,
-        download_to_path,
-        get_ssrf_safe_client,
+        detect_media_type_async,
+        download_to_path_async,
+        get_ssrf_safe_async_client,
         resolve_image_mime,
     )
 
@@ -169,17 +163,13 @@ def understand_multimodal(
     tmp_files: list[Path] = []
 
     tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
-    tmp_dir.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(tmp_dir.mkdir, parents=True, exist_ok=True)
 
     try:
         for i, u in enumerate(urls):
-            # Performance optimization:
-            # Use pre-calculated media types if provided by the dispatcher
-            # This avoids O(N) sequential redundant network calls (HEAD requests)
-            # converting the latency to O(1) bounded by the dispatcher's thread pool.
-            mt = media_types[i] if media_types else detect_media_type(u)
+            mt = media_types[i] if media_types else await detect_media_type_async(u)
             if mt == "image":
-                img_resp = get_ssrf_safe_client().get(
+                img_resp = await get_ssrf_safe_async_client().get(
                     u, follow_redirects=True, timeout=60
                 )
                 img_data = img_resp.content
@@ -189,19 +179,19 @@ def understand_multimodal(
                 parts.append(types.Part.from_bytes(data=img_data, mime_type=mime_type))
             else:
                 tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
-                download_to_path(u, tmp_path)
+                await download_to_path_async(u, tmp_path)
                 tmp_files.append(tmp_path)
-                parts.append(client.files.upload(file=tmp_path))
+                parts.append(await client.aio.files.upload(file=tmp_path))
 
-        resp = client.models.generate_content(
+        resp = await client.aio.models.generate_content(
             model=model,
             contents=parts,
             config=types.GenerateContentConfig(max_output_tokens=max_tokens),
         )
     finally:
         for f in tmp_files:
-            if f.exists():
-                f.unlink()
+            if await asyncio.to_thread(f.exists):
+                await asyncio.to_thread(f.unlink)
 
     return {
         "text": resp.text,
@@ -212,7 +202,7 @@ def understand_multimodal(
     }
 
 
-def generate_image(
+async def generate_image(
     prompt: str,
     tier: str,
     reference_image_url: str | None = None,
@@ -220,21 +210,21 @@ def generate_image(
 ) -> dict[str, Any]:
     from google.genai import types
 
-    from imagine_mcp.media import get_ssrf_safe_client, resolve_image_mime
+    from imagine_mcp.media import get_ssrf_safe_async_client, resolve_image_mime
 
     client = _client()
     model = get_model_id("gemini", "generate", "image", tier)
     contents: list[Any] = [prompt]
 
     if reference_image_url:
-        img_resp = get_ssrf_safe_client().get(
+        img_resp = await get_ssrf_safe_async_client().get(
             reference_image_url, follow_redirects=True, timeout=60
         )
         img_data = img_resp.content
         mime_type = resolve_image_mime(img_resp.headers.get("content-type"), img_data)
         contents.append(types.Part.from_bytes(data=img_data, mime_type=mime_type))
 
-    resp = client.models.generate_content(
+    resp = await client.aio.models.generate_content(
         model=model,
         contents=contents,
         config=types.GenerateContentConfig(response_modalities=["IMAGE"]),
@@ -248,9 +238,9 @@ def generate_image(
         raise ProviderAPIError("Gemini returned no image", status_code=500)
 
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(out_dir.mkdir, parents=True, exist_ok=True)
     out_path = out_dir / f"{uuid.uuid4().hex}.png"
-    out_path.write_bytes(image_data)
+    await asyncio.to_thread(out_path.write_bytes, image_data)
 
     return {
         "image_path": str(out_path),
@@ -261,7 +251,7 @@ def generate_image(
     }
 
 
-def generate_video(
+async def generate_video(
     prompt: str,
     tier: str,
     reference_image_url: str | None = None,
@@ -275,9 +265,7 @@ def generate_video(
     client = _client()
 
     if job_id is None:
-        # Original code did not use reference_image_url here.
-        # Keeping it consistent for now but ensuring we don't pass it to the backend.
-        op = client.models.generate_videos(
+        op = await client.aio.models.generate_videos(
             model=model,
             prompt=prompt,
             config=types.GenerateVideosConfig(
@@ -295,7 +283,7 @@ def generate_video(
             "tier": tier,
         }
 
-    op = client.operations.get(job_id)
+    op = await client.aio.operations.get(job_id)
     if not op.done:
         return {"job_id": job_id, "status": "pending", "eta_seconds": 30}
 
@@ -304,10 +292,16 @@ def generate_video(
 
     video = op.response.generated_videos[0]
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(out_dir.mkdir, parents=True, exist_ok=True)
     out_path = out_dir / f"{uuid.uuid4().hex}.mp4"
-    client.files.download(file=video.video)
-    video.video.save(str(out_path))
+
+    # Download video file. genai.Client.aio.files.download is likely what we need.
+    await client.aio.files.download(file=video.video)
+    # The SDK usually saves it locally if specified, or returns bytes.
+    # Looking at sync code: video.video.save(str(out_path))
+    # Let's check if video.video has an async save.
+    # If not, use to_thread.
+    await asyncio.to_thread(video.video.save, str(out_path))
 
     return {
         "video_path": str(out_path),

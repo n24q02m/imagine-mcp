@@ -6,15 +6,15 @@ from typing import Any, Protocol
 
 
 class ImagineProvider(Protocol):
-    def understand_image(
+    async def understand_image(
         self, url: str, prompt: str, tier: str, max_tokens: int = 2048
     ) -> dict[str, Any]: ...
 
-    def understand_video(
+    async def understand_video(
         self, url: str, prompt: str, tier: str, max_tokens: int = 2048
     ) -> dict[str, Any]: ...
 
-    def generate_image(
+    async def generate_image(
         self,
         prompt: str,
         tier: str,
@@ -22,7 +22,7 @@ class ImagineProvider(Protocol):
         aspect_ratio: str = "1:1",
     ) -> dict[str, Any]: ...
 
-    def generate_video(
+    async def generate_video(
         self,
         prompt: str,
         tier: str,

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from imagine_mcp.errors import (
@@ -13,7 +13,7 @@ from imagine_mcp.errors import (
     InvalidTierError,
     ProviderUnsupportedError,
 )
-from imagine_mcp.media import detect_media_type, validate_url_and_get_ip
+from imagine_mcp.media import detect_media_type_async, validate_url_and_get_ip
 from imagine_mcp.models import UNSUPPORTED, get_model_id
 
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
@@ -30,8 +30,6 @@ _DEFAULT_PROVIDER_PRIORITY: tuple[tuple[str, str], ...] = (
     ("OPENAI_API_KEY", "openai"),
     ("GEMINI_API_KEY", "gemini"),
 )
-
-_DISPATCH_POOL = ThreadPoolExecutor(max_workers=16, thread_name_prefix="dispatch")
 
 _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
     ("openai", "video", "understand"): (
@@ -50,13 +48,10 @@ _UNSUPPORTED_HINTS: dict[tuple[str, str, str], str] = {
 }
 
 
-def _validate_url(url: str, param: str) -> None:
-    """Reject non-http(s) URLs and internal IPs to prevent SSRF.
-
-    This function calls the centralized validation utility which ensures
-    the URL uses an allowed scheme and resolves to a public, non-multicast IP.
-    """
-    validate_url_and_get_ip(url, param)
+async def _validate_url(url: str, param: str) -> None:
+    """Reject non-http(s) URLs and internal IPs to prevent SSRF."""
+    # validate_url_and_get_ip uses a thread pool for DNS internally.
+    await asyncio.to_thread(validate_url_and_get_ip, url, param)
 
 
 def _validate(provider: str, tier: str) -> None:
@@ -69,23 +64,7 @@ def _validate(provider: str, tier: str) -> None:
 
 
 def _default_provider() -> str:
-    """Return the first provider whose API key is present for this request.
-
-    Resolution order: XAI_API_KEY -> OPENAI_API_KEY -> GEMINI_API_KEY.
-
-    Single-user / stdio path: reads ``os.environ`` (credentials saved via the
-    relay form / config.enc are written back into ``os.environ`` by
-    ``imagine_mcp.relay_setup.apply_config``).
-
-    HTTP multi-user path (``auth_scope`` middleware sets ``_current_sub``):
-        Reads the per-sub config from ``~/.imagine-mcp/subs/<sub>/config.json``.
-        ``os.environ`` is intentionally NOT consulted -- isolating users is
-        the whole point of multi-user mode.
-
-    Raises:
-        CredentialMissingError: when no provider key is configured for the
-        current request scope.
-    """
+    """Return the first provider whose API key is present for this request."""
     from imagine_mcp.credential_state import credentials_for_current_request
 
     creds = credentials_for_current_request()
@@ -111,32 +90,28 @@ def _unsupported(provider: str, media: str, action: str) -> ProviderUnsupportedE
     return ProviderUnsupportedError(msg)
 
 
-def dispatch_understand(
+async def dispatch_understand(
     media_urls: list[str],
     prompt: str,
     provider: str | None,
     tier: str,
     max_tokens: int = 2048,
 ) -> dict[str, Any]:
-    """Dispatch understand call to provider.
-
-    When ``provider`` is ``None``, auto-resolve via :func:`_default_provider`
-    (first provider whose API key is present in the environment).
-    """
+    """Dispatch understand call to provider (fully async)."""
     if provider is None:
         provider = _default_provider()
     _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
-    # Keep URL validation sequential to preserve fail-fast error handling and
-    # prevent deadlocks with the nested _DNS_RESOLVER_POOL used for DNS resolution.
-    for i, u in enumerate(media_urls):
-        _validate_url(u, f"media_urls[{i}]")
 
-    # Optimization: Use ThreadPoolExecutor to concurrently perform media type detection,
-    # reducing latency from O(N) sequential network calls to O(1) bounded concurrent calls.
-    # Wrapping in list() evaluates the generator, ensuring fail-fast behavior.
-    media_types = list(_DISPATCH_POOL.map(detect_media_type, media_urls))
+    # Sequential validation to preserve fail-fast and avoid pool deadlocks.
+    for i, u in enumerate(media_urls):
+        await _validate_url(u, f"media_urls[{i}]")
+
+    # Concurrent media type detection.
+    media_types = await asyncio.gather(
+        *(detect_media_type_async(u) for u in media_urls)
+    )
     has_video = "video" in media_types
 
     if has_video:
@@ -148,19 +123,18 @@ def dispatch_understand(
 
     # Gemini native multimodal can accept many URLs in one call
     if provider == "gemini" and len(media_urls) > 1:
-        # Pass pre-computed media_types to prevent redundant network I/O in the provider
-        return mod.understand_multimodal(
+        return await mod.understand_multimodal(
             media_urls, prompt, tier, max_tokens, media_types=media_types
         )
 
     url = media_urls[0]
     primary = media_types[0]
     if primary == "image":
-        return mod.understand_image(url, prompt, tier, max_tokens)
-    return mod.understand_video(url, prompt, tier, max_tokens)
+        return await mod.understand_image(url, prompt, tier, max_tokens)
+    return await mod.understand_video(url, prompt, tier, max_tokens)
 
 
-def dispatch_generate(
+async def dispatch_generate(
     media_type: str,
     prompt: str,
     provider: str | None,
@@ -170,11 +144,7 @@ def dispatch_generate(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
-    """Dispatch generate call to provider.
-
-    When ``provider`` is ``None``, auto-resolve via :func:`_default_provider`
-    (first provider whose API key is present in the environment).
-    """
+    """Dispatch generate call to provider (fully async)."""
     if provider is None:
         provider = _default_provider()
     _validate(provider, tier)
@@ -183,7 +153,7 @@ def dispatch_generate(
             f"Unknown media_type {media_type!r}. Valid: {VALID_MEDIA_TYPES}"
         )
     if reference_image_url is not None:
-        _validate_url(reference_image_url, "reference_image_url")
+        await _validate_url(reference_image_url, "reference_image_url")
 
     model = get_model_id(provider, "generate", media_type, tier)
     if model is UNSUPPORTED:
@@ -191,7 +161,7 @@ def dispatch_generate(
 
     mod = _load_provider(provider)
     if media_type == "image":
-        return mod.generate_image(prompt, tier, reference_image_url, aspect_ratio)
-    return mod.generate_video(
+        return await mod.generate_image(prompt, tier, reference_image_url, aspect_ratio)
+    return await mod.generate_video(
         prompt, tier, reference_image_url, job_id, aspect_ratio, duration_seconds
     )

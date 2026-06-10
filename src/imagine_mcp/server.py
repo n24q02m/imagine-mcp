@@ -121,7 +121,7 @@ def build_app() -> FastMCP:
             "OpenAI/Grok are image-only."
         ),
     )
-    def understand(
+    async def understand(
         media_urls: list[str],
         prompt: str,
         provider: str | None = None,
@@ -134,7 +134,7 @@ def build_app() -> FastMCP:
                 f"Too many media_urls ({len(media_urls)}). "
                 f"Max: {settings.max_media_urls}."
             )
-        return dispatch_understand(media_urls, prompt, provider, tier, max_tokens)
+        return await dispatch_understand(media_urls, prompt, provider, tier, max_tokens)
 
     @app.tool(
         description=(
@@ -142,7 +142,7 @@ def build_app() -> FastMCP:
             "Video is async: first call returns job_id; call again with job_id to poll."
         ),
     )
-    def generate(
+    async def generate(
         media_type: Literal["image", "video"],
         prompt: str,
         provider: str | None = None,
@@ -154,7 +154,7 @@ def build_app() -> FastMCP:
         duration_seconds: int = 8,
     ) -> dict[str, Any]:
         """Generate image or video."""
-        return dispatch_generate(
+        return await dispatch_generate(
             media_type,
             prompt,
             provider,
@@ -172,7 +172,7 @@ def build_app() -> FastMCP:
             "relay_complete|warmup; (runtime) status|set|cache_clear."
         ),
     )
-    def config(
+    async def config(
         action: str,
         key: str | None = None,
         value: str | None = None,
@@ -182,9 +182,7 @@ def build_app() -> FastMCP:
 
         match action:
             case "open_relay":
-                import asyncio
-
-                result = asyncio.run(relay_setup.ensure_config(force=True))
+                result = await relay_setup.ensure_config(force=True)
                 if result is None:
                     return {
                         "status": "degraded",
@@ -198,8 +196,6 @@ def build_app() -> FastMCP:
                     "providers_configured": _providers_configured(),
                 }
             case "relay_status":
-                # Derive providers from live PerPluginStore + env so status
-                # is accurate even when env vars were not populated at startup.
                 _live_providers = _providers_configured_live()
                 return {
                     "status": "configured" if _live_providers else "pending",
@@ -212,7 +208,6 @@ def build_app() -> FastMCP:
                     "providers_configured": _live_providers,
                 }
             case "relay_skip":
-                # Only claim "using env vars" when env vars are actually set.
                 _env_providers = _providers_configured()
                 if not _env_providers:
                     return {
@@ -224,7 +219,7 @@ def build_app() -> FastMCP:
                     "providers": _env_providers,
                 }
             case "relay_reset":
-                return relay_setup.reset_credentials()
+                return await asyncio.to_thread(relay_setup.reset_credentials)
             case "warmup":
                 return {
                     "status": "ok",
@@ -244,11 +239,11 @@ def build_app() -> FastMCP:
             case "cache_clear":
                 from imagine_mcp.cache import ResponseCache
 
-                cache = ResponseCache(
+                cache_obj = ResponseCache(
                     path=Path(platformdirs.user_cache_dir("imagine-mcp")) / "cache",
                     default_ttl=settings.cache_ttl_seconds,
                 )
-                cache.clear()
+                await asyncio.to_thread(cache_obj.clear)
                 return {"status": "ok", "message": "Cache cleared."}
             case _:
                 return {
@@ -263,32 +258,19 @@ def build_app() -> FastMCP:
     @app.tool(
         description=("Full documentation. Topics: understand | generate | config."),
     )
-    def help(topic: str = "understand") -> str:
+    async def help(topic: str = "understand") -> str:
         """Load documentation for a specific tool or topic."""
         if topic not in VALID_HELP_TOPICS:
             return f"Unknown topic {topic!r}. Valid: {sorted(VALID_HELP_TOPICS)}"
-        return _get_help_content(topic)
+        return await asyncio.to_thread(_get_help_content, topic)
 
-    # mcp-core >=1.13: register_open_relay_tool takes public_url (str | None).
-    # In stdio mode PUBLIC_URL is unset → tool returns ``stdio_unsupported``.
-    # In HTTP mode the server's PUBLIC_URL env points at the externally
-    # reachable origin used to construct the ``/authorize`` link.
     register_open_relay_tool(app, "imagine-mcp", os.environ.get("PUBLIC_URL"))
 
     return app
 
 
 async def _per_request_sub_scope(claims: dict[str, Any], next_: Any) -> None:
-    """``auth_scope`` middleware: pin JWT sub into a contextvar for the request.
-
-    mcp-core invokes this after Bearer JWT verification with the decoded
-    claims dict. We push ``claims["sub"]`` into ``_current_sub`` so tool
-    handlers (``understand`` / ``generate``) and the dispatcher's auto-fallback
-    (``_default_provider``) can resolve credentials per-user via
-    ``credentials_for_current_request()``. ``contextvars.Context.set`` returns
-    a token that we ``reset()`` in ``finally`` so a request that errors out
-    cannot leak its sub into the next request handled by the same task.
-    """
+    """``auth_scope`` middleware: pin JWT sub into a contextvar for the request."""
     from imagine_mcp.credential_state import _current_sub, _request_creds
 
     token_sub = _current_sub.set(claims.get("sub"))
@@ -301,24 +283,7 @@ async def _per_request_sub_scope(claims: dict[str, Any], next_: Any) -> None:
 
 
 async def run_http(port: int = 0) -> None:
-    """Unified HTTP daemon -- single-user (default) or multi-user remote.
-
-    Default (``PUBLIC_URL`` unset):
-        Local HTTP daemon on 127.0.0.1:<port> via mcp-core's
-        ``run_http_server``. Credential form at ``/authorize`` writes
-        keys to the encrypted ``config.enc`` (single-user, single config).
-
-    Multi-user remote (``PUBLIC_URL`` set):
-        Bind ``0.0.0.0:8080`` so the daemon is reachable behind a reverse
-        proxy. Each authorize session carries a fresh ``sub`` UUID
-        generated by ``mcp_core.auth.local_oauth_app``; LLM API keys are
-        scoped per-sub in ``IMAGINE_DATA_DIR/subs/<sub>/config.json``.
-        Refuses to start if ``MCP_DCR_SERVER_SECRET`` is missing -- DCR
-        requires a server secret to mint per-user JWTs safely.
-
-        ``auth_scope=_per_request_sub_scope`` is wired only in this branch
-        so single-user mode keeps reading ``os.environ`` unchanged.
-    """
+    """Unified HTTP daemon -- single-user (default) or multi-user remote."""
     from mcp_core.transport.local_server import run_http_server
 
     from imagine_mcp.credential_state import save_credentials
@@ -340,10 +305,6 @@ async def run_http(port: int = 0) -> None:
 
     app = build_app()
     logger.info("imagine-mcp {} starting ({})", _get_version(), mode_label)
-    # MCP_AUTH_DISABLE=1 skips Bearer JWT verification on /mcp -- for
-    # deployments behind an external auth boundary (reverse proxy / API
-    # gateway) that already enforces authentication. See mcp-core
-    # BearerMCPApp.auth_disabled (mcp-core >=1.15.0-beta.3).
     auth_disabled = os.environ.get("MCP_AUTH_DISABLE") == "1"
 
     await run_http_server(
@@ -360,11 +321,7 @@ async def run_http(port: int = 0) -> None:
 
 
 def main() -> None:
-    """Sync wrapper for the HTTP mode entry point.
-
-    Kept as the public entry point for legacy callers. Default mode
-    dispatch (stdio / http) lives in ``imagine_mcp.__main__``.
-    """
+    """Sync wrapper for the HTTP mode entry point."""
     asyncio.run(run_http())
 
 

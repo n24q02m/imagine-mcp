@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import os
 import uuid
@@ -19,8 +20,6 @@ from imagine_mcp.errors import (
 from imagine_mcp.models import get_model_id
 
 _CLIENT: Any = None
-# Per-sub client cache for HTTP multi-user mode. See providers/gemini.py
-# for rationale; module-level ``_CLIENT`` still serves stdio + single-user.
 _SUB_CLIENTS: dict[str, Any] = {}
 
 
@@ -51,9 +50,9 @@ def _client() -> Any:
                 "OpenAI API key missing. Run config(action='open_relay') for "
                 "browser-based setup, or set OPENAI_API_KEY."
             )
-        from openai import OpenAI
+        from openai import AsyncOpenAI
 
-        client = OpenAI(api_key=api_key)
+        client = AsyncOpenAI(api_key=api_key)
         _SUB_CLIENTS[sub] = client
         return client
 
@@ -64,32 +63,35 @@ def _client() -> Any:
                 "OpenAI API key missing. Run config(action='open_relay') for "
                 "browser-based setup, or set OPENAI_API_KEY."
             )
-        from openai import OpenAI
+        from openai import AsyncOpenAI
 
-        _CLIENT = OpenAI(api_key=api_key)
+        _CLIENT = AsyncOpenAI(api_key=api_key)
     return _CLIENT
 
 
 def _reset_client() -> None:
+    global _reset_client
     global _CLIENT
     _CLIENT = None
     _SUB_CLIENTS.clear()
 
 
-def understand_image(
+async def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
-    from imagine_mcp.media import get_ssrf_safe_client
+    from imagine_mcp.media import get_ssrf_safe_async_client
 
     model = get_model_id("openai", "understand", "image", tier)
 
     # Download image securely and pass as base64 data URL to prevent backend SSRF
-    resp_img = get_ssrf_safe_client().get(url, follow_redirects=True, timeout=60)
+    resp_img = await get_ssrf_safe_async_client().get(
+        url, follow_redirects=True, timeout=60
+    )
     img_b64 = base64.b64encode(resp_img.content).decode()
     mime_type = resp_img.headers.get("content-type", "image/png")
     data_url = f"data:{mime_type};base64,{img_b64}"
 
-    resp = _client().responses.create(
+    resp = await _client().responses.create(
         model=model,
         input=[
             {
@@ -110,7 +112,7 @@ def understand_image(
     }
 
 
-def understand_video(
+async def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
@@ -119,7 +121,7 @@ def understand_video(
     )
 
 
-def generate_image(
+async def generate_image(
     prompt: str,
     tier: str,
     reference_image_url: str | None = None,
@@ -130,18 +132,20 @@ def generate_image(
     size = size_map.get(aspect_ratio, "1024x1024")
 
     if reference_image_url:
-        from imagine_mcp.media import get_ssrf_safe_client
+        from imagine_mcp.media import get_ssrf_safe_async_client
 
         img_bytes = (
-            get_ssrf_safe_client()
-            .get(reference_image_url, follow_redirects=True, timeout=60)
-            .content
-        )
-        resp = _client().images.edit(
+            await get_ssrf_safe_async_client().get(
+                reference_image_url, follow_redirects=True, timeout=60
+            )
+        ).content
+        resp = await _client().images.edit(
             model=model, image=img_bytes, prompt=prompt, size=size
         )
     else:
-        resp = _client().images.generate(model=model, prompt=prompt, size=size, n=1)
+        resp = await _client().images.generate(
+            model=model, prompt=prompt, size=size, n=1
+        )
 
     img_b64 = resp.data[0].b64_json
     if not img_b64:
@@ -149,9 +153,9 @@ def generate_image(
     img_bytes = base64.b64decode(img_b64)
 
     out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    out_dir.mkdir(parents=True, exist_ok=True)
+    await asyncio.to_thread(out_dir.mkdir, parents=True, exist_ok=True)
     out_path = out_dir / f"{uuid.uuid4().hex}.png"
-    out_path.write_bytes(img_bytes)
+    await asyncio.to_thread(out_path.write_bytes, img_bytes)
 
     return {
         "image_path": str(out_path),
@@ -162,7 +166,7 @@ def generate_image(
     }
 
 
-def generate_video(
+async def generate_video(
     prompt: str,
     tier: str,
     reference_image_url: str | None = None,
