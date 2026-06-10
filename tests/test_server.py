@@ -50,6 +50,13 @@ def test_creds_state(monkeypatch) -> None:
     # One key
     monkeypatch.setenv("GEMINI_API_KEY", "test")
     assert _creds_state() == "CONFIGURED"
+    # From store
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    with patch(
+        "mcp_core.storage.per_plugin_store.PerPluginStore.load",
+        return_value={"GEMINI_API_KEY": "test"},
+    ):
+        assert _creds_state() == "CONFIGURED"
 
 
 def test_providers_configured(monkeypatch) -> None:
