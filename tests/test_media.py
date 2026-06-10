@@ -125,6 +125,28 @@ def test_detect_ambiguous_raises(monkeypatch: pytest.MonkeyPatch) -> None:
         detect_media_type("https://example.com/unknown-bin")
 
 
+def test_detect_media_type_http_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class MockClient:
+        def head(self, url, **kw):
+            raise httpx.HTTPError("network error")
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+    with pytest.raises(MediaDetectError, match="HEAD request failed for"):
+        detect_media_type("https://example.com/xyz")
+
+
+def test_detect_media_type_invalid_url_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    class MockClient:
+        def head(self, url, **kw):
+            raise InvalidURLError("unsafe")
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+    with pytest.raises(
+        MediaDetectError, match="HEAD request failed due to invalid redirect"
+    ):
+        detect_media_type("https://example.com/xyz")
+
+
 def test_extract_extension() -> None:
     assert _extract_extension("https://example.com/foo.PNG") == ".png"
     assert _extract_extension("https://example.com/foo.mp4?q=1") == ".mp4"
