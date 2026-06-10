@@ -2,6 +2,26 @@
 
 <!-- version list -->
 
+## v1.6.2-beta.2 (2026-06-10)
+
+### Bug Fixes
+
+- Add missing DNS error path tests for validate_url_and_get_ip
+  ([#274](https://github.com/n24q02m/imagine-mcp/pull/274),
+  [`608e4e1`](https://github.com/n24q02m/imagine-mcp/commit/608e4e1b53ca3b03918c719975f6da4d2cf3a0d7))
+
+- Add missing error path tests for detect_media_type
+  ([#276](https://github.com/n24q02m/imagine-mcp/pull/276),
+  [`b483e71`](https://github.com/n24q02m/imagine-mcp/commit/b483e71ad514f57bf987da49d8fc0edc56076db5))
+
+- Default MCP_HOST to 127.0.0.1, opt into 0.0.0.0 via Docker
+  ([`b7919b3`](https://github.com/n24q02m/imagine-mcp/commit/b7919b3595e2a0940d60c9e4954272669289a8c4))
+
+- Resolve stale state in relay_status/relay_complete
+  ([#280](https://github.com/n24q02m/imagine-mcp/pull/280),
+  [`1844f18`](https://github.com/n24q02m/imagine-mcp/commit/1844f184d7839680dba1752aee423d9d75e83e8d))
+
+
 ## v1.6.2-beta.1 (2026-06-10)
 
 ### Bug Fixes
