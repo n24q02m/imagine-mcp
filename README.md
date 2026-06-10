@@ -92,7 +92,7 @@ mcp-name: io.github.n24q02m/imagine-mcp
 
 ## Documentation
 
-Full docs at **[mcp.n24q02m.com/servers/imagine-mcp/](https://mcp.n24q02m.com/servers/imagine-mcp/)**:
+Full docs at **[mcp.n24q02m.com/servers/imagine-mcp/setup/](https://mcp.n24q02m.com/servers/imagine-mcp/setup/)**:
 
 - [Setup](https://mcp.n24q02m.com/servers/imagine-mcp/setup/) -- install methods for Claude Code, Codex, Gemini CLI, Cursor, Windsurf, mcp.json
 - [Modes overview](https://mcp.n24q02m.com/get-started/modes-overview/) -- stdio / local-relay / remote-relay / remote-oauth
@@ -111,6 +111,7 @@ Full docs at **[mcp.n24q02m.com/servers/imagine-mcp/](https://mcp.n24q02m.com/se
 | `generate` | -- | Generate an image or video from a text prompt. `media_type: image\|video`, optional `reference_image_url`, optional `job_id` (video poll), `aspect_ratio`, `duration_seconds`. |
 | `config` | `open_relay`, `relay_status`, `relay_skip`, `relay_reset`, `relay_complete`, `warmup`, `status`, `set`, `cache_clear` | Credential + runtime config: open relay form, check credential state, set runtime knobs (log level, default provider, TTL), clear response cache. |
 | `help` | -- | Full Markdown documentation for `understand`, `generate`, or `config` topics. |
+| `config__open_relay` | -- | Framework-injected helper (mcp-core) equivalent to `config(action="open_relay")`; opens the browser credential form. |
 
 Model IDs per provider x action x tier are leaderboard-ranked; see [`docs/models.md`](docs/models.md) (auto-regenerated from `src/imagine_mcp/models.py`).
 
@@ -132,7 +133,7 @@ mise run dev        # run http local relay daemon
 
 ## Trust Model
 
-This plugin implements **TC-Local** (machine-bound, single trust principal). See [mcp-core/docs/TRUST-MODEL.md](https://github.com/n24q02m/mcp-core/blob/main/docs/TRUST-MODEL.md) for full classification.
+This plugin implements **TC-Local** (machine-bound, single trust principal). See [mcp-core trust model](https://mcp.n24q02m.com/servers/mcp-core/trust-model/) for full classification.
 
 | Mode | Storage | Encryption | Who can read your data? |
 |---|---|---|---|

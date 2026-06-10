@@ -33,7 +33,7 @@ Options:
   2. Switch to HTTP mode (browser-based setup):
      See https://mcp.n24q02m.com/servers/imagine-mcp/setup/ "Self-Hosting HTTP Mode"
 
-Documentation: https://mcp.n24q02m.com/servers/imagine-mcp/
+Documentation: https://mcp.n24q02m.com/servers/imagine-mcp/setup/
 """
 
 
