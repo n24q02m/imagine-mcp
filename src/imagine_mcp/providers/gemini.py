@@ -316,7 +316,7 @@ def generate_video(
             "tier": tier,
         }
 
-    op = client.operations.get(name=job_id)
+    op = client.operations.get(cast(Any, job_id))
     if not op.done:
         return {"job_id": job_id, "status": "pending", "eta_seconds": 30}
 
