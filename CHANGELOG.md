@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.3 (2026-06-11)
+
+### Bug Fixes
+
+- Document per-task model chains + provider->key table (drop priority-router docs)
+  ([#287](https://github.com/n24q02m/imagine-mcp/pull/287),
+  [`b2f7595`](https://github.com/n24q02m/imagine-mcp/commit/b2f7595d18a735e584452438dc427bd126d7664e))
+
+### Features
+
+- Drop config(action="models") catalog-listing tool action
+  ([#288](https://github.com/n24q02m/imagine-mcp/pull/288),
+  [`4a63b79`](https://github.com/n24q02m/imagine-mcp/commit/4a63b798ea7bc1526e7dc2b15c8e368ffda51683))
+
+- Drop config(action="models") mention from CLAUDE.md
+  ([#288](https://github.com/n24q02m/imagine-mcp/pull/288),
+  [`4a63b79`](https://github.com/n24q02m/imagine-mcp/commit/4a63b798ea7bc1526e7dc2b15c8e368ffda51683))
+
+
 ## v1.7.0-beta.2 (2026-06-11)
 
 ### Bug Fixes
