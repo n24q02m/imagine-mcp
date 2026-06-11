@@ -159,21 +159,12 @@ async def test_tool_config_cache_clear(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_tool_config_models(monkeypatch) -> None:
+async def test_tool_config_models_action_removed() -> None:
     app = build_app()
-    monkeypatch.setattr(
-        "mcp_core.llm.list_models",
-        lambda **kwargs: [
-            {"model": "gemini/gemini-3.1-pro-preview", "mode": "chat"},
-        ],
-    )
     result = await app.call_tool("config", {"action": "models"})
     res = json.loads(result.content[0].text)
-    assert res["status"] == "ok"
-    assert res["models"] == [
-        {"model": "gemini/gemini-3.1-pro-preview", "mode": "chat"},
-    ]
-    assert "passthrough" in res["note"]
+    assert res["status"] == "error"
+    assert "Unknown action 'models'" in res["message"]
 
 
 @pytest.mark.asyncio
