@@ -24,10 +24,11 @@ from bs4 import BeautifulSoup, SoupStrainer, Tag
 
 log = logging.getLogger("refresh_ranks")
 
+
 def _sanitize_text(text: str) -> str:
     """Sanitize parsed text to prevent terminal injection and ReDoS."""
     # Strip control characters
-    text = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', text)
+    text = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", text)
     # Truncate to a reasonable maximum length
     if len(text) > 500:
         return text[:500] + "..."
@@ -192,7 +193,9 @@ def parse_leaderboard(url: str, html: str) -> list[LBRow]:
         if not thead:
             log.warning("no thead: %s", url)
             return []
-        header_cells = [_sanitize_text(c.get_text(strip=True)).lower() for c in thead.find_all("th")]
+        header_cells = [
+            _sanitize_text(c.get_text(strip=True)).lower() for c in thead.find_all("th")
+        ]
 
         try:
             rank_i = header_cells.index("rank")
@@ -200,10 +203,18 @@ def parse_leaderboard(url: str, html: str) -> list[LBRow]:
             log.warning("no rank column: %s", url)
             return []
 
-        name_i = next((i for i, c in enumerate(header_cells) if c in ("model", "name")), 1)
-        provider_i = next((i for i, c in enumerate(header_cells) if "provider" in c), -1)
+        name_i = next(
+            (i for i, c in enumerate(header_cells) if c in ("model", "name")), 1
+        )
+        provider_i = next(
+            (i for i, c in enumerate(header_cells) if "provider" in c), -1
+        )
         score_i = next(
-            (i for i, c in enumerate(header_cells) if c in ("score", "elo", "arena score")),
+            (
+                i
+                for i, c in enumerate(header_cells)
+                if c in ("score", "elo", "arena score")
+            ),
             -1,
         )
 
