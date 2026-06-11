@@ -101,7 +101,7 @@ Full docs at **[mcp.n24q02m.com/servers/imagine-mcp/setup/](https://mcp.n24q02m.
 
 **Install with AI agent** -- paste this to your AI coding agent:
 
-> Install MCP server `imagine-mcp` following the steps at  
+> Install MCP server `imagine-mcp` following the steps at
 > https://raw.githubusercontent.com/n24q02m/claude-plugins/main/plugins/imagine-mcp/setup-with-agent.md
 
 ## Tools
