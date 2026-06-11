@@ -93,6 +93,26 @@ vision messages — no native provider SDK for the understand path. Open passthr
 pass `model="provider/model"` to bypass the catalog (any litellm model works;
 capability-checked via `mcp_core.llm.check_capability`, graceful on registry-missing).
 
+- `UNDERSTAND_MODELS` -- ordered model chain for the understand path, CSV
+  `provider/model,provider/model`; order = litellm fallback (first entry is the
+  primary model, the rest are fallbacks). Provider is inferred from the model
+  prefix. **Empty/unset = understand off** (falls back to the provider/tier
+  catalog default). imagine has NO local fallback — generation stays native
+  (below) and is NOT affected by this chain.
+- API keys follow the litellm convention `<PROVIDER>_API_KEY`. The 6 providers
+  the server suggests for the understand chain:
+
+  | model prefix | key env var | get it at |
+  |---|---|---|
+  | `gemini/` | `GEMINI_API_KEY` | aistudio.google.com/apikey |
+  | `openai/` (or bare) | `OPENAI_API_KEY` | platform.openai.com |
+  | `jina_ai/` | `JINA_AI_API_KEY` | jina.ai/api-key |
+  | `cohere/` | `COHERE_API_KEY` | dashboard.cohere.com |
+  | `xai/` | `XAI_API_KEY` | console.x.ai |
+  | `anthropic/` | `ANTHROPIC_API_KEY` | console.anthropic.com |
+
+  For any other litellm provider (used via env passthrough), see https://docs.litellm.ai/docs/providers/<provider> for its `<PROVIDER>_API_KEY` name.
+
 **Generation** stays NATIVE (deferred 2026-06-11, credential-gated probe):
 gemini image + Veo video via `google-genai`, openai image via the OpenAI SDK,
 grok image/video via raw httpx x.ai endpoints (xAI generation is a verified
@@ -102,6 +122,23 @@ litellm gap). `google-genai` + `openai` deps are retained for these paths.
   (optional; vetted through `mcp_core.http.vet_api_base` SSRF guard).
 - `LLM_API_BASE_ALLOW_PRIVATE=1` -- single-user escape to allow a private/loopback
   `api_base` (ignored in multi-user mode when `PUBLIC_URL` is set).
+
+### Manual config example
+
+```json
+{
+  "mcpServers": {
+    "imagine": {
+      "command": "uvx", "args": ["imagine-mcp"],
+      "env": {
+        "UNDERSTAND_MODELS": "gemini/gemini-3.1-pro-preview,openai/gpt-5.4",
+        "GEMINI_API_KEY": "AIza_xxx",
+        "OPENAI_API_KEY": "sk_xxx"
+      }
+    }
+  }
+}
+```
 
 ## Install
 

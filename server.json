@@ -22,6 +22,12 @@
       },
       "environmentVariables": [
         {
+          "name": "UNDERSTAND_MODELS",
+          "description": "Ordered model chain for the understand path 'provider/model,...' (order = litellm fallback; provider inferred from the prefix). Empty = understand off (provider/tier catalog default). Generation stays provider/tier native.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "GEMINI_API_KEY",
           "description": "Google AI Studio API key (aistudio.google.com/apikey)",
           "isRequired": false,
@@ -49,6 +55,12 @@
         "type": "stdio"
       },
       "environmentVariables": [
+        {
+          "name": "UNDERSTAND_MODELS",
+          "description": "Ordered model chain for the understand path 'provider/model,...' (order = litellm fallback; provider inferred from the prefix). Empty = understand off (provider/tier catalog default). Generation stays provider/tier native.",
+          "isRequired": false,
+          "isSecret": false
+        },
         {
           "name": "GEMINI_API_KEY",
           "description": "Google AI Studio API key",
