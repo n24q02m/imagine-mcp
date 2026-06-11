@@ -179,8 +179,9 @@ async def understand_multimodal(
     await asyncio.to_thread(tmp_dir.mkdir, parents=True, exist_ok=True)
 
     try:
-        for i, u in enumerate(urls):
-            mt = media_types[i] if media_types else await detect_media_type_async(u)
+        # ⚡ Bolt: Optimize network I/O from O(N) to O(1) latency using asyncio.gather
+        # to fetch parts concurrently.
+        async def _fetch_part(idx: int, u: str, mt: str) -> Any:
             if mt == "image":
                 img_resp = await get_ssrf_safe_async_client().get(
                     u, follow_redirects=True, timeout=60
@@ -189,12 +190,35 @@ async def understand_multimodal(
                 mime_type = resolve_image_mime(
                     img_resp.headers.get("content-type"), img_data
                 )
-                parts.append(types.Part.from_bytes(data=img_data, mime_type=mime_type))
+                return types.Part.from_bytes(data=img_data, mime_type=mime_type)
             else:
                 tmp_path = tmp_dir / f"{uuid.uuid4().hex}.mp4"
-                await download_to_path_async(u, tmp_path)
+                # Register temporary path *before* the await to guarantee it is cleaned up
+                # in the finally block if a partial failure occurs.
                 tmp_files.append(tmp_path)
-                parts.append(await client.aio.files.upload(file=tmp_path))
+                await download_to_path_async(u, tmp_path)
+                return await client.aio.files.upload(file=tmp_path)
+
+        async def _resolve_mt(idx: int, u: str) -> str:
+            return media_types[idx] if media_types else await detect_media_type_async(u)
+
+        # ⚡ Bolt: Use return_exceptions=True to ensure no background tasks are leaked
+        # if one download or upload fails. This also avoids skipping cleanup logic.
+        resolved_mts = await asyncio.gather(
+            *(_resolve_mt(i, u) for i, u in enumerate(urls)), return_exceptions=True
+        )
+        for res in resolved_mts:
+            if isinstance(res, Exception):
+                raise res
+
+        results = await asyncio.gather(
+            *(_fetch_part(i, urls[i], resolved_mts[i]) for i in range(len(urls))),
+            return_exceptions=True,
+        )
+        for res in results:
+            if isinstance(res, Exception):
+                raise res
+            parts.append(res)
 
         resp = await client.aio.models.generate_content(
             model=model,
