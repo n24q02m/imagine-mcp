@@ -136,8 +136,12 @@ async def _passthrough_understand(
     SSRF-safe client and sent as base64 data URLs (vision message format).
     Registry-missing models pass through with a ``warning`` in the response.
     """
-    from mcp_core.llm import ModelCapabilityError, acompletion, check_capability
-    from mcp_core.llm.catalog import _registry_entry
+    from mcp_core.llm import (
+        ModelCapabilityError,
+        acompletion,
+        check_capability,
+        supports_vision,
+    )
 
     from imagine_mcp.media import get_ssrf_safe_async_client
 
@@ -172,7 +176,10 @@ async def _passthrough_understand(
         "model": model,
         "provider": "passthrough",
     }
-    if _registry_entry(model) is None:
+    # supports_vision (public API) returns None for a registry-missing model,
+    # which is the same "unknown model -> open passthrough" signal as a missing
+    # registry entry -- avoids depending on the private _registry_entry helper.
+    if supports_vision(model) is None:
         out["warning"] = (
             f"model {model!r} is not in the litellm registry; "
             "called via open passthrough (capability unverified)."

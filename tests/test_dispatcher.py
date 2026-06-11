@@ -418,6 +418,36 @@ async def test_passthrough_understand_unknown_model_warns(
 
 
 @pytest.mark.asyncio
+async def test_passthrough_understand_capability_mismatch_raises(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A known model with the wrong mode is surfaced as ProviderUnsupportedError."""
+    from mcp_core.llm import ModelCapabilityError
+
+    def fake_check_capability(model: str, modes: tuple[str, ...]) -> None:
+        raise ModelCapabilityError(
+            f"model {model!r} has mode='image_generation', expected one of {modes}."
+        )
+
+    # Patch at the resolution site (lazy `from mcp_core.llm import check_capability`).
+    monkeypatch.setattr("mcp_core.llm.check_capability", fake_check_capability)
+    # Capability check precedes image download; stub URL validation so the test
+    # does not depend on DNS resolution.
+    monkeypatch.setattr(
+        "imagine_mcp.dispatcher._validate_url", AsyncMock(return_value=None)
+    )
+
+    with pytest.raises(ProviderUnsupportedError, match="expected one of"):
+        await dispatch_understand(
+            media_urls=["https://example.com/cat.png"],
+            prompt="describe",
+            provider=None,
+            tier="poor",
+            model="gemini/gemini-3.1-flash-image-preview",
+        )
+
+
+@pytest.mark.asyncio
 async def test_passthrough_generate_xai_routes_native_grok(
     clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
