@@ -181,7 +181,7 @@ def build_app() -> FastMCP:
         description=(
             "Server config + credential setup (MERGED). Actions: "
             "(relay) open_relay|relay_status|relay_skip|relay_reset|"
-            "relay_complete|warmup; (runtime) status|set|cache_clear|models."
+            "relay_complete|warmup; (runtime) status|set|cache_clear."
         ),
     )
     async def config(
@@ -246,24 +246,6 @@ def build_app() -> FastMCP:
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
                 }
-            case "models":
-                # litellm passthrough catalog: registry models for the
-                # configured providers, across understand + generate modes.
-                from mcp_core.llm import list_models
-
-                available = list_models(
-                    modes=("chat", "image_generation", "video_generation"),
-                    configured_only=True,
-                )
-                return {
-                    "status": "ok",
-                    "models": available,
-                    "note": (
-                        "Models outside this list still work via open "
-                        "passthrough: pass model='provider/model' to "
-                        "understand or generate."
-                    ),
-                }
             case "set":
                 return _set_runtime(key, value)
             case "cache_clear":
@@ -281,7 +263,7 @@ def build_app() -> FastMCP:
                     "message": (
                         f"Unknown action {action!r}. Valid: open_relay|relay_status|"
                         "relay_skip|relay_reset|relay_complete|warmup|"
-                        "status|set|cache_clear|models"
+                        "status|set|cache_clear"
                     ),
                 }
 
