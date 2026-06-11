@@ -14,7 +14,8 @@ Production-grade MCP server for image/video understanding and generation across 
 ```python
 understand(media_urls: list[str], prompt: str,
            provider: str | None = None, tier: str = "poor",
-           max_tokens: int = 2048) -> dict
+           max_tokens: int = 2048,
+           model: str | None = None) -> dict
 
 generate(media_type: Literal["image", "video"], prompt: str,
          provider: str | None = None, tier: str = "poor",
@@ -22,12 +23,18 @@ generate(media_type: Literal["image", "video"], prompt: str,
          job_id: str | None = None,
          output_mode: Literal["base64", "path", "both"] = "both",
          aspect_ratio: str = "16:9",
-         duration_seconds: int = 8) -> dict
+         duration_seconds: int = 8,
+         model: str | None = None) -> dict
 
 config(action: str, key: str | None = None, value: str | None = None) -> dict
 
 help(topic: str = "understand") -> str
 ```
+
+`model` (optional, litellm `provider/model` format) overrides the provider/tier
+catalog — bypasses `VALID_PROVIDERS` + the model-ID table for open passthrough.
+`config(action="models")` lists available models (chat/image_generation/video_generation)
+for configured providers; any litellm model works via passthrough even if unlisted.
 
 ## Model IDs (verified 2026-04-18; rank from Artificial Analysis + LMArena, refreshed weekly)
 
@@ -77,6 +84,24 @@ explicit `provider`): the first key present in this order wins —
 `gemini`. Gemini is last because Google AI Studio accounts can be
 billing-locked at the org level (403 PERMISSION_DENIED) without warning. If
 no key is configured the dispatcher raises `CredentialMissingError`.
+
+## LLM backend (litellm passthrough)
+
+**Understanding** (`understand`, all providers) dispatches through `mcp_core.llm`
+(litellm library-mode passthrough, `n24q02m-mcp-core[llm]`) using OpenAI-format
+vision messages — no native provider SDK for the understand path. Open passthrough:
+pass `model="provider/model"` to bypass the catalog (any litellm model works;
+capability-checked via `mcp_core.llm.check_capability`, graceful on registry-missing).
+
+**Generation** stays NATIVE (deferred 2026-06-11, credential-gated probe):
+gemini image + Veo video via `google-genai`, openai image via the OpenAI SDK,
+grok image/video via raw httpx x.ai endpoints (xAI generation is a verified
+litellm gap). `google-genai` + `openai` deps are retained for these paths.
+
+- `LLM_API_BASE` -- custom OpenAI-compatible base URL for the understand path
+  (optional; vetted through `mcp_core.http.vet_api_base` SSRF guard).
+- `LLM_API_BASE_ALLOW_PRIVATE=1` -- single-user escape to allow a private/loopback
+  `api_base` (ignored in multi-user mode when `PUBLIC_URL` is set).
 
 ## Install
 
