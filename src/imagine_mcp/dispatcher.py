@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import importlib
+import os
 from typing import Any
 
 from imagine_mcp.errors import (
@@ -19,6 +21,39 @@ from imagine_mcp.models import UNSUPPORTED, get_model_id
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
 VALID_MEDIA_TYPES = ["image", "video"]
+
+# Modes accepted by litellm's registry per action; passed to check_capability.
+# A registry-missing model raises nothing (open passthrough), so these only
+# guard KNOWN models against an obvious action/mode mismatch.
+_UNDERSTAND_MODES: tuple[str, ...] = ("chat", "responses", "completion")
+
+# litellm provider prefix -> env var holding that provider's API key, used to
+# resolve a per-sub credential for an explicit passthrough ``model``.
+_PREFIX_TO_ENV: dict[str, str] = {
+    "gemini": "GEMINI_API_KEY",
+    "google": "GEMINI_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "gpt": "OPENAI_API_KEY",
+    "xai": "XAI_API_KEY",
+    "grok": "XAI_API_KEY",
+}
+
+
+def _passthrough_api_key(model: str) -> str | None:
+    """Resolve the API key for an explicit passthrough ``model``.
+
+    Maps the ``provider/`` prefix to its env var and reads the per-request
+    credential view. Returns ``None`` when no prefix or no key is configured;
+    a ``None`` key lets litellm fall back to its own env-var lookup.
+    """
+    from imagine_mcp.credential_state import credentials_for_current_request
+
+    prefix = model.split("/", 1)[0].lower() if "/" in model else ""
+    env_var = _PREFIX_TO_ENV.get(prefix)
+    if env_var is None:
+        return None
+    return credentials_for_current_request().get(env_var) or None
+
 
 # Auto-fallback priority when caller does not pin a provider. Order is
 # (XAI, OpenAI, Gemini): Gemini stays last because Google AI Studio
@@ -78,6 +113,17 @@ def _default_provider() -> str:
     )
 
 
+def resolve_understand_chain() -> list[str]:
+    """Ordered ``UNDERSTAND_MODELS`` chain (litellm ``provider/model`` entries).
+
+    Empty / unset -> empty list, which preserves the provider/tier catalog
+    default. The first entry is the primary model; the rest are litellm
+    fallbacks.
+    """
+    raw = (os.getenv("UNDERSTAND_MODELS") or "").strip()
+    return [m.strip() for m in raw.split(",") if m.strip()] if raw else []
+
+
 def _load_provider(provider: str) -> Any:
     return importlib.import_module(f"imagine_mcp.providers.{provider}")
 
@@ -90,14 +136,98 @@ def _unsupported(provider: str, media: str, action: str) -> ProviderUnsupportedE
     return ProviderUnsupportedError(msg)
 
 
+async def _passthrough_understand(
+    media_urls: list[str],
+    prompt: str,
+    model: str,
+    max_tokens: int,
+    fallbacks: list[str] | None = None,
+) -> dict[str, Any]:
+    """Understand via an explicit litellm passthrough ``model``.
+
+    Bypasses the provider/tier catalog. Images are downloaded through the
+    SSRF-safe client and sent as base64 data URLs (vision message format).
+    Registry-missing models pass through with a ``warning`` in the response.
+
+    ``fallbacks`` (the rest of an ``UNDERSTAND_MODELS`` chain after the
+    primary) is forwarded to litellm's native ``fallbacks`` kwarg via
+    ``acompletion``'s ``**kwargs`` passthrough.
+    """
+    from mcp_core.llm import (
+        ModelCapabilityError,
+        acompletion,
+        check_capability,
+        supports_vision,
+    )
+
+    from imagine_mcp.media import get_ssrf_safe_async_client
+
+    if not media_urls:
+        raise InvalidMediaTypeError("media_urls is empty")
+    for i, u in enumerate(media_urls):
+        await _validate_url(u, f"media_urls[{i}]")
+
+    try:
+        check_capability(model, _UNDERSTAND_MODES)
+    except ModelCapabilityError as e:
+        raise ProviderUnsupportedError(str(e)) from e
+
+    content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+    for u in media_urls:
+        resp_img = await get_ssrf_safe_async_client().get(
+            u, follow_redirects=True, timeout=60
+        )
+        img_b64 = base64.b64encode(resp_img.content).decode()
+        mime_type = resp_img.headers.get("content-type", "image/png")
+        data_url = f"data:{mime_type};base64,{img_b64}"
+        content.append({"type": "image_url", "image_url": {"url": data_url}})
+
+    resp = await acompletion(
+        model=model,
+        messages=[{"role": "user", "content": content}],
+        max_tokens=max_tokens,
+        api_key=_passthrough_api_key(model),
+        fallbacks=fallbacks or None,
+    )
+    out: dict[str, Any] = {
+        "text": resp.choices[0].message.content,
+        "model": model,
+        "provider": "passthrough",
+    }
+    # supports_vision (public API) returns None for a registry-missing model,
+    # which is the same "unknown model -> open passthrough" signal as a missing
+    # registry entry -- avoids depending on the private _registry_entry helper.
+    if supports_vision(model) is None:
+        out["warning"] = (
+            f"model {model!r} is not in the litellm registry; "
+            "called via open passthrough (capability unverified)."
+        )
+    return out
+
+
 async def dispatch_understand(
     media_urls: list[str],
     prompt: str,
     provider: str | None,
     tier: str,
     max_tokens: int = 2048,
+    model: str | None = None,
 ) -> dict[str, Any]:
-    """Dispatch understand call to provider (fully async)."""
+    """Dispatch understand call to provider (fully async).
+
+    When ``model`` is set, the provider/tier catalog is bypassed and the call
+    is routed straight to litellm via ``mcp_core.llm`` (open passthrough).
+    """
+    if model is not None:
+        return await _passthrough_understand(media_urls, prompt, model, max_tokens)
+
+    if model is None and provider is None:
+        chain = resolve_understand_chain()
+        if chain:
+            return await _passthrough_understand(
+                media_urls, prompt, chain[0], max_tokens, fallbacks=chain[1:]
+            )
+
     if provider is None:
         provider = _default_provider()
     _validate(provider, tier)
@@ -115,8 +245,8 @@ async def dispatch_understand(
     has_video = "video" in media_types
 
     if has_video:
-        model = get_model_id(provider, "understand", "video", tier)
-        if model is UNSUPPORTED:
+        video_model = get_model_id(provider, "understand", "video", tier)
+        if video_model is UNSUPPORTED:
             raise _unsupported(provider, "video", "understand")
 
     mod = _load_provider(provider)
@@ -134,6 +264,38 @@ async def dispatch_understand(
     return await mod.understand_video(url, prompt, tier, max_tokens)
 
 
+# litellm provider prefix -> native generation provider. Generation stays
+# 100% native (litellm gen passthrough deferred -- avideo/aimage param
+# unverified, probe credential-gated 2026-06-11), so an explicit ``model``
+# override on generate is resolved to a native provider rather than routed
+# through litellm.
+_GEN_PREFIX_TO_PROVIDER: dict[str, str] = {
+    "gemini": "gemini",
+    "google": "gemini",
+    "openai": "openai",
+    "gpt": "openai",
+    "xai": "grok",
+    "grok": "grok",
+}
+
+
+def _resolve_generate_provider(model: str) -> str:
+    """Map a passthrough ``model`` prefix to a native generation provider.
+
+    Raises ``ProviderUnsupportedError`` with an explicit litellm-gap message
+    when the prefix maps to a provider that has no native generation path
+    here (xAI generation runs on raw x.ai endpoints, not litellm).
+    """
+    prefix = model.split("/", 1)[0].lower() if "/" in model else ""
+    mapped = _GEN_PREFIX_TO_PROVIDER.get(prefix)
+    if mapped is None:
+        raise ProviderUnsupportedError(
+            f"litellm gap: generation passthrough for model {model!r} is not "
+            "supported. Use an explicit provider/tier instead."
+        )
+    return mapped
+
+
 async def dispatch_generate(
     media_type: str,
     prompt: str,
@@ -143,9 +305,17 @@ async def dispatch_generate(
     job_id: str | None = None,
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
+    model: str | None = None,
 ) -> dict[str, Any]:
-    """Dispatch generate call to provider (fully async)."""
-    if provider is None:
+    """Dispatch generate call to provider (fully async).
+
+    When ``model`` is set, the litellm 'provider/model' prefix selects a
+    native generation provider (catalog still picks the concrete model by
+    tier); generation itself is never routed through litellm.
+    """
+    if model is not None:
+        provider = _resolve_generate_provider(model)
+    elif provider is None:
         provider = _default_provider()
     _validate(provider, tier)
     if media_type not in VALID_MEDIA_TYPES:
@@ -155,8 +325,8 @@ async def dispatch_generate(
     if reference_image_url is not None:
         await _validate_url(reference_image_url, "reference_image_url")
 
-    model = get_model_id(provider, "generate", media_type, tier)
-    if model is UNSUPPORTED:
+    catalog_model = get_model_id(provider, "generate", media_type, tier)
+    if catalog_model is UNSUPPORTED:
         raise _unsupported(provider, media_type, "generate")
 
     mod = _load_provider(provider)

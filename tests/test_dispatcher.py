@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from unittest.mock import AsyncMock
 
 import pytest
@@ -8,6 +9,7 @@ from imagine_mcp.dispatcher import (
     _default_provider,
     dispatch_generate,
     dispatch_understand,
+    resolve_understand_chain,
 )
 from imagine_mcp.errors import (
     CredentialMissingError,
@@ -330,6 +332,312 @@ async def test_understand_rejects_dns_timeout(monkeypatch: pytest.MonkeyPatch) -
         )
     duration = time.time() - start
     assert duration < 2.5, f"DNS timeout block took too long: {duration}s"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_understand_routes_to_litellm(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An explicit ``model`` bypasses the catalog and calls litellm directly."""
+    from unittest.mock import MagicMock
+
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+
+    msg = MagicMock()
+    msg.content = "a passthrough cat"
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+
+    captured: dict[str, object] = {}
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return resp
+
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
+    # Avoid real image download.
+    mock_resp = MagicMock()
+    mock_resp.content = b"fake-image-bytes"
+    mock_resp.headers = {"content-type": "image/png"}
+    mock_client = AsyncMock()
+    mock_client.get.return_value = mock_resp
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
+    )
+
+    result = await dispatch_understand(
+        media_urls=["https://example.com/cat.png"],
+        prompt="describe",
+        provider=None,
+        tier="poor",
+        model="gemini/gemini-3.1-pro-preview",
+    )
+    assert result["text"] == "a passthrough cat"
+    assert result["provider"] == "passthrough"
+    assert result["model"] == "gemini/gemini-3.1-pro-preview"
+    assert captured["model"] == "gemini/gemini-3.1-pro-preview"
+    assert captured["api_key"] == "gem-test"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_understand_unknown_model_warns(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A registry-missing model passes through with a warning field."""
+    from unittest.mock import MagicMock
+
+    msg = MagicMock()
+    msg.content = "ok"
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        return resp
+
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
+    mock_resp = MagicMock()
+    mock_resp.content = b"x"
+    mock_resp.headers = {"content-type": "image/png"}
+    mock_client = AsyncMock()
+    mock_client.get.return_value = mock_resp
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
+    )
+
+    result = await dispatch_understand(
+        media_urls=["https://example.com/cat.png"],
+        prompt="describe",
+        provider=None,
+        tier="poor",
+        model="acme/never-heard-of-it",
+    )
+    assert "warning" in result
+    assert "registry" in result["warning"]
+
+
+@pytest.mark.asyncio
+async def test_passthrough_understand_capability_mismatch_raises(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A known model with the wrong mode is surfaced as ProviderUnsupportedError."""
+    from mcp_core.llm import ModelCapabilityError
+
+    def fake_check_capability(model: str, modes: tuple[str, ...]) -> None:
+        raise ModelCapabilityError(
+            f"model {model!r} has mode='image_generation', expected one of {modes}."
+        )
+
+    # Patch at the resolution site (lazy `from mcp_core.llm import check_capability`).
+    monkeypatch.setattr("mcp_core.llm.check_capability", fake_check_capability)
+    # Capability check precedes image download; stub URL validation so the test
+    # does not depend on DNS resolution.
+    monkeypatch.setattr(
+        "imagine_mcp.dispatcher._validate_url", AsyncMock(return_value=None)
+    )
+
+    with pytest.raises(ProviderUnsupportedError, match="expected one of"):
+        await dispatch_understand(
+            media_urls=["https://example.com/cat.png"],
+            prompt="describe",
+            provider=None,
+            tier="poor",
+            model="gemini/gemini-3.1-flash-image-preview",
+        )
+
+
+@pytest.mark.asyncio
+async def test_passthrough_generate_xai_routes_native_grok(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An xai/ model on generate resolves to the native grok provider."""
+    captured: dict[str, str] = {}
+
+    async def mock_fn(
+        prompt: str,
+        tier: str,
+        reference_image_url: str | None,
+        aspect_ratio: str,
+    ) -> dict:
+        captured["called"] = "grok"
+        return {"image": "...", "model": "grok-imagine-image", "provider": "grok"}
+
+    import imagine_mcp.providers.grok as grok_mod
+
+    monkeypatch.setattr(grok_mod, "generate_image", mock_fn, raising=False)
+
+    result = await dispatch_generate(
+        media_type="image",
+        prompt="a cat",
+        provider=None,
+        tier="poor",
+        model="xai/grok-imagine-image",
+    )
+    assert captured["called"] == "grok"
+    assert result["provider"] == "grok"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_generate_unknown_prefix_raises_litellm_gap() -> None:
+    """A generate model with an unmappable prefix returns the litellm-gap error."""
+    with pytest.raises(ProviderUnsupportedError, match="litellm gap"):
+        await dispatch_generate(
+            media_type="image",
+            prompt="a cat",
+            provider=None,
+            tier="poor",
+            model="cohere/some-image-model",
+        )
+
+
+def test_understand_chain_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "UNDERSTAND_MODELS",
+        "xai/grok-4.20-0309-non-reasoning,gemini/gemini-3.1-flash-lite-preview",
+    )
+    assert resolve_understand_chain()[0] == "xai/grok-4.20-0309-non-reasoning"
+
+
+def test_understand_chain_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("UNDERSTAND_MODELS", raising=False)
+    assert resolve_understand_chain() == []
+
+
+def test_understand_chain_strips_and_skips_blanks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UNDERSTAND_MODELS", " xai/grok , , gemini/flash ,")
+    assert resolve_understand_chain() == ["xai/grok", "gemini/flash"]
+
+
+def test_understand_chain_blank_string_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("UNDERSTAND_MODELS", "   ")
+    assert resolve_understand_chain() == []
+    # Sanity: env var is genuinely present (not absent) for this case.
+    assert os.getenv("UNDERSTAND_MODELS") == "   "
+
+
+@pytest.mark.asyncio
+async def test_dispatch_understand_uses_chain_default(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """No explicit model/provider + UNDERSTAND_MODELS set -> chain passthrough."""
+    from unittest.mock import MagicMock
+
+    monkeypatch.setenv(
+        "UNDERSTAND_MODELS",
+        "xai/grok-4.20-0309-non-reasoning,gemini/gemini-3.1-flash-lite-preview",
+    )
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    msg = MagicMock()
+    msg.content = "chain cat"
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+
+    captured: dict[str, object] = {}
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return resp
+
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
+    mock_resp = MagicMock()
+    mock_resp.content = b"x"
+    mock_resp.headers = {"content-type": "image/png"}
+    mock_client = AsyncMock()
+    mock_client.get.return_value = mock_resp
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
+    )
+
+    result = await dispatch_understand(
+        media_urls=["https://example.com/cat.png"],
+        prompt="describe",
+        provider=None,
+        tier="poor",
+    )
+    assert result["provider"] == "passthrough"
+    assert captured["model"] == "xai/grok-4.20-0309-non-reasoning"
+    assert captured["fallbacks"] == ["gemini/gemini-3.1-flash-lite-preview"]
+
+
+@pytest.mark.asyncio
+async def test_dispatch_understand_single_chain_no_fallbacks(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A one-entry chain forwards fallbacks=None (no empty-list noise)."""
+    from unittest.mock import MagicMock
+
+    monkeypatch.setenv("UNDERSTAND_MODELS", "xai/grok-4.20-0309-non-reasoning")
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    msg = MagicMock()
+    msg.content = "ok"
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+
+    captured: dict[str, object] = {}
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return resp
+
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
+    mock_resp = MagicMock()
+    mock_resp.content = b"x"
+    mock_resp.headers = {"content-type": "image/png"}
+    mock_client = AsyncMock()
+    mock_client.get.return_value = mock_resp
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
+    )
+
+    result = await dispatch_understand(
+        media_urls=["https://example.com/cat.png"],
+        prompt="describe",
+        provider=None,
+        tier="poor",
+    )
+    assert result["model"] == "xai/grok-4.20-0309-non-reasoning"
+    assert captured["fallbacks"] is None
+
+
+@pytest.mark.asyncio
+async def test_dispatch_understand_explicit_provider_ignores_chain(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An explicit provider preserves the catalog path even with a chain set."""
+    monkeypatch.setenv("UNDERSTAND_MODELS", "xai/grok-4.20-0309-non-reasoning")
+
+    async def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
+        return {"text": "a cat", "model": "gemini-x", "provider": "gemini"}
+
+    import imagine_mcp.providers.gemini as gemini_mod
+
+    monkeypatch.setattr(gemini_mod, "understand_image", mock_fn, raising=False)
+    monkeypatch.setattr(
+        "imagine_mcp.dispatcher.detect_media_type_async",
+        AsyncMock(return_value="image"),
+    )
+
+    result = await dispatch_understand(
+        media_urls=["https://example.com/cat.png"],
+        prompt="describe",
+        provider="gemini",
+        tier="poor",
+    )
+    # Catalog path, NOT passthrough chain.
+    assert result["provider"] == "gemini"
 
 
 @pytest.mark.asyncio

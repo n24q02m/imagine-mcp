@@ -123,16 +123,24 @@ def build_app() -> FastMCP:
         media_urls: list[str],
         prompt: str,
         provider: str | None = None,
+        model: str | None = None,
         tier: str = "poor",
         max_tokens: int = 2048,
     ) -> dict[str, Any]:
-        """Understand image/video content with a prompt."""
+        """Understand image/video content with a prompt.
+
+        ``model`` overrides the provider/tier catalog with a litellm
+        'provider/model' string (e.g. 'gemini/gemini-3.1-pro-preview') --
+        bypasses the provider/tier catalog.
+        """
         if len(media_urls) > settings.max_media_urls:
             raise ValueError(
                 f"Too many media_urls ({len(media_urls)}). "
                 f"Max: {settings.max_media_urls}."
             )
-        return await dispatch_understand(media_urls, prompt, provider, tier, max_tokens)
+        return await dispatch_understand(
+            media_urls, prompt, provider, tier, max_tokens, model
+        )
 
     @app.tool(
         description=(
@@ -144,6 +152,7 @@ def build_app() -> FastMCP:
         media_type: Literal["image", "video"],
         prompt: str,
         provider: str | None = None,
+        model: str | None = None,
         tier: str = "poor",
         reference_image_url: str | None = None,
         job_id: str | None = None,
@@ -151,7 +160,11 @@ def build_app() -> FastMCP:
         aspect_ratio: str = "16:9",
         duration_seconds: int = 8,
     ) -> dict[str, Any]:
-        """Generate image or video."""
+        """Generate image or video.
+
+        ``model`` overrides the provider/tier catalog with a litellm
+        'provider/model' string -- bypasses the provider/tier catalog.
+        """
         return await dispatch_generate(
             media_type,
             prompt,
@@ -161,6 +174,7 @@ def build_app() -> FastMCP:
             job_id,
             aspect_ratio,
             duration_seconds,
+            model,
         )
 
     @app.tool(

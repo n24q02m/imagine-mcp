@@ -39,9 +39,22 @@ async def test_generate_video_raises() -> None:
 async def test_understand_image_mocked(
     mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fake = MagicMock()
-    fake.responses.create = AsyncMock(return_value=MagicMock(output_text="a dog"))
-    monkeypatch.setattr(provider, "_client", lambda: fake)
+    # understand_image is litellm passthrough via mcp_core.llm (mocked).
+    msg = MagicMock()
+    msg.content = "a dog"
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+
+    captured: dict[str, object] = {}
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return resp
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
 
     result = await provider.understand_image(
         url="https://example.com/dog.png", prompt="describe", tier="poor"
@@ -49,3 +62,5 @@ async def test_understand_image_mocked(
     assert result["text"] == "a dog"
     assert result["model"] == "gpt-5.4-mini"
     assert result["provider"] == "openai"
+    assert captured["model"] == "openai/gpt-5.4-mini"
+    assert captured["api_key"] == "sk-test"

@@ -6,12 +6,12 @@
     "url": "https://github.com/n24q02m/imagine-mcp.git",
     "source": "github"
   },
-  "version": "1.6.2-beta.2",
+  "version": "1.7.0-beta.2",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "imagine-mcp",
-      "version": "1.6.2-beta.2",
+      "version": "1.7.0-beta.2",
       "runtimeHint": "uvx",
       "runtimeArgs": [
         "--python",
@@ -21,6 +21,12 @@
         "type": "stdio"
       },
       "environmentVariables": [
+        {
+          "name": "UNDERSTAND_MODELS",
+          "description": "Ordered model chain for the understand path 'provider/model,...' (order = litellm fallback; provider inferred from the prefix). Empty = understand off (provider/tier catalog default). Generation stays provider/tier native.",
+          "isRequired": false,
+          "isSecret": false
+        },
         {
           "name": "GEMINI_API_KEY",
           "description": "Google AI Studio API key (aistudio.google.com/apikey)",
@@ -49,6 +55,12 @@
         "type": "stdio"
       },
       "environmentVariables": [
+        {
+          "name": "UNDERSTAND_MODELS",
+          "description": "Ordered model chain for the understand path 'provider/model,...' (order = litellm fallback; provider inferred from the prefix). Empty = understand off (provider/tier catalog default). Generation stays provider/tier native.",
+          "isRequired": false,
+          "isSecret": false
+        },
         {
           "name": "GEMINI_API_KEY",
           "description": "Google AI Studio API key",

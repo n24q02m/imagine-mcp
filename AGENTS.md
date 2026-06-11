@@ -14,7 +14,8 @@ Production-grade MCP server for image/video understanding and generation across 
 ```python
 understand(media_urls: list[str], prompt: str,
            provider: str | None = None, tier: str = "poor",
-           max_tokens: int = 2048) -> dict
+           max_tokens: int = 2048,
+           model: str | None = None) -> dict
 
 generate(media_type: Literal["image", "video"], prompt: str,
          provider: str | None = None, tier: str = "poor",
@@ -22,12 +23,17 @@ generate(media_type: Literal["image", "video"], prompt: str,
          job_id: str | None = None,
          output_mode: Literal["base64", "path", "both"] = "both",
          aspect_ratio: str = "16:9",
-         duration_seconds: int = 8) -> dict
+         duration_seconds: int = 8,
+         model: str | None = None) -> dict
 
 config(action: str, key: str | None = None, value: str | None = None) -> dict
 
 help(topic: str = "understand") -> str
 ```
+
+`model` (optional, litellm `provider/model` format) overrides the provider/tier
+catalog for open passthrough. `config(action="models")` lists available models;
+any litellm model works via passthrough even if unlisted.
 
 ## Model IDs (verified 2026-04-18; rank from Artificial Analysis + LMArena, refreshed weekly)
 
@@ -70,6 +76,54 @@ Dispatched in `src/imagine_mcp/__main__.py:41-64`:
 - `XAI_API_KEY`
 
 Priority (`src/imagine_mcp/relay_setup.py`): env var > `config.enc` (via mcp-core) > optional `MCP_RELAY_URL` relay fetch > degraded mode. (Stdio mode reads env vars only.)
+
+## LLM backend (litellm passthrough)
+
+`understand` (all providers) dispatches through `mcp_core.llm` (litellm library-mode
+passthrough, `n24q02m-mcp-core[llm]`) with OpenAI-format vision messages. Pass
+`model="provider/model"` for open passthrough (capability-checked via
+`mcp_core.llm.check_capability`, graceful on registry-missing).
+
+- `UNDERSTAND_MODELS` -- ordered model chain for understand, CSV `provider/model,...`;
+  order = litellm fallback. Provider inferred from the model prefix. Empty/unset =
+  understand off (provider/tier catalog default). imagine has NO local fallback.
+- API keys follow the litellm convention `<PROVIDER>_API_KEY`. The 6 providers the
+  server suggests for the understand chain:
+
+  | model prefix | key env var | get it at |
+  |---|---|---|
+  | `gemini/` | `GEMINI_API_KEY` | aistudio.google.com/apikey |
+  | `openai/` (or bare) | `OPENAI_API_KEY` | platform.openai.com |
+  | `jina_ai/` | `JINA_AI_API_KEY` | jina.ai/api-key |
+  | `cohere/` | `COHERE_API_KEY` | dashboard.cohere.com |
+  | `xai/` | `XAI_API_KEY` | console.x.ai |
+  | `anthropic/` | `ANTHROPIC_API_KEY` | console.anthropic.com |
+
+  For any other litellm provider, see https://docs.litellm.ai/docs/providers/<provider> for its `<PROVIDER>_API_KEY` name.
+
+**Generation stays NATIVE** (deferred 2026-06-11): gemini image+Veo (`google-genai`),
+openai image (OpenAI SDK), grok image/video (raw httpx; xAI gen = verified litellm gap).
+
+- `LLM_API_BASE` -- custom OpenAI-compatible base URL for understand (SSRF-vetted via
+  `mcp_core.http.vet_api_base`).
+- `LLM_API_BASE_ALLOW_PRIVATE=1` -- single-user escape for private/loopback api_base.
+
+### Manual config example
+
+```json
+{
+  "mcpServers": {
+    "imagine": {
+      "command": "uvx", "args": ["imagine-mcp"],
+      "env": {
+        "UNDERSTAND_MODELS": "gemini/gemini-3.1-pro-preview,openai/gpt-5.4",
+        "GEMINI_API_KEY": "AIza_xxx",
+        "OPENAI_API_KEY": "sk_xxx"
+      }
+    }
+  }
+}
+```
 
 ## Install
 

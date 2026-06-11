@@ -159,6 +159,15 @@ async def test_tool_config_cache_clear(monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
+async def test_tool_config_models_action_removed() -> None:
+    app = build_app()
+    result = await app.call_tool("config", {"action": "models"})
+    res = json.loads(result.content[0].text)
+    assert res["status"] == "error"
+    assert "Unknown action 'models'" in res["message"]
+
+
+@pytest.mark.asyncio
 async def test_tool_understand_wrapper() -> None:
     app = build_app()
     with patch(
@@ -170,6 +179,44 @@ async def test_tool_understand_wrapper() -> None:
         res = json.loads(result.content[0].text)
         assert res == {"res": "ok"}
         mock_dispatch.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_tool_understand_passes_model_through() -> None:
+    app = build_app()
+    with patch(
+        "imagine_mcp.server.dispatch_understand", return_value={"res": "ok"}
+    ) as mock_dispatch:
+        await app.call_tool(
+            "understand",
+            {
+                "media_urls": ["http://ex.com/i.jpg"],
+                "prompt": "tell me",
+                "model": "gemini/gemini-3.1-pro-preview",
+            },
+        )
+        # model is the 6th positional arg of dispatch_understand.
+        args, _kwargs = mock_dispatch.call_args
+        assert args[5] == "gemini/gemini-3.1-pro-preview"
+
+
+@pytest.mark.asyncio
+async def test_tool_generate_passes_model_through() -> None:
+    app = build_app()
+    with patch(
+        "imagine_mcp.server.dispatch_generate", return_value={"res": "gen"}
+    ) as mock_dispatch:
+        await app.call_tool(
+            "generate",
+            {
+                "media_type": "image",
+                "prompt": "draw me",
+                "model": "gemini/gemini-3.1-flash-image-preview",
+            },
+        )
+        # model is the 9th positional arg of dispatch_generate.
+        args, _kwargs = mock_dispatch.call_args
+        assert args[8] == "gemini/gemini-3.1-flash-image-preview"
 
     # Test max_media_urls limit
     from imagine_mcp.config import settings

@@ -79,6 +79,9 @@ def _reset_client() -> None:
 async def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
+    # litellm passthrough; live-verify deferred (no openai key 2026-06-11)
+    from mcp_core.llm import acompletion
+
     from imagine_mcp.media import get_ssrf_safe_async_client
 
     model = get_model_id("openai", "understand", "image", tier)
@@ -91,21 +94,26 @@ async def understand_image(
     mime_type = resp_img.headers.get("content-type", "image/png")
     data_url = f"data:{mime_type};base64,{img_b64}"
 
-    resp = await _client().responses.create(
-        model=model,
-        input=[
+    # Normalise empty string to None: a non-None api_key suppresses litellm's
+    # provider env-var fallback (would 401 on "").
+    resolved_api_key = _resolve_api_key() or None
+
+    resp = await acompletion(
+        model=f"openai/{model}",
+        messages=[
             {
                 "role": "user",
                 "content": [
-                    {"type": "input_text", "text": prompt},
-                    {"type": "input_image", "image_url": data_url},
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_url}},
                 ],
             }
         ],
-        max_output_tokens=max_tokens,
+        max_tokens=max_tokens,
+        api_key=resolved_api_key,
     )
     return {
-        "text": resp.output_text,
+        "text": resp.choices[0].message.content,
         "model": model,
         "provider": "openai",
         "tier": tier,
@@ -127,6 +135,7 @@ async def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
+    # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     model = get_model_id("openai", "generate", "image", tier)
     size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
     size = size_map.get(aspect_ratio, "1024x1024")

@@ -2,6 +2,40 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.2 (2026-06-11)
+
+### Bug Fixes
+
+- Document litellm passthrough + model param in CLAUDE.md/AGENTS.md
+  ([#285](https://github.com/n24q02m/imagine-mcp/pull/285),
+  [`aec7752`](https://github.com/n24q02m/imagine-mcp/commit/aec7752017ec4b5004ea70090fa316ccdc834a29))
+
+### Features
+
+- Imagine understand model-chain + relay widget (generate stays native)
+  ([#286](https://github.com/n24q02m/imagine-mcp/pull/286),
+  [`940abed`](https://github.com/n24q02m/imagine-mcp/commit/940abed90195f6c03c06ad96edcaa971ec16ce88))
+
+
+## v1.7.0-beta.1 (2026-06-11)
+
+### Bug Fixes
+
+- Drop private registry import + cover capability re-raise
+  ([#284](https://github.com/n24q02m/imagine-mcp/pull/284),
+  [`e368d52`](https://github.com/n24q02m/imagine-mcp/commit/e368d525ee17f1aa202a704121d2b128d4e8acd3))
+
+### Features
+
+- Migrate understand to litellm passthrough + open model surface
+  ([#284](https://github.com/n24q02m/imagine-mcp/pull/284),
+  [`e368d52`](https://github.com/n24q02m/imagine-mcp/commit/e368d525ee17f1aa202a704121d2b128d4e8acd3))
+
+- Migrate understand to litellm passthrough + open model surface via mcp-core[llm]
+  ([#284](https://github.com/n24q02m/imagine-mcp/pull/284),
+  [`e368d52`](https://github.com/n24q02m/imagine-mcp/commit/e368d525ee17f1aa202a704121d2b128d4e8acd3))
+
+
 ## v1.6.2-beta.2 (2026-06-10)
 
 ### Bug Fixes

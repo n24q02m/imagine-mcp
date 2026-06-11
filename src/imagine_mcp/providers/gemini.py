@@ -75,11 +75,13 @@ def _reset_client() -> None:
 async def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
-    from google.genai import types
+    # litellm passthrough; live-verify deferred (gemini billing 2026-06-11)
+    import base64 as _base64
+
+    from mcp_core.llm import acompletion
 
     from imagine_mcp.media import get_ssrf_safe_async_client, resolve_image_mime
 
-    client = _client()
     model = get_model_id("gemini", "understand", "image", tier)
 
     # Download image securely to prevent backend SSRF
@@ -88,17 +90,28 @@ async def understand_image(
     )
     img_data = img_resp.content
     mime_type = resolve_image_mime(img_resp.headers.get("content-type"), img_data)
+    data_url = f"data:{mime_type};base64,{_base64.b64encode(img_data).decode()}"
 
-    resp = await client.aio.models.generate_content(
-        model=model,
-        contents=[
-            prompt,
-            types.Part.from_bytes(data=img_data, mime_type=mime_type),
+    # Normalise empty string to None: a non-None api_key suppresses litellm's
+    # provider env-var fallback (would 401 on "").
+    resolved_api_key = _resolve_api_key() or None
+
+    resp = await acompletion(
+        model=f"gemini/{model}",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            }
         ],
-        config=types.GenerateContentConfig(max_output_tokens=max_tokens),
+        max_tokens=max_tokens,
+        api_key=resolved_api_key,
     )
     return {
-        "text": resp.text,
+        "text": resp.choices[0].message.content,
         "model": model,
         "provider": "gemini",
         "tier": tier,
@@ -208,6 +221,7 @@ async def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
+    # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     from google.genai import types
 
     from imagine_mcp.media import get_ssrf_safe_async_client, resolve_image_mime
@@ -259,6 +273,7 @@ async def generate_video(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
+    # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     from google.genai import types
 
     model = get_model_id("gemini", "generate", "video", tier)

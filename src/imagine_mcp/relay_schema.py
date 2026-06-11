@@ -1,70 +1,82 @@
-"""Config schema for the relay setup page (3 optional API key fields)."""
+"""Config schema for the relay setup page.
+
+ONE model-chain task: ``understand`` (order = litellm fallback chain). The
+three provider key fields are *derived* — they surface automatically for the
+providers the chosen understand models use, and the SAME keys also drive the
+native ``generate`` path (provider/tier catalog).
+"""
 
 from __future__ import annotations
 
 from typing import Any
 
+# Catalog understand IMAGE models, explicit ``provider/`` prefixes.
+_UNDERSTAND_SUGGESTED = [
+    "xai/grok-4.20-0309-non-reasoning",
+    "xai/grok-4.20-0309-reasoning",
+    "gemini/gemini-3.1-flash-lite-preview",
+    "gemini/gemini-3.1-pro-preview",
+    "openai/gpt-5.4-mini",
+    "openai/gpt-5.4",
+]
+
+
+def _key_field(key: str, label: str, ph: str, url: str) -> dict[str, Any]:
+    return {
+        "key": key,
+        "label": label,
+        "type": "password",
+        "placeholder": ph,
+        "helpUrl": url,
+        "derived": True,
+        "required": False,
+    }
+
+
 RELAY_SCHEMA: dict[str, Any] = {
     "server": "imagine-mcp",
     "displayName": "Imagine MCP",
     "description": (
-        "Enter API keys for the providers you want to use. "
-        "All fields are optional -- the server starts in degraded mode with no keys "
-        "and individual providers fail with CredentialMissingError when called."
+        "Pick understand models (order = fallback). Leave empty to use the "
+        "provider/tier catalog default. Key fields appear automatically for "
+        "the providers your models use — the same keys also power generation."
     ),
     "fields": [
         {
-            "key": "GEMINI_API_KEY",
-            "label": "Gemini API Key",
-            "type": "password",
-            "placeholder": "AIza...",
-            "helpUrl": "https://aistudio.google.com/apikey",
-            "helpText": (
-                "Gemini understand (image/video) + image/video generation. "
-                "Free tier available."
-            ),
-            "required": False,
+            "key": "UNDERSTAND_MODELS",
+            "label": "Understand models",
+            "type": "model-chain",
+            "task": "understand",
+            "suggestedModels": _UNDERSTAND_SUGGESTED,
+            "hasLocal": False,
+            "placeholder": "add understand model…",
         },
-        {
-            "key": "OPENAI_API_KEY",
-            "label": "OpenAI API Key",
-            "type": "password",
-            "placeholder": "sk-...",
-            "helpUrl": "https://platform.openai.com/api-keys",
-            "helpText": (
-                "GPT-5.4 image understanding + gpt-image-1 generation. "
-                "Video paths are not supported."
-            ),
-            "required": False,
-        },
-        {
-            "key": "XAI_API_KEY",
-            "label": "xAI (Grok) API Key",
-            "type": "password",
-            "placeholder": "xai-...",
-            "helpUrl": "https://console.x.ai",
-            "helpText": (
-                "Grok 4.20 image understanding + Aurora/Grok Imagine generation. "
-                "Video understanding is not supported."
-            ),
-            "required": False,
-        },
+        _key_field(
+            "GEMINI_API_KEY",
+            "Gemini API Key",
+            "AIza...",
+            "https://aistudio.google.com/apikey",
+        ),
+        _key_field(
+            "OPENAI_API_KEY",
+            "OpenAI API Key",
+            "sk-...",
+            "https://platform.openai.com/api-keys",
+        ),
+        _key_field(
+            "XAI_API_KEY",
+            "xAI (Grok) API Key",
+            "xai-...",
+            "https://console.x.ai",
+        ),
     ],
     "capabilityInfo": [
         {
             "label": "Image understanding",
-            "priority": "Gemini > OpenAI > Grok",
+            "priority": "configurable",
             "description": (
-                "Multi-image vision QA. Gemini 3 Pro is native multimodal and "
-                "handles video natively."
-            ),
-        },
-        {
-            "label": "Image generation",
-            "priority": "Gemini > OpenAI > Grok",
-            "description": (
-                "Text-to-image and reference-image editing. "
-                "Gemini (Nano Banana) leads leaderboards as of baseline."
+                "Multi-image vision QA across Gemini / OpenAI / Grok via the "
+                "UNDERSTAND_MODELS chain (order = fallback)."
             ),
         },
         {
@@ -76,11 +88,12 @@ RELAY_SCHEMA: dict[str, Any] = {
             ),
         },
         {
-            "label": "Video generation",
-            "priority": "Gemini (Veo 3.1) > Grok (Imagine)",
+            "label": "Image / video generation",
+            "priority": "native (provider/tier catalog)",
             "description": (
-                "Async generate: submit returns job_id, poll via "
-                "generate(media_type='video', job_id=...)."
+                "Generation stays native and uses the SAME provider keys above "
+                "(no model chain): Gemini image + Veo video, OpenAI image, "
+                "Grok image/video. Provider auto-fallback XAI > OpenAI > Gemini."
             ),
         },
     ],
