@@ -356,27 +356,53 @@ def _extract_extension(url: str) -> str:
 def download_to_path(url: str, dest: Path) -> Path:
     """Download URL content to dest path. Returns path."""
     dest.parent.mkdir(parents=True, exist_ok=True)
+    max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
+    bytes_read = 0
     try:
         client = get_ssrf_safe_client()
         with client.stream("GET", url, follow_redirects=True, timeout=60) as resp:
             resp.raise_for_status()
             with dest.open("wb") as f:
                 for chunk in resp.iter_bytes(chunk_size=65536):
+                    bytes_read += len(chunk)
+                    if bytes_read > max_size:
+                        raise httpx.HTTPError(
+                            f"Download failed: Exceeded maximum size of {max_size} bytes"
+                        )
                     f.write(chunk)
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
+    except Exception:
+        if dest.exists():
+            dest.unlink(missing_ok=True)
+        raise
     return dest
 
 
 async def download_to_path_async(url: str, dest: Path) -> Path:
     """Async version of download_to_path."""
     await asyncio.to_thread(dest.parent.mkdir, parents=True, exist_ok=True)
+    max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
+    bytes_read = 0
     try:
         client = get_ssrf_safe_async_client()
         async with client.stream("GET", url, follow_redirects=True, timeout=60) as resp:
             resp.raise_for_status()
-            content = await resp.aread()
-            await asyncio.to_thread(dest.write_bytes, content)
+
+            # Stream to disk with a sync file handle; offload each blocking
+            # write to a thread. The `with` block guarantees the handle closes.
+            with dest.open("wb") as f:
+                async for chunk in resp.aiter_bytes(chunk_size=65536):
+                    bytes_read += len(chunk)
+                    if bytes_read > max_size:
+                        raise httpx.HTTPError(
+                            f"Download failed: Exceeded maximum size of {max_size} bytes"
+                        )
+                    await asyncio.to_thread(f.write, chunk)
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
+    except Exception:
+        if await asyncio.to_thread(dest.exists):
+            await asyncio.to_thread(dest.unlink, missing_ok=True)
+        raise
     return dest
