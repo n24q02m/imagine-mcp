@@ -30,14 +30,22 @@ def mock_media_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
 async def test_understand_image_mocked(
     mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fake_client = MagicMock()
-    # Use AsyncMock for the method itself
-    fake_client.aio.models.generate_content = AsyncMock()
+    # understand_image is litellm passthrough via mcp_core.llm (mocked).
+    msg = MagicMock()
+    msg.content = "a cat on a mat"
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
 
-    fake_response = MagicMock()
-    fake_response.text = "a cat on a mat"
-    fake_client.aio.models.generate_content.return_value = fake_response
-    monkeypatch.setattr(gemini, "_client", lambda: fake_client)
+    captured: dict[str, object] = {}
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return resp
+
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
 
     result = await gemini.understand_image(
         url="https://example.com/cat.png", prompt="describe", tier="poor"
@@ -46,6 +54,8 @@ async def test_understand_image_mocked(
     assert result["model"] == "gemini-3.1-flash-lite-preview"
     assert result["provider"] == "gemini"
     assert result["tier"] == "poor"
+    assert captured["model"] == "gemini/gemini-3.1-flash-lite-preview"
+    assert captured["api_key"] == "gem-test"
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,6 @@
 """Grok (xAI) provider -- 3 LIVE + 1 ERROR.
 
-Uses OpenAI SDK with xAI base_url for chat completions (understand).
+Uses litellm passthrough (mcp_core.llm) for chat completions (understand).
 Dedicated endpoints for images and videos via httpx.
 """
 
@@ -29,9 +29,7 @@ from imagine_mcp.errors import (
 from imagine_mcp.media import get_ssrf_safe_async_client
 from imagine_mcp.models import get_model_id
 
-_CLIENT: Any = None
 _BASE_URL = "https://api.x.ai/v1"
-_SUB_CLIENTS: dict[str, Any] = {}
 
 
 def _api_key() -> str:
@@ -48,43 +46,12 @@ def _api_key() -> str:
     return key
 
 
-def _openai_compat_client() -> Any:
-    global _CLIENT
-    sub = get_current_sub()
-    if sub is not None:
-        cached = _SUB_CLIENTS.get(sub)
-        if cached is not None:
-            return cached
-        from openai import AsyncOpenAI
-
-        client = AsyncOpenAI(
-            api_key=_api_key(),
-            base_url=_BASE_URL,
-            http_client=get_ssrf_safe_async_client(),
-        )
-        _SUB_CLIENTS[sub] = client
-        return client
-
-    if _CLIENT is None:
-        from openai import AsyncOpenAI
-
-        _CLIENT = AsyncOpenAI(
-            api_key=_api_key(),
-            base_url=_BASE_URL,
-            http_client=get_ssrf_safe_async_client(),
-        )
-    return _CLIENT
-
-
-def _reset_client() -> None:
-    global _CLIENT
-    _CLIENT = None
-    _SUB_CLIENTS.clear()
-
-
 async def understand_image(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
+    # litellm passthrough via mcp_core.llm; live-verified 2026-06-11 (xAI vision).
+    from mcp_core.llm import acompletion
+
     model = get_model_id("grok", "understand", "image", tier)
 
     # Download image securely and pass as base64 data URL to prevent backend SSRF
@@ -95,8 +62,12 @@ async def understand_image(
     mime_type = resp_img.headers.get("content-type", "image/png")
     data_url = f"data:{mime_type};base64,{img_b64}"
 
-    resp = await _openai_compat_client().chat.completions.create(
-        model=model,
+    # Normalise empty string to None: a non-None api_key suppresses litellm's
+    # provider env-var fallback (would 401 on "").
+    resolved_api_key = _api_key() or None
+
+    resp = await acompletion(
+        model=f"xai/{model}",
         messages=[
             {
                 "role": "user",
@@ -107,6 +78,7 @@ async def understand_image(
             }
         ],
         max_tokens=max_tokens,
+        api_key=resolved_api_key,
     )
     return {
         "text": resp.choices[0].message.content,
@@ -131,6 +103,7 @@ async def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
 ) -> dict[str, Any]:
+    # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     model = get_model_id("grok", "generate", "image", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
     payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
@@ -193,6 +166,7 @@ async def generate_video(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
 ) -> dict[str, Any]:
+    # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     model = get_model_id("grok", "generate", "video", tier)
     headers = {"Authorization": f"Bearer {_api_key()}"}
 

@@ -34,7 +34,6 @@ async def test_understand_video_raises() -> None:
 async def test_understand_image_mocked(
     mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fake_client = MagicMock()
     msg = MagicMock()
     msg.content = "a parrot"
     choice = MagicMock()
@@ -42,8 +41,14 @@ async def test_understand_image_mocked(
     resp = MagicMock()
     resp.choices = [choice]
 
-    fake_client.chat.completions.create = AsyncMock(return_value=resp)
-    monkeypatch.setattr(provider, "_openai_compat_client", lambda: fake_client)
+    captured: dict[str, object] = {}
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return resp
+
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
 
     result = await provider.understand_image(
         url="https://example.com/parrot.png", prompt="describe", tier="rich"
@@ -51,3 +56,7 @@ async def test_understand_image_mocked(
     assert result["text"] == "a parrot"
     assert result["model"] == "grok-4.20-0309-reasoning"
     assert result["provider"] == "grok"
+    # litellm passthrough: model is prefixed with the xai/ provider route and
+    # the resolved (non-empty) api_key is forwarded.
+    assert captured["model"] == "xai/grok-4.20-0309-reasoning"
+    assert captured["api_key"] == "xai-test"
