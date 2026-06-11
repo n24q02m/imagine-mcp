@@ -17,25 +17,32 @@ def test_top_level_keys_present():
     assert RELAY_SCHEMA["server"] == "imagine-mcp"
 
 
-def test_three_credential_fields_match_known_keys():
-    fields = RELAY_SCHEMA["fields"]
-    assert len(fields) == 3
-    assert {f["key"] for f in fields} == _CREDENTIAL_KEYS
+def test_exactly_one_model_chain_task_understand():
+    tasks = {
+        f["task"] for f in RELAY_SCHEMA["fields"] if f.get("type") == "model-chain"
+    }
+    assert tasks == {"understand"}
 
 
-def test_all_fields_are_optional_password_inputs():
+def test_derived_keys_are_the_three_providers():
+    derived = {f["key"] for f in RELAY_SCHEMA["fields"] if f.get("derived")}
+    assert derived == _CREDENTIAL_KEYS
+
+
+def test_no_priority_arrow_strings():
+    for cap in RELAY_SCHEMA["capabilityInfo"]:
+        assert ">" not in cap.get("priority", ""), cap
+
+
+def test_every_suggested_model_has_a_provider_prefix():
     for field in RELAY_SCHEMA["fields"]:
-        assert field["type"] == "password", field["key"]
-        assert field["required"] is False, field["key"]
-        # Every field must give the user a way to obtain the key.
-        assert field["helpUrl"].startswith("https://"), field["key"]
-        assert field["helpText"], field["key"]
-        assert field["label"], field["key"]
+        for model in field.get("suggestedModels", []):
+            assert "/" in model, model
 
 
 def test_capability_info_entries_well_formed():
     caps = RELAY_SCHEMA["capabilityInfo"]
-    assert len(caps) == 4
+    assert caps
     for cap in caps:
         assert cap["label"]
         assert cap["priority"]

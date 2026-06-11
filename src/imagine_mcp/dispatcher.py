@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import importlib
+import os
 from typing import Any
 
 from imagine_mcp.errors import (
@@ -112,6 +113,17 @@ def _default_provider() -> str:
     )
 
 
+def resolve_understand_chain() -> list[str]:
+    """Ordered ``UNDERSTAND_MODELS`` chain (litellm ``provider/model`` entries).
+
+    Empty / unset -> empty list, which preserves the provider/tier catalog
+    default. The first entry is the primary model; the rest are litellm
+    fallbacks.
+    """
+    raw = (os.getenv("UNDERSTAND_MODELS") or "").strip()
+    return [m.strip() for m in raw.split(",") if m.strip()] if raw else []
+
+
 def _load_provider(provider: str) -> Any:
     return importlib.import_module(f"imagine_mcp.providers.{provider}")
 
@@ -129,12 +141,17 @@ async def _passthrough_understand(
     prompt: str,
     model: str,
     max_tokens: int,
+    fallbacks: list[str] | None = None,
 ) -> dict[str, Any]:
     """Understand via an explicit litellm passthrough ``model``.
 
     Bypasses the provider/tier catalog. Images are downloaded through the
     SSRF-safe client and sent as base64 data URLs (vision message format).
     Registry-missing models pass through with a ``warning`` in the response.
+
+    ``fallbacks`` (the rest of an ``UNDERSTAND_MODELS`` chain after the
+    primary) is forwarded to litellm's native ``fallbacks`` kwarg via
+    ``acompletion``'s ``**kwargs`` passthrough.
     """
     from mcp_core.llm import (
         ModelCapabilityError,
@@ -170,6 +187,7 @@ async def _passthrough_understand(
         messages=[{"role": "user", "content": content}],
         max_tokens=max_tokens,
         api_key=_passthrough_api_key(model),
+        fallbacks=fallbacks or None,
     )
     out: dict[str, Any] = {
         "text": resp.choices[0].message.content,
@@ -202,6 +220,13 @@ async def dispatch_understand(
     """
     if model is not None:
         return await _passthrough_understand(media_urls, prompt, model, max_tokens)
+
+    if model is None and provider is None:
+        chain = resolve_understand_chain()
+        if chain:
+            return await _passthrough_understand(
+                media_urls, prompt, chain[0], max_tokens, fallbacks=chain[1:]
+            )
 
     if provider is None:
         provider = _default_provider()
