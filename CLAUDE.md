@@ -33,8 +33,7 @@ help(topic: str = "understand") -> str
 
 `model` (optional, litellm `provider/model` format) overrides the provider/tier
 catalog — bypasses `VALID_PROVIDERS` + the model-ID table for open passthrough.
-`config(action="models")` lists available models (chat/image_generation/video_generation)
-for configured providers; any litellm model works via passthrough even if unlisted.
+Any litellm `provider/model` works via passthrough even if not in the model-ID table.
 
 ## Model IDs (verified 2026-04-18; rank from Artificial Analysis + LMArena, refreshed weekly)
 
