@@ -333,6 +333,135 @@ async def test_understand_rejects_dns_timeout(monkeypatch: pytest.MonkeyPatch) -
 
 
 @pytest.mark.asyncio
+async def test_passthrough_understand_routes_to_litellm(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An explicit ``model`` bypasses the catalog and calls litellm directly."""
+    from unittest.mock import MagicMock
+
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+
+    msg = MagicMock()
+    msg.content = "a passthrough cat"
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+
+    captured: dict[str, object] = {}
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return resp
+
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
+    # Avoid real image download.
+    mock_resp = MagicMock()
+    mock_resp.content = b"fake-image-bytes"
+    mock_resp.headers = {"content-type": "image/png"}
+    mock_client = AsyncMock()
+    mock_client.get.return_value = mock_resp
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
+    )
+
+    result = await dispatch_understand(
+        media_urls=["https://example.com/cat.png"],
+        prompt="describe",
+        provider=None,
+        tier="poor",
+        model="gemini/gemini-3.1-pro-preview",
+    )
+    assert result["text"] == "a passthrough cat"
+    assert result["provider"] == "passthrough"
+    assert result["model"] == "gemini/gemini-3.1-pro-preview"
+    assert captured["model"] == "gemini/gemini-3.1-pro-preview"
+    assert captured["api_key"] == "gem-test"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_understand_unknown_model_warns(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A registry-missing model passes through with a warning field."""
+    from unittest.mock import MagicMock
+
+    msg = MagicMock()
+    msg.content = "ok"
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        return resp
+
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
+    mock_resp = MagicMock()
+    mock_resp.content = b"x"
+    mock_resp.headers = {"content-type": "image/png"}
+    mock_client = AsyncMock()
+    mock_client.get.return_value = mock_resp
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
+    )
+
+    result = await dispatch_understand(
+        media_urls=["https://example.com/cat.png"],
+        prompt="describe",
+        provider=None,
+        tier="poor",
+        model="acme/never-heard-of-it",
+    )
+    assert "warning" in result
+    assert "registry" in result["warning"]
+
+
+@pytest.mark.asyncio
+async def test_passthrough_generate_xai_routes_native_grok(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An xai/ model on generate resolves to the native grok provider."""
+    captured: dict[str, str] = {}
+
+    async def mock_fn(
+        prompt: str,
+        tier: str,
+        reference_image_url: str | None,
+        aspect_ratio: str,
+    ) -> dict:
+        captured["called"] = "grok"
+        return {"image": "...", "model": "grok-imagine-image", "provider": "grok"}
+
+    import imagine_mcp.providers.grok as grok_mod
+
+    monkeypatch.setattr(grok_mod, "generate_image", mock_fn, raising=False)
+
+    result = await dispatch_generate(
+        media_type="image",
+        prompt="a cat",
+        provider=None,
+        tier="poor",
+        model="xai/grok-imagine-image",
+    )
+    assert captured["called"] == "grok"
+    assert result["provider"] == "grok"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_generate_unknown_prefix_raises_litellm_gap() -> None:
+    """A generate model with an unmappable prefix returns the litellm-gap error."""
+    with pytest.raises(ProviderUnsupportedError, match="litellm gap"):
+        await dispatch_generate(
+            media_type="image",
+            prompt="a cat",
+            provider=None,
+            tier="poor",
+            model="cohere/some-image-model",
+        )
+
+
+@pytest.mark.asyncio
 async def test_validate_url_blocks_cgnat() -> None:
     from imagine_mcp.dispatcher import _validate_url
 

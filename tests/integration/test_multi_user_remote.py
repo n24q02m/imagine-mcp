@@ -22,11 +22,13 @@ def test_two_subs_isolated(tmp_path, monkeypatch):
     monkeypatch.setenv("CREDENTIAL_SECRET", "test-secret-value")
     from imagine_mcp.credential_state import read_for_sub, store_for_sub
 
-    store_for_sub("user_a", {"GEMINI_API_KEY": "key_a"})
-    store_for_sub("user_b", {"GEMINI_API_KEY": "key_b"})
+    # mcp-core 1.18 PerPluginStore rejects underscores in sub (real JWT subs
+    # are UUID-style); use hyphenated names that pass _cred_path validation.
+    store_for_sub("user-a", {"GEMINI_API_KEY": "key_a"})
+    store_for_sub("user-b", {"GEMINI_API_KEY": "key_b"})
 
-    assert read_for_sub("user_a")["GEMINI_API_KEY"] == "key_a"
-    assert read_for_sub("user_b")["GEMINI_API_KEY"] == "key_b"
+    assert read_for_sub("user-a")["GEMINI_API_KEY"] == "key_a"
+    assert read_for_sub("user-b")["GEMINI_API_KEY"] == "key_b"
 
 
 @pytest.mark.integration
@@ -36,8 +38,8 @@ def test_save_credentials_uses_sub_when_public_url_set(tmp_path, monkeypatch):
     monkeypatch.setenv("PUBLIC_URL", "https://imagine.example.com")
     from imagine_mcp.credential_state import read_for_sub, save_credentials
 
-    save_credentials({"GEMINI_API_KEY": "k1"}, {"sub": "user_a"})
-    save_credentials({"GEMINI_API_KEY": "k2"}, {"sub": "user_b"})
+    save_credentials({"GEMINI_API_KEY": "k1"}, {"sub": "user-a"})
+    save_credentials({"GEMINI_API_KEY": "k2"}, {"sub": "user-b"})
 
-    assert read_for_sub("user_a")["GEMINI_API_KEY"] == "k1"
-    assert read_for_sub("user_b")["GEMINI_API_KEY"] == "k2"
+    assert read_for_sub("user-a")["GEMINI_API_KEY"] == "k1"
+    assert read_for_sub("user-b")["GEMINI_API_KEY"] == "k2"
