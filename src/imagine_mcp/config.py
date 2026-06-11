@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     openai_api_key: str | None = Field(default=None)
     xai_api_key: str | None = Field(default=None)
 
+    # Ordered understand model chain (litellm ``provider/model``, comma-sep);
+    # primary + fallbacks. Empty -> provider/tier catalog default.
+    understand_models: str | None = Field(default=None)
+
     # Runtime
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(default="INFO")
     cache_ttl_seconds: int = Field(default=3600, ge=0)
