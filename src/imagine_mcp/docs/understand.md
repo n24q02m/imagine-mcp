@@ -6,11 +6,12 @@ Understand images and/or videos via a multimodal LLM.
 
 ```python
 understand(
-    media_urls: list[str],       # HTTP(S) URLs -- max 5
+    media_urls: list[str],       # HTTP(S) URLs -- default max 5, configurable 1-20 via max_media_urls
     prompt: str,                 # Your question or instruction
     provider: str | None = None, # "gemini" | "openai" | "grok" (auto-fallback when None)
     tier: str = "poor",          # "poor" | "rich"
     max_tokens: int = 2048,
+    model: str | None = None,    # litellm "provider/model" passthrough; bypasses provider/tier catalog
 ) -> dict
 ```
 
