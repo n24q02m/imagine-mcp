@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, SoupStrainer, Tag
 
 log = logging.getLogger("refresh_ranks")
 
@@ -88,6 +88,12 @@ MODEL_ALIASES: dict[str, str] = {
 }
 
 
+def _sanitize_text(text: str) -> str:
+    """Sanitize text to prevent terminal injection and ReDoS."""
+    text = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", text)
+    return text[:500]
+
+
 @dataclass(frozen=True)
 class LBRow:
     rank: int
@@ -133,7 +139,11 @@ def _parse_row(
 
     name_cell = cells[name_i]
     link = name_cell.find("a")
-    display = link.get_text(strip=True) if link else name_cell.get_text(strip=True)
+    display = (
+        _sanitize_text(link.get_text(strip=True))
+        if link
+        else _sanitize_text(name_cell.get_text(strip=True))
+    )
     # Strip trailing "provider . type" annotations LMArena embeds
     display = re.split(r"\s*·\s*|\s+xAI\s+|\s+OpenAI\s+|\s+Google\s+", display)[
         0
@@ -146,7 +156,7 @@ def _parse_row(
 
     provider: str | None = None
     if provider_i >= 0:
-        provider_raw = cells[provider_i].get_text(strip=True)
+        provider_raw = _sanitize_text(cells[provider_i].get_text(strip=True))
         if provider_raw:
             provider = _normalize_provider(provider_raw)
     if not provider:
@@ -166,7 +176,9 @@ def _parse_row(
 
 def parse_leaderboard(url: str, html: str) -> list[LBRow]:
     """Extract ranked rows filtered to {gemini, openai, grok}."""
-    soup = BeautifulSoup(html, "html.parser")
+    sys.setrecursionlimit(2000)
+    strainer = SoupStrainer("table")
+    soup = BeautifulSoup(html, "html.parser", parse_only=strainer)
     table = soup.find("table")
     if not table:
         log.warning("no table found: %s", url)
@@ -227,11 +239,21 @@ def merge_ranks(rows_aa: list[LBRow], rows_lmarena: list[LBRow]) -> dict[str, in
 
 def fetch_all(client: httpx.Client) -> dict[str, list[LBRow]]:
     out: dict[str, list[LBRow]] = {}
+    max_size = 5 * 1024 * 1024  # 5MB
     for url in LB_URLS:
         try:
-            r = client.get(url, timeout=30.0, follow_redirects=True)
-            r.raise_for_status()
-            out[url] = parse_leaderboard(url, r.text)
+            html_chunks = []
+            bytes_read = 0
+            with client.stream("GET", url, timeout=30.0, follow_redirects=True) as r:
+                r.raise_for_status()
+                for chunk in r.iter_bytes(chunk_size=8192):
+                    bytes_read += len(chunk)
+                    if bytes_read > max_size:
+                        log.warning("response too large, truncating: %s", url)
+                        break
+                    html_chunks.append(chunk)
+            html = b"".join(html_chunks).decode("utf-8", errors="replace")
+            out[url] = parse_leaderboard(url, html)
             log.info("fetched %s: %d rows after filter", url, len(out[url]))
         except Exception as exc:
             log.error("fetch failed %s: %s", url, exc)
