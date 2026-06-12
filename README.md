@@ -2,7 +2,7 @@
 
 mcp-name: io.github.n24q02m/imagine-mcp
 
-**Production-grade MCP server for image and video understanding + generation across Gemini, OpenAI, and Grok.**
+**Image and video understanding + generation for AI agents -- across Gemini, OpenAI, and Grok.**
 
 <!-- Badge Row 1: Status -->
 [![CI](https://github.com/n24q02m/imagine-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/n24q02m/imagine-mcp/actions/workflows/ci.yml)
