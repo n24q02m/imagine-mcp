@@ -38,7 +38,7 @@ config(
 ```python
 # First-time setup
 config(action="open_relay")
-# -> {"session_id": "...", "url": "http://localhost:8001/...", "expires_in_seconds": 600}
+# -> {"session_id": "...", "url": "http://localhost:8001/...", "expires_in_seconds": 300}
 
 config(action="relay_status")
 # -> {"status": "pending"} or {"status": "done"}
