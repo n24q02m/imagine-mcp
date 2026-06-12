@@ -190,7 +190,8 @@ async def _passthrough_understand(
     for res in results:
         if isinstance(res, Exception):
             raise res
-        content.append(res)
+        if isinstance(res, dict):
+            content.append(res)
 
     resp = await acompletion(
         model=model,
