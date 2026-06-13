@@ -7,6 +7,7 @@ import concurrent.futures
 import ipaddress
 import os
 import socket
+import threading
 import typing
 from pathlib import Path
 from typing import Literal
@@ -264,22 +265,47 @@ def validate_url_and_get_ip(url: str, param: str) -> str:
     return _validate_hostname_and_get_ip(hostname, parsed.port, param)
 
 
-_CLIENT: httpx.Client | None = None
-_ASYNC_CLIENT: httpx.AsyncClient | None = None
+class _ClientManager:
+    def __init__(self) -> None:
+        self._client: httpx.Client | None = None
+        self._async_client: httpx.AsyncClient | None = None
+        self._lock = threading.Lock()
+
+    def get_client(self) -> httpx.Client:
+        if self._client is None:
+            with self._lock:
+                if self._client is None:
+                    self._client = httpx.Client(transport=SSRFSafeTransport())
+        return self._client
+
+    def get_async_client(self) -> httpx.AsyncClient:
+        if self._async_client is None:
+            with self._lock:
+                if self._async_client is None:
+                    self._async_client = httpx.AsyncClient(
+                        transport=AsyncSSRFSafeTransport()
+                    )
+        return self._async_client
+
+    def reset(self) -> None:
+        with self._lock:
+            self._client = None
+            self._async_client = None
+
+
+_MANAGER = _ClientManager()
 
 
 def get_ssrf_safe_client() -> httpx.Client:
-    global _CLIENT
-    if _CLIENT is None:
-        _CLIENT = httpx.Client(transport=SSRFSafeTransport())
-    return _CLIENT
+    return _MANAGER.get_client()
 
 
 def get_ssrf_safe_async_client() -> httpx.AsyncClient:
-    global _ASYNC_CLIENT
-    if _ASYNC_CLIENT is None:
-        _ASYNC_CLIENT = httpx.AsyncClient(transport=AsyncSSRFSafeTransport())
-    return _ASYNC_CLIENT
+    return _MANAGER.get_async_client()
+
+
+def _reset_ssrf_safe_client() -> None:
+    _MANAGER.reset()
 
 
 def detect_media_type(url: str) -> MediaType:
@@ -353,23 +379,40 @@ def _extract_extension(url: str) -> str:
     return ext.lower()
 
 
+def _write_response(resp: httpx.Response, dest: Path) -> None:
+    max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
+    bytes_read = 0
+    with dest.open("wb") as f:
+        for chunk in resp.iter_bytes(chunk_size=65536):
+            bytes_read += len(chunk)
+            if bytes_read > max_size:
+                raise httpx.HTTPError(
+                    f"Download failed: Exceeded maximum size of {max_size} bytes"
+                )
+            f.write(chunk)
+
+
+async def _write_response_async(resp: httpx.Response, dest: Path) -> None:
+    max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
+    bytes_read = 0
+    with dest.open("wb") as f:
+        async for chunk in resp.aiter_bytes(chunk_size=65536):
+            bytes_read += len(chunk)
+            if bytes_read > max_size:
+                raise httpx.HTTPError(
+                    f"Download failed: Exceeded maximum size of {max_size} bytes"
+                )
+            await asyncio.to_thread(f.write, chunk)
+
+
 def download_to_path(url: str, dest: Path) -> Path:
     """Download URL content to dest path. Returns path."""
     dest.parent.mkdir(parents=True, exist_ok=True)
-    max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
-    bytes_read = 0
     try:
         client = get_ssrf_safe_client()
         with client.stream("GET", url, follow_redirects=True, timeout=60) as resp:
             resp.raise_for_status()
-            with dest.open("wb") as f:
-                for chunk in resp.iter_bytes(chunk_size=65536):
-                    bytes_read += len(chunk)
-                    if bytes_read > max_size:
-                        raise httpx.HTTPError(
-                            f"Download failed: Exceeded maximum size of {max_size} bytes"
-                        )
-                    f.write(chunk)
+            _write_response(resp, dest)
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
     except Exception:
@@ -382,23 +425,11 @@ def download_to_path(url: str, dest: Path) -> Path:
 async def download_to_path_async(url: str, dest: Path) -> Path:
     """Async version of download_to_path."""
     await asyncio.to_thread(dest.parent.mkdir, parents=True, exist_ok=True)
-    max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
-    bytes_read = 0
     try:
         client = get_ssrf_safe_async_client()
         async with client.stream("GET", url, follow_redirects=True, timeout=60) as resp:
             resp.raise_for_status()
-
-            # Stream to disk with a sync file handle; offload each blocking
-            # write to a thread. The `with` block guarantees the handle closes.
-            with dest.open("wb") as f:
-                async for chunk in resp.aiter_bytes(chunk_size=65536):
-                    bytes_read += len(chunk)
-                    if bytes_read > max_size:
-                        raise httpx.HTTPError(
-                            f"Download failed: Exceeded maximum size of {max_size} bytes"
-                        )
-                    await asyncio.to_thread(f.write, chunk)
+            await _write_response_async(resp, dest)
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
     except Exception:
