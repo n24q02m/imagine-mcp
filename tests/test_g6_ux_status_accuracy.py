@@ -88,7 +88,9 @@ class TestRelayStatusLiveDerivedState:
         assert isinstance(res["providers_configured"], list)
 
     @pytest.mark.anyio
-    async def test_no_duplicate_providers(self, app, monkeypatch: pytest.MonkeyPatch) -> None:
+    async def test_no_duplicate_providers(
+        self, app, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """If same key appears in both env and store, provider appears only once."""
         monkeypatch.setenv("GEMINI_API_KEY", "key-from-env")
 
