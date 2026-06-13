@@ -191,7 +191,7 @@ async def _passthrough_understand(
         *(_fetch_image(u) for u in media_urls), return_exceptions=True
     )
     for res in results:
-        if isinstance(res, Exception):
+        if isinstance(res, BaseException):
             raise res
         content.append(res)
 

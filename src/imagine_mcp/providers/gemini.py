@@ -204,19 +204,21 @@ async def understand_multimodal(
 
         # ⚡ Bolt: Use return_exceptions=True to ensure no background tasks are leaked
         # if one download or upload fails. This also avoids skipping cleanup logic.
-        resolved_mts = await asyncio.gather(
+        gathered_mts = await asyncio.gather(
             *(_resolve_mt(i, u) for i, u in enumerate(urls)), return_exceptions=True
         )
-        for res in resolved_mts:
-            if isinstance(res, Exception):
+        resolved_mts: list[str] = []
+        for res in gathered_mts:
+            if isinstance(res, BaseException):
                 raise res
+            resolved_mts.append(res)
 
         results = await asyncio.gather(
             *(_fetch_part(i, urls[i], resolved_mts[i]) for i in range(len(urls))),
             return_exceptions=True,
         )
         for res in results:
-            if isinstance(res, Exception):
+            if isinstance(res, BaseException):
                 raise res
             parts.append(res)
 
