@@ -20,9 +20,19 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup, SoupStrainer, Tag
 
 log = logging.getLogger("refresh_ranks")
+
+
+def _sanitize_text(text: str) -> str:
+    """Sanitize parsed text to prevent terminal injection and ReDoS."""
+    # Strip control characters
+    text = re.sub(r"[\x00-\x1f\x7f-\x9f]", "", text)
+    # Truncate to a reasonable maximum length
+    if len(text) > 500:
+        return text[:500] + "..."
+    return text
 
 
 LB_URLS: list[str] = [
@@ -126,14 +136,16 @@ def _parse_row(
     if len(cells) <= rank_i:
         return None
 
-    rank_match = re.search(r"\d+", cells[rank_i].get_text())
+    rank_text = _sanitize_text(cells[rank_i].get_text())
+    rank_match = re.search(r"\d+", rank_text)
     if not rank_match:
         return None
     rank = int(rank_match.group())
 
     name_cell = cells[name_i]
     link = name_cell.find("a")
-    display = link.get_text(strip=True) if link else name_cell.get_text(strip=True)
+    raw_display = link.get_text(strip=True) if link else name_cell.get_text(strip=True)
+    display = _sanitize_text(raw_display)
     # Strip trailing "provider . type" annotations LMArena embeds
     display = re.split(r"\s*·\s*|\s+xAI\s+|\s+OpenAI\s+|\s+Google\s+", display)[
         0
@@ -146,7 +158,7 @@ def _parse_row(
 
     provider: str | None = None
     if provider_i >= 0:
-        provider_raw = cells[provider_i].get_text(strip=True)
+        provider_raw = _sanitize_text(cells[provider_i].get_text(strip=True))
         if provider_raw:
             provider = _normalize_provider(provider_raw)
     if not provider:
@@ -156,7 +168,8 @@ def _parse_row(
 
     score: float | None = None
     if score_i >= 0:
-        score_match = re.search(r"[\d.]+", cells[score_i].get_text())
+        score_text = _sanitize_text(cells[score_i].get_text())
+        score_match = re.search(r"[\d.]+", score_text)
         if score_match:
             with contextlib.suppress(ValueError):
                 score = float(score_match.group())
@@ -166,47 +179,64 @@ def _parse_row(
 
 def parse_leaderboard(url: str, html: str) -> list[LBRow]:
     """Extract ranked rows filtered to {gemini, openai, grok}."""
-    soup = BeautifulSoup(html, "html.parser")
-    table = soup.find("table")
-    if not table:
-        log.warning("no table found: %s", url)
-        return []
-
-    thead = table.find("thead")
-    if not thead:
-        log.warning("no thead: %s", url)
-        return []
-    header_cells = [c.get_text(strip=True).lower() for c in thead.find_all("th")]
-
+    old_limit = sys.getrecursionlimit()
     try:
-        rank_i = header_cells.index("rank")
-    except ValueError:
-        log.warning("no rank column: %s", url)
-        return []
+        sys.setrecursionlimit(2000)
+        strainer = SoupStrainer("table")
+        soup = BeautifulSoup(html, "html.parser", parse_only=strainer)
+        table = soup.find("table")
+        if not table:
+            log.warning("no table found: %s", url)
+            return []
 
-    name_i = next((i for i, c in enumerate(header_cells) if c in ("model", "name")), 1)
-    provider_i = next((i for i, c in enumerate(header_cells) if "provider" in c), -1)
-    score_i = next(
-        (i for i, c in enumerate(header_cells) if c in ("score", "elo", "arena score")),
-        -1,
-    )
+        thead = table.find("thead")
+        if not thead:
+            log.warning("no thead: %s", url)
+            return []
+        header_cells = [
+            _sanitize_text(c.get_text(strip=True)).lower() for c in thead.find_all("th")
+        ]
 
-    tbody = table.find("tbody")
-    if not tbody:
-        return []
+        try:
+            rank_i = header_cells.index("rank")
+        except ValueError:
+            log.warning("no rank column: %s", url)
+            return []
 
-    rows: list[LBRow] = []
-    for tr in tbody.find_all("tr"):
-        row = _parse_row(
-            tr.find_all("td"),
-            rank_i=rank_i,
-            name_i=name_i,
-            provider_i=provider_i,
-            score_i=score_i,
-            url=url,
+        name_i = next(
+            (i for i, c in enumerate(header_cells) if c in ("model", "name")), 1
         )
-        if row:
-            rows.append(row)
+        provider_i = next(
+            (i for i, c in enumerate(header_cells) if "provider" in c), -1
+        )
+        score_i = next(
+            (
+                i
+                for i, c in enumerate(header_cells)
+                if c in ("score", "elo", "arena score")
+            ),
+            -1,
+        )
+
+        tbody = table.find("tbody")
+        if not tbody:
+            return []
+
+        rows: list[LBRow] = []
+        for tr in tbody.find_all("tr"):
+            row = _parse_row(
+                tr.find_all("td"),
+                rank_i=rank_i,
+                name_i=name_i,
+                provider_i=provider_i,
+                score_i=score_i,
+                url=url,
+            )
+            if row:
+                rows.append(row)
+
+    finally:
+        sys.setrecursionlimit(old_limit)
 
     return rows
 
@@ -227,11 +257,21 @@ def merge_ranks(rows_aa: list[LBRow], rows_lmarena: list[LBRow]) -> dict[str, in
 
 def fetch_all(client: httpx.Client) -> dict[str, list[LBRow]]:
     out: dict[str, list[LBRow]] = {}
+    max_size = 5 * 1024 * 1024  # 5MB limit
     for url in LB_URLS:
         try:
-            r = client.get(url, timeout=30.0, follow_redirects=True)
-            r.raise_for_status()
-            out[url] = parse_leaderboard(url, r.text)
+            html_chunks = []
+            bytes_read = 0
+            with client.stream("GET", url, timeout=30.0, follow_redirects=True) as r:
+                r.raise_for_status()
+                for chunk in r.iter_text():
+                    bytes_read += len(chunk.encode("utf-8"))
+                    if bytes_read > max_size:
+                        raise ValueError(f"Response exceeded 5MB limit: {url}")
+                    html_chunks.append(chunk)
+
+            html = "".join(html_chunks)
+            out[url] = parse_leaderboard(url, html)
             log.info("fetched %s: %d rows after filter", url, len(out[url]))
         except Exception as exc:
             log.error("fetch failed %s: %s", url, exc)

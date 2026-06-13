@@ -32,8 +32,8 @@ help(topic: str = "understand") -> str
 ```
 
 `model` (optional, litellm `provider/model` format) overrides the provider/tier
-catalog for open passthrough. `config(action="models")` lists available models;
-any litellm model works via passthrough even if unlisted.
+catalog — bypasses `VALID_PROVIDERS` + the model-ID table for open passthrough.
+Any litellm `provider/model` works via passthrough even if not in the model-ID table.
 
 ## Model IDs (verified 2026-04-18; rank from Artificial Analysis + LMArena, refreshed weekly)
 
