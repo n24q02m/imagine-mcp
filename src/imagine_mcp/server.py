@@ -205,7 +205,9 @@ def build_app() -> FastMCP:
                     }
                 return {
                     "status": "saved",
-                    "providers_configured": await asyncio.to_thread(_providers_configured_live),
+                    "providers_configured": await asyncio.to_thread(
+                        _providers_configured_live
+                    ),
                 }
             case "relay_status":
                 _live_providers = await asyncio.to_thread(_providers_configured_live)
@@ -241,7 +243,9 @@ def build_app() -> FastMCP:
                 return {
                     "version": await asyncio.to_thread(_get_version),
                     "credentials_state": await asyncio.to_thread(_creds_state),
-                    "providers_configured": await asyncio.to_thread(_providers_configured_live),
+                    "providers_configured": await asyncio.to_thread(
+                        _providers_configured_live
+                    ),
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
