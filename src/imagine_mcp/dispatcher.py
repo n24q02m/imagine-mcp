@@ -173,14 +173,27 @@ async def _passthrough_understand(
         raise ProviderUnsupportedError(str(e)) from e
 
     content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
-    for u in media_urls:
+
+    # ⚡ Bolt: Optimize I/O by fetching images concurrently.
+    # Expected impact: Reduces network latency from O(N) to O(1).
+    async def _fetch_image(u: str) -> dict[str, Any]:
         resp_img = await get_ssrf_safe_async_client().get(
             u, follow_redirects=True, timeout=60
         )
         img_b64 = base64.b64encode(resp_img.content).decode()
         mime_type = resp_img.headers.get("content-type", "image/png")
         data_url = f"data:{mime_type};base64,{img_b64}"
-        content.append({"type": "image_url", "image_url": {"url": data_url}})
+        return {"type": "image_url", "image_url": {"url": data_url}}
+
+    # ⚡ Bolt: Use return_exceptions=True to ensure no background tasks are leaked
+    # if one fetch fails. We then explicitly check and raise the first exception.
+    results = await asyncio.gather(
+        *(_fetch_image(u) for u in media_urls), return_exceptions=True
+    )
+    for res in results:
+        if isinstance(res, BaseException):
+            raise res
+        content.append(res)
 
     resp = await acompletion(
         model=model,
