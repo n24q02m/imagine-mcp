@@ -18,6 +18,7 @@ import json
 from unittest.mock import patch
 
 import pytest
+
 from imagine_mcp.server import build_app
 
 
