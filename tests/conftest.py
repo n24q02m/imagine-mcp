@@ -7,7 +7,10 @@ def reset_clients():
     from imagine_mcp import media
     from imagine_mcp.providers import gemini, grok, openai
 
-    media._CLIENT = None
+    if hasattr(media, "_reset_ssrf_safe_client"):
+        media._reset_ssrf_safe_client()
+    else:
+        media._CLIENT = None
 
     if hasattr(grok, "_CLIENT"):
         grok._CLIENT = None

@@ -7,6 +7,7 @@ import concurrent.futures
 import ipaddress
 import os
 import socket
+import threading
 import typing
 from pathlib import Path
 from typing import Literal
@@ -264,22 +265,50 @@ def validate_url_and_get_ip(url: str, param: str) -> str:
     return _validate_hostname_and_get_ip(hostname, parsed.port, param)
 
 
-_CLIENT: httpx.Client | None = None
-_ASYNC_CLIENT: httpx.AsyncClient | None = None
+class _ClientManager:
+    """Thread-safe singleton manager for httpx clients."""
+
+    def __init__(self) -> None:
+        self._client: httpx.Client | None = None
+        self._async_client: httpx.AsyncClient | None = None
+        self._lock = threading.Lock()
+
+    def get_client(self) -> httpx.Client:
+        if self._client is None:
+            with self._lock:
+                if self._client is None:
+                    self._client = httpx.Client(transport=SSRFSafeTransport())
+        return self._client
+
+    def get_async_client(self) -> httpx.AsyncClient:
+        if self._async_client is None:
+            with self._lock:
+                if self._async_client is None:
+                    self._async_client = httpx.AsyncClient(
+                        transport=AsyncSSRFSafeTransport()
+                    )
+        return self._async_client
+
+    def reset(self) -> None:
+        with self._lock:
+            self._client = None
+            self._async_client = None
+
+
+_MANAGER = _ClientManager()
 
 
 def get_ssrf_safe_client() -> httpx.Client:
-    global _CLIENT
-    if _CLIENT is None:
-        _CLIENT = httpx.Client(transport=SSRFSafeTransport())
-    return _CLIENT
+    return _MANAGER.get_client()
 
 
 def get_ssrf_safe_async_client() -> httpx.AsyncClient:
-    global _ASYNC_CLIENT
-    if _ASYNC_CLIENT is None:
-        _ASYNC_CLIENT = httpx.AsyncClient(transport=AsyncSSRFSafeTransport())
-    return _ASYNC_CLIENT
+    return _MANAGER.get_async_client()
+
+
+def _reset_ssrf_safe_client() -> None:
+    """Test hook: reset global client singletons."""
+    _MANAGER.reset()
 
 
 def detect_media_type(url: str) -> MediaType:
