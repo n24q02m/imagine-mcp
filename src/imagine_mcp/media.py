@@ -366,7 +366,9 @@ def _write_response(resp: httpx.Response, dest: Path, max_size: int) -> None:
             f.write(chunk)
 
 
-async def _write_response_async(resp: httpx.Response, dest: Path, max_size: int) -> None:
+async def _write_response_async(
+    resp: httpx.Response, dest: Path, max_size: int
+) -> None:
     """Async version of _write_response."""
     bytes_read = 0
     with dest.open("wb") as f:
