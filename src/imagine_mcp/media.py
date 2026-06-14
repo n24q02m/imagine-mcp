@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
+import anyio
 import httpcore
 import httpx
 
@@ -389,16 +390,17 @@ async def download_to_path_async(url: str, dest: Path) -> Path:
         async with client.stream("GET", url, follow_redirects=True, timeout=60) as resp:
             resp.raise_for_status()
 
-            # Stream to disk with a sync file handle; offload each blocking
-            # write to a thread. The `with` block guarantees the handle closes.
-            with dest.open("wb") as f:
+            # Stream to disk with an async file handle using anyio.
+            # This avoids severe context-switching overhead from high-frequency
+            # asyncio.to_thread calls for small chunks.
+            async with await anyio.open_file(dest, "wb") as f:
                 async for chunk in resp.aiter_bytes(chunk_size=65536):
                     bytes_read += len(chunk)
                     if bytes_read > max_size:
                         raise httpx.HTTPError(
                             f"Download failed: Exceeded maximum size of {max_size} bytes"
                         )
-                    await asyncio.to_thread(f.write, chunk)
+                    await f.write(chunk)
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
     except Exception:
