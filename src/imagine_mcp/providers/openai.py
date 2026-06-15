@@ -2,13 +2,8 @@
 
 from __future__ import annotations
 
-import asyncio
 import base64
-import uuid
-from pathlib import Path
 from typing import Any
-
-import platformdirs
 
 from imagine_mcp.errors import (
     ProviderAPIError,
@@ -98,6 +93,7 @@ async def generate_image(
     tier: str,
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
+    output_mode: str = "both",
 ) -> dict[str, Any]:
     # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     model = get_model_id("openai", "generate", "image", tier)
@@ -125,14 +121,11 @@ async def generate_image(
         raise ProviderAPIError("OpenAI returned no image", status_code=500)
     img_bytes = base64.b64decode(img_b64)
 
-    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    await asyncio.to_thread(out_dir.mkdir, parents=True, exist_ok=True)
-    out_path = out_dir / f"{uuid.uuid4().hex}.png"
-    await asyncio.to_thread(out_path.write_bytes, img_bytes)
+    from imagine_mcp.media import emit_media
 
+    media_fields = await emit_media(img_bytes, ".png", "image", output_mode)
     return {
-        "image_path": str(out_path),
-        "image_base64": img_b64,
+        **media_fields,
         "model": model,
         "provider": "openai",
         "tier": tier,
@@ -146,6 +139,7 @@ async def generate_video(
     job_id: str | None = None,
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
+    output_mode: str = "both",
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
         "openai.generate.video: Sora 2 API shutdown 2026-09-24. "

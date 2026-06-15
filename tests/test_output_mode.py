@@ -118,3 +118,24 @@ async def test_gemini_generate_video_base64_no_path(monkeypatch, tmp_path):
     )
     assert "video_base64" in out and "video_path" not in out
     assert not (tmp_path / "generations").exists()
+
+
+from imagine_mcp.providers import openai as openai_provider
+
+
+@pytest.mark.asyncio
+async def test_openai_generate_image_base64_no_disk(monkeypatch, tmp_path):
+    monkeypatch.setattr("platformdirs.user_cache_dir", lambda *a, **k: str(tmp_path))
+    import base64 as _b64
+
+    fake_client = MagicMock()
+    fake_resp = MagicMock()
+    fake_resp.data = [MagicMock(b64_json=_b64.b64encode(b"PNGDATA").decode())]
+    fake_client.images.generate = AsyncMock(return_value=fake_resp)
+    monkeypatch.setattr(openai_provider, "_client", lambda: fake_client)
+
+    out = await openai_provider.generate_image(
+        prompt="a cat", tier="poor", output_mode="base64"
+    )
+    assert "image_base64" in out and "image_path" not in out
+    assert not (tmp_path / "generations").exists()
