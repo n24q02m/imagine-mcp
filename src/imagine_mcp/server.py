@@ -43,13 +43,23 @@ def _creds_state() -> str:
 
 
 def _providers_configured() -> list[str]:
+    """Return list of providers configured via environment variables."""
+    from imagine_mcp.relay_setup import CREDENTIAL_KEYS
+
+    _key_to_provider = {
+        "GEMINI_API_KEY": "gemini",
+        "OPENAI_API_KEY": "openai",
+        "XAI_API_KEY": "grok",
+    }
+    seen: set[str] = set()
     out: list[str] = []
-    if os.environ.get("GEMINI_API_KEY"):
-        out.append("gemini")
-    if os.environ.get("OPENAI_API_KEY"):
-        out.append("openai")
-    if os.environ.get("XAI_API_KEY"):
-        out.append("grok")
+    for key in CREDENTIAL_KEYS:
+        provider = _key_to_provider.get(key, key)
+        if provider in seen:
+            continue
+        if os.environ.get(key):
+            out.append(provider)
+            seen.add(provider)
     return out
 
 
@@ -228,6 +238,7 @@ def build_app() -> FastMCP:
                     }
                 return {
                     "status": "using_env",
+                    "message": "Using env vars for credentials.",
                     "providers": _env_providers,
                 }
             case "relay_reset":
