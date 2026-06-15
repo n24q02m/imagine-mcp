@@ -437,3 +437,35 @@ async def download_to_path_async(url: str, dest: Path) -> Path:
             await asyncio.to_thread(dest.unlink, missing_ok=True)
         raise
     return dest
+
+
+async def emit_media(
+    data: bytes, suffix: str, key: str, output_mode: str
+) -> dict[str, str]:
+    """Build the media-output fields for a generated asset, honouring output_mode.
+
+    ``output_mode``:
+      - ``"base64"``: return ``{<key>_base64: ...}`` only -- NO disk write
+        (required on the ephemeral Cloudflare container FS).
+      - ``"path"``:   write ``<cache>/generations/<uuid><suffix>`` and return
+        ``{<key>_path: ...}`` only.
+      - ``"both"``:   write the file AND return both fields (default).
+
+    ``key`` is ``"image"`` or ``"video"``; ``suffix`` includes the dot
+    (``".png"`` / ``".mp4"``).
+    """
+    import base64 as _b64
+    import uuid as _uuid
+
+    import platformdirs as _pd
+
+    out: dict[str, str] = {}
+    if output_mode in ("base64", "both"):
+        out[f"{key}_base64"] = _b64.b64encode(data).decode()
+    if output_mode in ("path", "both"):
+        out_dir = Path(_pd.user_cache_dir("imagine-mcp")) / "generations"
+        await asyncio.to_thread(out_dir.mkdir, parents=True, exist_ok=True)
+        out_path = out_dir / f"{_uuid.uuid4().hex}{suffix}"
+        await asyncio.to_thread(out_path.write_bytes, data)
+        out[f"{key}_path"] = str(out_path)
+    return out
