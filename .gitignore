@@ -44,3 +44,4 @@ Thumbs.db
 *.bak
 /*.patch
 /*.diff
+.imagine_cf_token
