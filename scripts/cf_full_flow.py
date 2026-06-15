@@ -270,23 +270,39 @@ async def run_full(endpoint: str) -> None:
     print("FULL FLOW PASS.")
 
 
+def _token_file():
+    from pathlib import Path as _Path
+
+    return _Path(__file__).with_name(".imagine_cf_token")
+
+
 async def run_save_only(endpoint: str) -> None:
     creds = _provider_creds()
     if not creds:
         raise SystemExit("No provider key in env -- nothing to save (--save-only).")
     token = get_token(endpoint, creds, save=True)
+    # Dump the EXACT token so --auth-only can replay the SAME JWT sub. The
+    # relay-login mints a fresh random sub on every /authorize, so re-minting in
+    # --auth-only would read a NEW (empty) sub vault; the recreate gate must
+    # prove THIS sub's creds survived in KV, hence we persist the token.
+    _token_file().write_text(token)
     print(
-        "SAVE-ONLY OK: creds saved for sub=", _sub_of(token), "len(token)=", len(token)
+        "SAVE-ONLY OK: creds saved for sub=", _sub_of(token), "len(token)=", len(token),
+        "(token dumped for --auth-only)"
     )
 
 
 async def run_auth_only(endpoint: str) -> None:
-    # Re-mint a token (same gate password -> same sub) but DO NOT re-save creds:
-    # the empty-payload submit leaves existing KV state untouched, proving the
-    # previously-saved key survived a delete+recreate (SUCCESS CRITERION 4).
-    token = get_token(endpoint, {}, save=False)
+    # Replay the EXACT token dumped by --save-only (same JWT sub) WITHOUT
+    # re-minting or re-saving: this proves the previously-saved key survived a
+    # delete+recreate (SUCCESS CRITERION 4). Re-minting would create a new random
+    # sub whose vault is empty (relay-login mints sub per /authorize).
+    tok_path = _token_file()
+    if not tok_path.exists():
+        raise SystemExit("No dumped token -- run --save-only first.")
+    token = tok_path.read_text().strip()
     provider = _provider_of(_provider_creds())  # local hint for the generate call
-    print("AUTH-ONLY OK: re-minted token for sub=", _sub_of(token))
+    print("AUTH-ONLY: replaying saved token for sub=", _sub_of(token))
     transport, ClientSession = await _session(endpoint, token)
     async with transport as (r, w, _), ClientSession(r, w) as s:
         await s.initialize()
