@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import os
 import urllib.parse
 import uuid
 from pathlib import Path
@@ -16,34 +15,26 @@ from typing import Any
 
 import platformdirs
 
-from imagine_mcp.config import settings
-from imagine_mcp.credential_state import (
-    credentials_for_current_request,
-    get_current_sub,
-)
 from imagine_mcp.errors import (
-    CredentialMissingError,
     ProviderAPIError,
     ProviderUnsupportedError,
 )
 from imagine_mcp.media import get_ssrf_safe_async_client
 from imagine_mcp.models import get_model_id
+from imagine_mcp.providers.base import ClientManager
 
 _BASE_URL = "https://api.x.ai/v1"
+
+_manager = ClientManager(
+    provider_name="xAI (Grok)",
+    env_key="XAI_API_KEY",
+    settings_attr="xai_api_key",
+)
 
 
 def _api_key() -> str:
     """Return XAI_API_KEY for the current request scope."""
-    if get_current_sub() is not None:
-        key = credentials_for_current_request().get("XAI_API_KEY")
-    else:
-        key = settings.xai_api_key or os.environ.get("XAI_API_KEY")
-    if not key:
-        raise CredentialMissingError(
-            "xAI (Grok) API key missing. Run config(action='open_relay') for "
-            "browser-based setup, or set XAI_API_KEY."
-        )
-    return key
+    return _manager.get_api_key()
 
 
 async def understand_image(
