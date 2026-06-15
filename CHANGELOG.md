@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.5 (2026-06-15)
+
+### Bug Fixes
+
+- Bump mcp-core to 1.18.0b5 for vertex_express support
+  ([#315](https://github.com/n24q02m/imagine-mcp/pull/315),
+  [`4386dd4`](https://github.com/n24q02m/imagine-mcp/commit/4386dd4e934425e12a3164d66cbacec066438a8a))
+
+
 ## v1.7.0-beta.4 (2026-06-15)
 
 ### Bug Fixes
