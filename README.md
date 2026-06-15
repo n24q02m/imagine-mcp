@@ -135,7 +135,7 @@ How imagine-mcp stacks up against direct competitors in each pillar:
 - **SSRF + LFI prevention** -- All `media_urls` and `reference_image_url` are validated at the dispatch boundary; only `http://` and `https://` schemes reach the providers. `file://`, `ftp://`, `gopher://`, and scheme-less URLs are rejected.
 - **No credentials in errors** -- Provider-side errors are sanitized before being returned.
 - **Degraded start** -- Missing credentials do not prevent the server from starting; affected actions surface actionable errors instead of crashing at boot.
-- **Relay transport** -- Credentials submitted through the local relay form are stored encrypted via `mcp-core` (`config.enc`, user-scoped `platformdirs`).
+- **Credential storage** -- Credentials submitted through the browser credential form are stored encrypted via `mcp-core` (AES-GCM, machine-bound key) at `~/.imagine-mcp/config.json`.
 
 ## Build from Source
 

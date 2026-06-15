@@ -20,7 +20,7 @@ config(
 |--------|---------|
 | `open_relay` | Start relay session; server opens browser with credential form |
 | `relay_status` | Poll current relay session status |
-| `relay_complete` | Persist relay submission to encrypted config.enc |
+| `relay_complete` | Persist relay submission to the encrypted per-plugin store (`~/.imagine-mcp/config.json`) |
 | `relay_skip` | Skip relay; rely on env vars only |
 | `relay_reset` | Delete stored credentials (forces re-setup) |
 | `warmup` | Pre-load heavy resources (no-op in v1) |
@@ -38,13 +38,13 @@ config(
 ```python
 # First-time setup
 config(action="open_relay")
-# -> {"session_id": "...", "url": "http://localhost:8001/...", "expires_in_seconds": 300}
+# -> {"status": "saved", "providers_configured": [...]} or {"status": "degraded", "message": "..."}
 
 config(action="relay_status")
-# -> {"status": "pending"} or {"status": "done"}
+# -> {"status": "pending", "providers_configured": []} or {"status": "configured", "providers_configured": [...]}
 
 config(action="relay_complete")
-# -> {"status": "saved", "providers_configured": ["gemini", "openai", "grok"]}
+# -> {"status": "saved", "providers_configured": ["gemini", "openai", "grok"]} or {"status": "no_credentials", "providers_configured": []}
 
 config(action="status")
 # -> {"credentials_state": "CONFIGURED", "providers_configured": [...], ...}
@@ -59,6 +59,6 @@ config(action="status")
 
 ## Security
 
-- Credentials stored in `config.enc` via mcp-core (AES-256-GCM, machine-bound key).
-- Relay transport: ECDH P-256 key exchange + AES-256-GCM.
+- Credentials stored in `~/.imagine-mcp/config.json` via mcp-core (AES-256-GCM, machine-bound key); multi-user HTTP mode scopes them per JWT subject under `~/.imagine-mcp/subs/<sub>/config.json` (AES-256-GCM, PBKDF2 key from `CREDENTIAL_SECRET`).
+- Setup transport: in HTTP mode credentials are entered through the browser credential form served by the mcp-core OAuth Authorization Server (`/authorize`).
 - API keys **never** appear in logs or error messages.
