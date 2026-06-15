@@ -179,3 +179,32 @@ Multi-user remote mode (deployment property; not a separate config) requires `MC
 
 References: `mcp-core/scripts/e2e/matrix.yaml`, `~/.claude/skills/mcp-dev/references/e2e-full-matrix.md` (harness-readiness gate), `~/.claude/skills/mcp-dev/references/secrets-skret.md` (per-server credential layout), `~/.claude/skills/mcp-dev/references/multi-user-pattern.md` (per-JWT-sub isolation).
 
+## Cloudflare serverless mode
+
+imagine-mcp runs serverless on Cloudflare (Worker + Container + KV-only). The
+only externalised state is the per-sub credential vault (KV); generation is
+returned base64-only because the container FS is ephemeral.
+
+| env var | value | purpose |
+|---|---|---|
+| `MCP_TRANSPORT` | `http` | container detection + multi-user mode |
+| `PUBLIC_URL` | `https://imagine.n24q02m.com` | public bind + per-JWT-sub isolation |
+| `MCP_STORAGE_BACKEND` | `cf-kv` | route PerPluginStore through KV |
+| `MCP_KV_BASE_URL` | `http://kv.internal` | Worker outbound-handler virtual host |
+| `IMAGINE_OUTPUT_MODE` | `base64` | force base64 output (no local media path) |
+| `CREDENTIAL_SECRET` | (secret) | stable EdDSA JWT key (no disk) + per-sub vault key |
+| `MCP_DCR_SERVER_SECRET` | (secret) | proof of intentional multi-user deploy |
+
+`IMAGINE_OUTPUT_MODE=base64` overrides the `generate` tool's `output_mode` arg
+so every request returns `image_base64` / `video_base64` and never an
+`image_path` (the ephemeral container FS would lose the file on recreate).
+
+ResponseCache (`cache.py`, diskcache) is NOT on the hot path -- `understand` /
+`generate` never read/write it; it is only touched by `config(action="cache_clear")`,
+which is a harmless no-op on the ephemeral FS. No KV migration needed.
+
+`src/worker.ts` + `wrangler.jsonc` are copied from the frozen CF template
+(`wet-mcp/docs/cf-template.md`), KV-only (no D1/Vectorize): `ImagineContainer` DO
++ `IMAGINE` binding, the `kv.internal` outbound handler off the public `fetch`
+(security), and the 5 footguns. Live OAuth self-test: `scripts/cf_full_flow.py`.
+
