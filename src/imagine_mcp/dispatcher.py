@@ -339,13 +339,22 @@ async def dispatch_generate(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
     model: str | None = None,
+    output_mode: str = "both",
 ) -> dict[str, Any]:
     """Dispatch generate call to provider (fully async).
 
     When ``model`` is set, the litellm 'provider/model' prefix selects a
     native generation provider (catalog still picks the concrete model by
     tier); generation itself is never routed through litellm.
+
+    ``output_mode`` controls how generated media is returned:
+    ``"base64"`` (no disk write -- required on ephemeral CF FS),
+    ``"path"`` (on-disk path only), or ``"both"`` (default). The deploy-level
+    env var ``IMAGINE_OUTPUT_MODE`` overrides the caller's value when set, so a
+    serverless operator can force base64 across every request.
     """
+    effective_output_mode = os.getenv("IMAGINE_OUTPUT_MODE") or output_mode
+
     if model is not None:
         provider = _resolve_generate_provider(model)
     elif provider is None:
@@ -364,7 +373,15 @@ async def dispatch_generate(
 
     mod = _load_provider(provider)
     if media_type == "image":
-        return await mod.generate_image(prompt, tier, reference_image_url, aspect_ratio)
+        return await mod.generate_image(
+            prompt, tier, reference_image_url, aspect_ratio, effective_output_mode
+        )
     return await mod.generate_video(
-        prompt, tier, reference_image_url, job_id, aspect_ratio, duration_seconds
+        prompt,
+        tier,
+        reference_image_url,
+        job_id,
+        aspect_ratio,
+        duration_seconds,
+        effective_output_mode,
     )
