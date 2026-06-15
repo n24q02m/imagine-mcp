@@ -215,22 +215,24 @@ def build_app() -> FastMCP:
                     }
                 return {
                     "status": "saved",
-                    "providers_configured": _providers_configured_live(),
+                    "providers_configured": await asyncio.to_thread(
+                        _providers_configured_live
+                    ),
                 }
             case "relay_status":
-                _live_providers = _providers_configured_live()
+                _live_providers = await asyncio.to_thread(_providers_configured_live)
                 return {
                     "status": "configured" if _live_providers else "pending",
                     "providers_configured": _live_providers,
                 }
             case "relay_complete":
-                _live_providers = _providers_configured_live()
+                _live_providers = await asyncio.to_thread(_providers_configured_live)
                 return {
                     "status": "saved" if _live_providers else "no_credentials",
                     "providers_configured": _live_providers,
                 }
             case "relay_skip":
-                _env_providers = _providers_configured()
+                _env_providers = await asyncio.to_thread(_providers_configured)
                 if not _env_providers:
                     return {
                         "status": "needs_setup",
@@ -250,9 +252,11 @@ def build_app() -> FastMCP:
                 }
             case "status":
                 return {
-                    "version": _get_version(),
-                    "credentials_state": _creds_state(),
-                    "providers_configured": _providers_configured_live(),
+                    "version": await asyncio.to_thread(_get_version),
+                    "credentials_state": await asyncio.to_thread(_creds_state),
+                    "providers_configured": await asyncio.to_thread(
+                        _providers_configured_live
+                    ),
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
@@ -326,10 +330,11 @@ async def run_http(port: int = 0) -> None:
         host = "127.0.0.1"
         mode_label = "http local relay"
 
-    app = build_app()
-    logger.info("imagine-mcp {} starting ({})", _get_version(), mode_label)
-    auth_disabled = os.environ.get("MCP_AUTH_DISABLE") == "1"
+    app = await asyncio.to_thread(build_app)
+    _version_str = await asyncio.to_thread(_get_version)
+    logger.info("imagine-mcp {} starting ({})", _version_str, mode_label)
 
+    auth_disabled = os.environ.get("MCP_AUTH_DISABLE") == "1"
     await run_http_server(
         app,
         server_name="imagine-mcp",
