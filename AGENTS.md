@@ -75,7 +75,7 @@ Dispatched in `src/imagine_mcp/__main__.py:41-64`:
 - `OPENAI_API_KEY`
 - `XAI_API_KEY`
 
-Priority (`src/imagine_mcp/relay_setup.py`): env var > `config.enc` (via mcp-core) > optional `MCP_RELAY_URL` relay fetch > degraded mode. (Stdio mode reads env vars only.)
+Priority (`src/imagine_mcp/relay_setup.py`): env var > `~/.imagine-mcp/config.json` (per-plugin store, via mcp-core) > optional `MCP_RELAY_URL` relay fetch > degraded mode. (Stdio mode reads env vars only.)
 
 ## LLM backend (litellm passthrough)
 

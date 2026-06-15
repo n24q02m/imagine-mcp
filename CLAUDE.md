@@ -75,7 +75,7 @@ Two transports, dispatched in `src/imagine_mcp/__main__.py:41-64`:
 - `OPENAI_API_KEY`
 - `GEMINI_API_KEY` (renamed from `GOOGLE_AI_STUDIO_API_KEY` 2026-04-26 for parity with wet/mnemo/crg)
 
-Source priority (`src/imagine_mcp/relay_setup.py`): env var > `config.enc` (per-plugin store, via mcp-core) > optional `MCP_RELAY_URL` remote-relay fetch > degraded mode. (Stdio mode reads env vars only.)
+Source priority (`src/imagine_mcp/relay_setup.py`): env var > `~/.imagine-mcp/config.json` (per-plugin store, via mcp-core) > optional `MCP_RELAY_URL` remote-relay fetch > degraded mode. (Stdio mode reads env vars only.)
 
 Auto-fallback provider (when `understand`/`generate` is called without an
 explicit `provider`): the first key present in this order wins —
