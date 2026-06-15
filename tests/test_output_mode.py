@@ -139,3 +139,31 @@ async def test_openai_generate_image_base64_no_disk(monkeypatch, tmp_path):
     )
     assert "image_base64" in out and "image_path" not in out
     assert not (tmp_path / "generations").exists()
+
+
+from imagine_mcp.providers import grok
+
+
+@pytest.mark.asyncio
+async def test_grok_generate_image_base64_no_disk(monkeypatch, tmp_path):
+    import base64 as _b64
+
+    monkeypatch.setattr("platformdirs.user_cache_dir", lambda *a, **k: str(tmp_path))
+    monkeypatch.setattr(grok, "_api_key", lambda: "dummy")
+
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json = lambda: {"data": [{"b64_json": _b64.b64encode(b"PNGDATA").decode()}]}
+    fake_client = MagicMock()
+    fake_client.post = AsyncMock(return_value=resp)
+    # grok.py binds the name at import time (grok.py:22
+    # `from imagine_mcp.media import get_ssrf_safe_async_client`), so patch the
+    # symbol IN grok's module namespace -- patching imagine_mcp.media would NOT
+    # affect grok's already-bound reference.
+    monkeypatch.setattr(
+        "imagine_mcp.providers.grok.get_ssrf_safe_async_client", lambda: fake_client
+    )
+
+    out = await grok.generate_image(prompt="a cat", tier="poor", output_mode="base64")
+    assert "image_base64" in out and "image_path" not in out
+    assert not (tmp_path / "generations").exists()
