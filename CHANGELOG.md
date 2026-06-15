@@ -2,6 +2,44 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.6 (2026-06-15)
+
+### Bug Fixes
+
+- Add thread-safe client manager and extract download helpers
+  ([#312](https://github.com/n24q02m/imagine-mcp/pull/312),
+  [`0a82c48`](https://github.com/n24q02m/imagine-mcp/commit/0a82c487642455f8557cf25092dc45a2548f5b06))
+
+- Centralize client initialization and credential resolution logic
+  ([#302](https://github.com/n24q02m/imagine-mcp/pull/302),
+  [`ac1e019`](https://github.com/n24q02m/imagine-mcp/commit/ac1e01924937b465c19afd6b962da6ef6d301050))
+
+- Import Callable from collections.abc (ruff UP035)
+  ([#302](https://github.com/n24q02m/imagine-mcp/pull/302),
+  [`ac1e019`](https://github.com/n24q02m/imagine-mcp/commit/ac1e01924937b465c19afd6b962da6ef6d301050))
+
+- Offload blocking provider/config i/o off the event loop
+  ([#304](https://github.com/n24q02m/imagine-mcp/pull/304),
+  [`83881c4`](https://github.com/n24q02m/imagine-mcp/commit/83881c4ccd1252664dc36932935d8de785e6782c))
+
+- Optimize url processing with native async i/o
+  ([#309](https://github.com/n24q02m/imagine-mcp/pull/309),
+  [`6e3a1cf`](https://github.com/n24q02m/imagine-mcp/commit/6e3a1cf4ae50db25dfe0e04b0273bceec78e8839))
+
+- Report relay_skip via canonical CREDENTIAL_KEYS
+  ([#308](https://github.com/n24q02m/imagine-mcp/pull/308),
+  [`34d45e6`](https://github.com/n24q02m/imagine-mcp/commit/34d45e62c7383dc189bf9c0e8bf0bd24a7d5a3bc))
+
+- **deps**: Update non-major dependencies ([#310](https://github.com/n24q02m/imagine-mcp/pull/310),
+  [`fb1497d`](https://github.com/n24q02m/imagine-mcp/commit/fb1497d7cb650c791a62f946a08b1e9624d4ef45))
+
+### Features
+
+- Cloudflare serverless migration (Worker + Container + KV-only, base64 output)
+  ([#316](https://github.com/n24q02m/imagine-mcp/pull/316),
+  [`44af98b`](https://github.com/n24q02m/imagine-mcp/commit/44af98befe776467488c321fd3b6cdc60ea25f34))
+
+
 ## v1.7.0-beta.5 (2026-06-15)
 
 ### Bug Fixes
