@@ -164,8 +164,15 @@ async def _passthrough_understand(
 
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
-    for i, u in enumerate(media_urls):
-        await _validate_url(u, f"media_urls[{i}]")
+    # ⚡ Bolt: Parallelize URL validation to reduce O(N) sequential latency.
+    # validate_url_and_get_ip offloads DNS to a thread pool internally.
+    results = await asyncio.gather(
+        *(_validate_url(u, f"media_urls[{i}]") for i, u in enumerate(media_urls)),
+        return_exceptions=True,
+    )
+    for res in results:
+        if isinstance(res, BaseException):
+            raise res
 
     try:
         check_capability(model, _UNDERSTAND_MODES)
@@ -247,14 +254,27 @@ async def dispatch_understand(
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
 
-    # Sequential validation to preserve fail-fast and avoid pool deadlocks.
-    for i, u in enumerate(media_urls):
-        await _validate_url(u, f"media_urls[{i}]")
-
-    # Concurrent media type detection.
-    media_types = await asyncio.gather(
-        *(detect_media_type_async(u) for u in media_urls)
+    # ⚡ Bolt: Parallelize URL validation to reduce O(N) sequential latency.
+    # validate_url_and_get_ip offloads DNS to a thread pool internally.
+    results_val = await asyncio.gather(
+        *(_validate_url(u, f"media_urls[{i}]") for i, u in enumerate(media_urls)),
+        return_exceptions=True,
     )
+    for res in results_val:
+        if isinstance(res, BaseException):
+            raise res
+
+    # ⚡ Bolt: Concurrent media type detection with robust error handling.
+    # return_exceptions=True prevents background tasks from leaking on failure.
+    results_mt = await asyncio.gather(
+        *(detect_media_type_async(u) for u in media_urls),
+        return_exceptions=True,
+    )
+    media_types: list[str] = []
+    for res in results_mt:
+        if isinstance(res, BaseException):
+            raise res
+        media_types.append(res)
     has_video = "video" in media_types
 
     if has_video:
