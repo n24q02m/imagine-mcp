@@ -12,6 +12,14 @@ build/
 # Virtualenv
 .venv/
 
+# Node (Cloudflare Worker)
+node_modules/
+package-lock.json
+
+# Cloudflare Worker
+.wrangler/
+.wrangler-dryrun/
+
 # AI traces (per CLAUDE.md public repo policy — superpower content lives in private repo n24q02m/.superpower)
 .jules/
 .Jules/

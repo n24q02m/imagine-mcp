@@ -185,6 +185,7 @@ def build_app() -> FastMCP:
             aspect_ratio,
             duration_seconds,
             model,
+            output_mode,
         )
 
     @app.tool(

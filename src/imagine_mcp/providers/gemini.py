@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import uuid
 from pathlib import Path
 from typing import Any
@@ -212,6 +211,7 @@ async def generate_image(
     tier: str,
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
+    output_mode: str = "both",
 ) -> dict[str, Any]:
     # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     from google.genai import types
@@ -243,14 +243,11 @@ async def generate_image(
     if not image_data:
         raise ProviderAPIError("Gemini returned no image", status_code=500)
 
-    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    await asyncio.to_thread(out_dir.mkdir, parents=True, exist_ok=True)
-    out_path = out_dir / f"{uuid.uuid4().hex}.png"
-    await asyncio.to_thread(out_path.write_bytes, image_data)
+    from imagine_mcp.media import emit_media
 
+    media_fields = await emit_media(image_data, ".png", "image", output_mode)
     return {
-        "image_path": str(out_path),
-        "image_base64": base64.b64encode(image_data).decode(),
+        **media_fields,
         "model": model,
         "provider": "gemini",
         "tier": tier,
@@ -264,6 +261,7 @@ async def generate_video(
     job_id: str | None = None,
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
+    output_mode: str = "both",
 ) -> dict[str, Any]:
     # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     from google.genai import types
@@ -298,20 +296,17 @@ async def generate_video(
         raise ProviderAPIError(f"Gemini job error: {op.error}", status_code=500)
 
     video = op.response.generated_videos[0]
-    out_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "generations"
-    await asyncio.to_thread(out_dir.mkdir, parents=True, exist_ok=True)
-    out_path = out_dir / f"{uuid.uuid4().hex}.mp4"
+    from imagine_mcp.media import emit_media
 
-    # Download video file. genai.Client.aio.files.download is likely what we need.
-    await client.aio.files.download(file=video.video)
-    # The SDK usually saves it locally if specified, or returns bytes.
-    # Looking at sync code: video.video.save(str(out_path))
-    # Let's check if video.video has an async save.
-    # If not, use to_thread.
-    await asyncio.to_thread(video.video.save, str(out_path))
+    # The async files.download returns the downloaded bytes (unlike the sync
+    # client, it does NOT set video.video.video_bytes as a side effect), so
+    # capture the return value -- this keeps the video in memory and lets
+    # emit_media honour output_mode without persisting on the ephemeral CF FS.
+    video_bytes: bytes = await client.aio.files.download(file=video.video)
+    media_fields = await emit_media(video_bytes, ".mp4", "video", output_mode)
 
     return {
-        "video_path": str(out_path),
+        **media_fields,
         "job_id": job_id,
         "status": "done",
         "model": model,
