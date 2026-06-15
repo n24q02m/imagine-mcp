@@ -287,8 +287,11 @@ async def run_save_only(endpoint: str) -> None:
     # prove THIS sub's creds survived in KV, hence we persist the token.
     _token_file().write_text(token)
     print(
-        "SAVE-ONLY OK: creds saved for sub=", _sub_of(token), "len(token)=", len(token),
-        "(token dumped for --auth-only)"
+        "SAVE-ONLY OK: creds saved for sub=",
+        _sub_of(token),
+        "len(token)=",
+        len(token),
+        "(token dumped for --auth-only)",
     )
 
 
