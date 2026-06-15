@@ -2,6 +2,65 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.4 (2026-06-15)
+
+### Bug Fixes
+
+- Correct credential storage and setup-transport docs
+  ([`435900f`](https://github.com/n24q02m/imagine-mcp/commit/435900f18acbec9af37e6329e773f3dbe4f9c6df))
+
+- Fetch understand-flow media concurrently via asyncio.gather
+  ([#291](https://github.com/n24q02m/imagine-mcp/pull/291),
+  [`1e58248`](https://github.com/n24q02m/imagine-mcp/commit/1e58248369ad7757b16f7317df6d4ae11e8f5550))
+
+- Narrow gather results on BaseException for ty check
+  ([#291](https://github.com/n24q02m/imagine-mcp/pull/291),
+  [`1e58248`](https://github.com/n24q02m/imagine-mcp/commit/1e58248369ad7757b16f7317df6d4ae11e8f5550))
+
+- Remove literal v<auto> placeholder from stabilization note
+  ([#293](https://github.com/n24q02m/imagine-mcp/pull/293),
+  [`0aeddcf`](https://github.com/n24q02m/imagine-mcp/commit/0aeddcf8f75e8a270f04bb42a2e359c8747fa7d1))
+
+- Remove orphaned Qodo pr-agent config ([#289](https://github.com/n24q02m/imagine-mcp/pull/289),
+  [`567f7b8`](https://github.com/n24q02m/imagine-mcp/commit/567f7b8fa64f74fc90e86a355869ff6ef396ec77))
+
+- Resolve memory exhaustion and disk DoS in media download
+  ([#283](https://github.com/n24q02m/imagine-mcp/pull/283),
+  [`171d38f`](https://github.com/n24q02m/imagine-mcp/commit/171d38f9d983c5efdb22f025a559229676c29a33))
+
+- Ruff-format media download + resolve ty binary-write type error
+  ([#283](https://github.com/n24q02m/imagine-mcp/pull/283),
+  [`171d38f`](https://github.com/n24q02m/imagine-mcp/commit/171d38f9d983c5efdb22f025a559229676c29a33))
+
+- Sentinel: add html parsing security enhancements to leaderboard script
+  ([#290](https://github.com/n24q02m/imagine-mcp/pull/290),
+  [`b57e80a`](https://github.com/n24q02m/imagine-mcp/commit/b57e80a7b8841e556e0ecf61ee09ea1514383f10))
+
+- Sync imagine docs with code (drop removed config models action)
+  ([#292](https://github.com/n24q02m/imagine-mcp/pull/292),
+  [`d83be35`](https://github.com/n24q02m/imagine-mcp/commit/d83be35e47778c065a1d7e2aa45bf30264fe659d))
+
+- Sync README tagline to current capability description
+  ([#295](https://github.com/n24q02m/imagine-mcp/pull/295),
+  [`d456b1a`](https://github.com/n24q02m/imagine-mcp/commit/d456b1a6110a23dcf626fcc66fcee1a559d2f2b2))
+
+- 🛡️ sentinel: [MEDIUM] add html parsing security enhancements to leaderboard script
+  ([#290](https://github.com/n24q02m/imagine-mcp/pull/290),
+  [`b57e80a`](https://github.com/n24q02m/imagine-mcp/commit/b57e80a7b8841e556e0ecf61ee09ea1514383f10))
+
+- **deps**: Update non-major dependencies ([#298](https://github.com/n24q02m/imagine-mcp/pull/298),
+  [`e9edca8`](https://github.com/n24q02m/imagine-mcp/commit/e9edca87a39ab54661ba16053bfc1df0e288e8fe))
+
+- **deps**: Update step-security/harden-runner digest to 9af89fc
+  ([#297](https://github.com/n24q02m/imagine-mcp/pull/297),
+  [`543c30f`](https://github.com/n24q02m/imagine-mcp/commit/543c30fa6c7c332898b5c2b153c16995c4f7e7f8))
+
+### Features
+
+- Sync cross-promo section ([#296](https://github.com/n24q02m/imagine-mcp/pull/296),
+  [`732e07e`](https://github.com/n24q02m/imagine-mcp/commit/732e07e06a6568f4539c2379fba76d59d83014b0))
+
+
 ## v1.7.0-beta.3 (2026-06-11)
 
 ### Bug Fixes
