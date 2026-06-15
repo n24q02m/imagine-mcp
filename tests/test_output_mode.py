@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from imagine_mcp import dispatcher
+from imagine_mcp.providers import gemini, grok
+from imagine_mcp.providers import openai as openai_provider
 
 
 @pytest.mark.asyncio
@@ -52,11 +54,6 @@ async def test_env_override_wins_over_tool_arg(monkeypatch):
     assert captured["output_mode"] == "base64"
 
 
-from unittest.mock import MagicMock
-
-from imagine_mcp.providers import gemini
-
-
 @pytest.mark.asyncio
 async def test_gemini_generate_image_base64_no_disk(monkeypatch, tmp_path):
     # Any disk write would land under this redirected cache dir.
@@ -73,7 +70,7 @@ async def test_gemini_generate_image_base64_no_disk(monkeypatch, tmp_path):
 
     out = await gemini.generate_image(prompt="a cat", tier="poor", output_mode="base64")
 
-    assert "image_base64" in out and out["image_base64"]
+    assert out.get("image_base64")
     assert "image_path" not in out  # path suppressed
     assert not (tmp_path / "generations").exists()  # NOTHING written to disk
 
@@ -120,9 +117,6 @@ async def test_gemini_generate_video_base64_no_path(monkeypatch, tmp_path):
     assert not (tmp_path / "generations").exists()
 
 
-from imagine_mcp.providers import openai as openai_provider
-
-
 @pytest.mark.asyncio
 async def test_openai_generate_image_base64_no_disk(monkeypatch, tmp_path):
     monkeypatch.setattr("platformdirs.user_cache_dir", lambda *a, **k: str(tmp_path))
@@ -139,9 +133,6 @@ async def test_openai_generate_image_base64_no_disk(monkeypatch, tmp_path):
     )
     assert "image_base64" in out and "image_path" not in out
     assert not (tmp_path / "generations").exists()
-
-
-from imagine_mcp.providers import grok
 
 
 @pytest.mark.asyncio
