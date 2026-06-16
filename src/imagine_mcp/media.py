@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlparse
 
+import anyio
 import httpcore
 import httpx
 
@@ -395,14 +396,14 @@ def _write_response(resp: httpx.Response, dest: Path) -> None:
 async def _write_response_async(resp: httpx.Response, dest: Path) -> None:
     max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
     bytes_read = 0
-    with dest.open("wb") as f:
+    async with await anyio.open_file(dest, "wb") as f:
         async for chunk in resp.aiter_bytes(chunk_size=65536):
             bytes_read += len(chunk)
             if bytes_read > max_size:
                 raise httpx.HTTPError(
                     f"Download failed: Exceeded maximum size of {max_size} bytes"
                 )
-            await asyncio.to_thread(f.write, chunk)
+            await f.write(chunk)
 
 
 def download_to_path(url: str, dest: Path) -> Path:
