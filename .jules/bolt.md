@@ -24,3 +24,6 @@
 ## 2026-06-13 - Optimize thread-safe lazy initialization
 **Learning:** In a highly concurrent asynchronous environment, simple global `if _CLIENT is None:` checks can lead to a race condition where multiple expensive `httpx.Client` or `httpx.AsyncClient` instances are instantiated simultaneously by different tasks. This causes connection pool memory leaks and redundant instantiation overhead.
 **Action:** Use a thread-safe `_ClientManager` class with `threading.Lock` and the double-checked locking pattern to ensure singletons are truly instantiated only once, preserving memory and improving efficiency under load.
+## 2024-06-25 - Avoid `asyncio.to_thread` for high-frequency small I/O
+**Learning:** Using `await asyncio.to_thread()` inside high-frequency, fine-grained loops (like writing 64KB chunks to a file during an async download) is an anti-pattern. It introduces severe context-switching overhead that degrades performance compared to using native asynchronous I/O.
+**Action:** Use native async I/O constructs such as `anyio.open_file` for streaming downloads, or batch the entire file writing operation into a single synchronous helper run via `to_thread()`, to avoid repeated thread pool dispatches for small operations.
