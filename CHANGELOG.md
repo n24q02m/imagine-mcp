@@ -2,6 +2,45 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.7 (2026-06-18)
+
+### Bug Fixes
+
+- Add post-deploy canary gate with auto-rollback to deploy_cf.py
+  ([`ddace9c`](https://github.com/n24q02m/imagine-mcp/commit/ddace9ca513dcf25eeff521a23adf1cbb986badd))
+
+- Apply ruff format to cf_full_flow harness
+  ([#318](https://github.com/n24q02m/imagine-mcp/pull/318),
+  [`05800e9`](https://github.com/n24q02m/imagine-mcp/commit/05800e94f2bf5c249e64e197b6d32f205cf575fa))
+
+- Forward MCP_RELAY_PASSWORD into container + replay token for recreate gate
+  ([#317](https://github.com/n24q02m/imagine-mcp/pull/317),
+  [`57954ef`](https://github.com/n24q02m/imagine-mcp/commit/57954ef72841eaffb680b1113929eb77b2cd6c1a))
+
+- Prefix unused account var to satisfy RUF059
+  ([`ddace9c`](https://github.com/n24q02m/imagine-mcp/commit/ddace9ca513dcf25eeff521a23adf1cbb986badd))
+
+- Refresh lockfile (renovate maintenance)
+  ([`751d302`](https://github.com/n24q02m/imagine-mcp/commit/751d3024c49af7005f1e853b1c09a61757ae7ce9))
+
+- Refresh lockfile (renovate maintenance)
+  ([`dd86d8a`](https://github.com/n24q02m/imagine-mcp/commit/dd86d8a6b9eec712963c87e5a8a57bd11fbfe8cf))
+
+- Update non-major dependencies
+  ([`969646b`](https://github.com/n24q02m/imagine-mcp/commit/969646b2db5d8c36ef8c0c9c04a355551dc18079))
+
+- Update non-major dependencies
+  ([`b7b3192`](https://github.com/n24q02m/imagine-mcp/commit/b7b31922c15cf4f8bbdd1bccbe55121fa72b30bf))
+
+- Update typescript to v6
+  ([`7c280ba`](https://github.com/n24q02m/imagine-mcp/commit/7c280ba903a273e347f3dce9efbc243d050a75b8))
+
+### Features
+
+- Add post-deploy canary gate with auto-rollback to deploy_cf.py
+  ([`ddace9c`](https://github.com/n24q02m/imagine-mcp/commit/ddace9ca513dcf25eeff521a23adf1cbb986badd))
+
+
 ## v1.7.0-beta.6 (2026-06-15)
 
 ### Bug Fixes
