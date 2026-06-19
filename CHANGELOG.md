@@ -2,6 +2,26 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.8 (2026-06-19)
+
+### Bug Fixes
+
+- Bump mcp-core floor to 1.18.0b14 for the key-rotation primitive
+  ([`77aeca2`](https://github.com/n24q02m/imagine-mcp/commit/77aeca2ae210282260d7b82b1f5796b0a1b30ed4))
+
+- Make canary gate utf-8-safe (decode+encode) and Cloudflare-UA-aware
+  ([`a07708e`](https://github.com/n24q02m/imagine-mcp/commit/a07708e687a81d49d4b22c13f4f6466f3cbec214))
+
+- Make canary gate utf-8-safe and Cloudflare-UA-aware
+  ([`a07708e`](https://github.com/n24q02m/imagine-mcp/commit/a07708e687a81d49d4b22c13f4f6466f3cbec214))
+
+- Neutral default endpoint + env-first secrets in CF self-host scripts
+  ([`6e39d12`](https://github.com/n24q02m/imagine-mcp/commit/6e39d12c6b36b1735966f2520bae6ffc6ff79421))
+
+- Use contextlib.suppress for stdout reconfigure (SIM105)
+  ([`a07708e`](https://github.com/n24q02m/imagine-mcp/commit/a07708e687a81d49d4b22c13f4f6466f3cbec214))
+
+
 ## v1.7.0-beta.7 (2026-06-18)
 
 ### Bug Fixes
