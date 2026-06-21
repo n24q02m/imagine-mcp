@@ -28,3 +28,7 @@
 ## 2024-06-25 - [Optimize File Download Chunking]
 **Learning:** Native `anyio.open_file` is much faster for writing small chunks inside an async iteration compared to `await asyncio.to_thread(f.write, chunk)`. Using `to_thread` repeatedly within a loop introducing significant context-switching overhead.
 **Action:** Always prefer native asynchronous file I/O operations (like `anyio`) for fine-grained chunked streaming in high-frequency loops instead of delegating individual chunk writes to thread pools.
+
+## 2026-06-13 - Request-Scoped ContextVar Caching for Sub-Aware Configurations
+**Learning:** `config_value_for_current_request` in `src/imagine_mcp/credential_state.py` retrieved configurations directly via `read_for_sub(sub)` for every lookup (like `UNDERSTAND_MODELS` and `GENERATE_MODELS` chained across requests). Since `read_for_sub` invokes `PerPluginStore.load()` internally, this introduced redundant disk I/O, JSON parsing, and AES-GCM decryption for *each* configuration variable requested during a single tool call. Even though credentials were being cached via the `_request_creds` `ContextVar`, the configuration lookups were incorrectly bypassing that cache.
+**Action:** Always route configuration variable lookups through the same request-scoped cache used for credentials when operating under the same tenant isolation boundaries, avoiding repetitive and expensive I/O operations per key.
