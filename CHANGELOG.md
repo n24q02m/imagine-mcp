@@ -2,6 +2,51 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.9 (2026-06-21)
+
+### Bug Fixes
+
+- Add cf:deploy script for live wrangler deploy
+  ([#339](https://github.com/n24q02m/imagine-mcp/pull/339),
+  [`203c6e1`](https://github.com/n24q02m/imagine-mcp/commit/203c6e1a731cf6227cc841bb2f5ccaada78c185d))
+
+- Drop env-derived value from cf_deploy log (CodeQL js/clear-text-logging)
+  ([#339](https://github.com/n24q02m/imagine-mcp/pull/339),
+  [`203c6e1`](https://github.com/n24q02m/imagine-mcp/commit/203c6e1a731cf6227cc841bb2f5ccaada78c185d))
+
+- Lock file maintenance ([#332](https://github.com/n24q02m/imagine-mcp/pull/332),
+  [`dd1f374`](https://github.com/n24q02m/imagine-mcp/commit/dd1f374b54eddd0f8f8c3f2c998eeb92810b4f4f))
+
+- Note headless constraints in journal ([#335](https://github.com/n24q02m/imagine-mcp/pull/335),
+  [`044ab9f`](https://github.com/n24q02m/imagine-mcp/commit/044ab9f69409a585e15b19527d481a40b4e6a364))
+
+- Note headless constraints in journal for palette
+  ([#335](https://github.com/n24q02m/imagine-mcp/pull/335),
+  [`044ab9f`](https://github.com/n24q02m/imagine-mcp/commit/044ab9f69409a585e15b19527d481a40b4e6a364))
+
+- Note headless constraints in palette journal
+  ([#335](https://github.com/n24q02m/imagine-mcp/pull/335),
+  [`044ab9f`](https://github.com/n24q02m/imagine-mcp/commit/044ab9f69409a585e15b19527d481a40b4e6a364))
+
+- Right-size CF container instance_type and sleepAfter to cut GiB-second cost
+  ([#338](https://github.com/n24q02m/imagine-mcp/pull/338),
+  [`6f60c54`](https://github.com/n24q02m/imagine-mcp/commit/6f60c540a8a67570c468ab8175b05e6e38ac4ed3))
+
+- Sub-aware understand/generate model selection + relay re-submit overwrite
+  ([#337](https://github.com/n24q02m/imagine-mcp/pull/337),
+  [`2a0f6ca`](https://github.com/n24q02m/imagine-mcp/commit/2a0f6ca747422dfeb2b37811e34ab3b26c4f75fe))
+
+- Update actions/checkout action to v7 ([#331](https://github.com/n24q02m/imagine-mcp/pull/331),
+  [`9df8ba5`](https://github.com/n24q02m/imagine-mcp/commit/9df8ba55a2a62790df45312bd5939c4c1729c7e5))
+
+- 🎨 Palette: note headless constraints in journal
+  ([#335](https://github.com/n24q02m/imagine-mcp/pull/335),
+  [`044ab9f`](https://github.com/n24q02m/imagine-mcp/commit/044ab9f69409a585e15b19527d481a40b4e6a364))
+
+- **deps**: Update non-major dependencies ([#330](https://github.com/n24q02m/imagine-mcp/pull/330),
+  [`17013e4`](https://github.com/n24q02m/imagine-mcp/commit/17013e491e7f9ec6a02e3ec779fa1ce9e7348acc))
+
+
 ## v1.7.0-beta.8 (2026-06-19)
 
 ### Bug Fixes
