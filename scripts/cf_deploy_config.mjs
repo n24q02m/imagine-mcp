@@ -66,7 +66,7 @@ config = config
   .replace(/^(\s*)"name":\s*"imagine-mcp-worker",\s*$/m, '$1"name": "imagine-mcp-worker",\n$1"workers_dev": false,\n$1"preview_urls": false,');
 
 writeFileSync(tmpConfig, config, 'utf8');
-console.log(`cf:deploy - account=${accountId} kv=${kvId} image-tag=${imageTag}`);
+console.log('cf:deploy - deploying config-only Worker + Container update');
 
 try {
   // shell:true so the local wrangler bin resolves on every platform — direct
