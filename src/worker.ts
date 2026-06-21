@@ -145,7 +145,7 @@ function extractUserId(request: Request): string {
 // + EXPOSE 8080).
 export class ImagineContainer extends Container<Env> {
   defaultPort = 8080
-  sleepAfter = '1h'
+  sleepAfter = '5m'
   // The container reaches cloud model APIs (Gemini, OpenAI, xAI) over the public
   // internet; kv.internal stays intercepted (see outboundByHost).
   enableInternet = true
