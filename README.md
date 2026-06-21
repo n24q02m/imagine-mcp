@@ -46,7 +46,8 @@ mcp-name: io.github.n24q02m/imagine-mcp
 ## Table of contents
 
 - [Features](#features)
-- [Status](#status)
+- [Install](#install)
+- [Configuration](#configuration)
 - [Documentation](#documentation)
 - [Tools](#tools)
 - [Comparison](#comparison)
@@ -73,24 +74,101 @@ mcp-name: io.github.n24q02m/imagine-mcp
 - **Response cache** -- Disk-based caching of `understand` responses with configurable TTL
 - **Dual transport** -- pure stdio with provider env vars (default) or HTTP multi-user with paste-token relay form
 
-## Status
+## Install
 
-> **2026-05-02 -- Architecture stabilization update**
->
-> Past months saw significant churn around credential handling and the daemon-bridge auto-spawn pattern. This caused multi-process races, browser tab spam, and inconsistent setup UX across plugins. **The architecture is now stable**: 2 clean modes (stdio + HTTP), no daemon-bridge layer, no auto-spawn from stdio.
->
-> Apologies for the instability period. If you encountered issues with prior versions, please update to the latest release and follow the current [Setup docs](https://mcp.n24q02m.com/servers/imagine-mcp/setup/) -- most prior workarounds are no longer needed.
->
-> **Related plugins from the same author**:
-> - [wet-mcp](https://github.com/n24q02m/wet-mcp) -- Web search + content extraction
-> - [mnemo-mcp](https://github.com/n24q02m/mnemo-mcp) -- Persistent AI memory
-> - [better-notion-mcp](https://github.com/n24q02m/better-notion-mcp) -- Notion API
-> - [better-email-mcp](https://github.com/n24q02m/better-email-mcp) -- Email management
-> - [better-telegram-mcp](https://github.com/n24q02m/better-telegram-mcp) -- Telegram
-> - [better-godot-mcp](https://github.com/n24q02m/better-godot-mcp) -- Godot Engine
-> - [better-code-review-graph](https://github.com/n24q02m/better-code-review-graph) -- Code review knowledge graph
->
-> All plugins share the same architecture -- install once, learn pattern transfers.
+Run with [`uvx`](https://docs.astral.sh/uv/) (no install step) or pull the container image:
+
+```bash
+# uvx -- recommended, runs the published PyPI package
+uvx imagine-mcp
+
+# Docker
+docker run -it --rm ghcr.io/n24q02m/imagine-mcp:latest
+```
+
+Add it to an MCP client by pointing the client at the `uvx imagine-mcp` command and
+supplying at least one provider key (see [Configuration](#configuration)):
+
+```json
+{
+  "mcpServers": {
+    "imagine": {
+      "command": "uvx",
+      "args": ["imagine-mcp"],
+      "env": { "GEMINI_API_KEY": "AIza..." }
+    }
+  }
+}
+```
+
+For per-client snippets (Claude Code, Codex, Gemini CLI, Cursor, Windsurf) and the
+browser-based HTTP setup, see the [Setup docs](https://mcp.n24q02m.com/servers/imagine-mcp/setup/).
+
+**Install with an AI agent** -- paste this to your AI coding agent:
+
+> Install MCP server `imagine-mcp` following the steps at  
+> https://raw.githubusercontent.com/n24q02m/claude-plugins/main/plugins/imagine-mcp/setup-with-agent.md
+
+## Configuration
+
+Two transports (default `stdio`; opt into `http` with `--http`, `MCP_TRANSPORT=http`,
+or `TRANSPORT_MODE=http`):
+
+- **stdio** (default) -- single-user, reads credentials from env vars only. Exits if
+  none of the three provider keys are set.
+- **http** -- HTTP daemon. Local self-host on `127.0.0.1` by default, or multi-user
+  remote (per-JWT-sub credential isolation) when `PUBLIC_URL` + `MCP_DCR_SERVER_SECRET`
+  are set. In HTTP mode credentials are entered through a browser form at `/authorize`.
+
+### Provider keys
+
+All optional -- the server starts in degraded mode and surfaces whichever providers
+have a key. Set at least one.
+
+| Env var | Provider | Get a key at |
+|---|---|---|
+| `GEMINI_API_KEY` | Gemini (image + video) | aistudio.google.com/apikey |
+| `OPENAI_API_KEY` | OpenAI (image) | platform.openai.com/api-keys |
+| `XAI_API_KEY` | Grok / xAI (image + video) | console.x.ai |
+
+When a tool is called without an explicit `provider`, the first key present wins in the
+order `XAI_API_KEY` -> `OPENAI_API_KEY` -> `GEMINI_API_KEY`.
+
+### Model chains (optional)
+
+Override the built-in provider/tier catalog with explicit model chains. Each is a CSV of
+litellm `provider/model` entries; the order is the fallback order.
+
+| Env var | Purpose |
+|---|---|
+| `UNDERSTAND_MODELS` | Ordered model chain for `understand` (litellm fallback). Empty -> catalog default. |
+| `GENERATE_MODELS` | Ordered model chain for `generate`. The first entry selects the native provider + model. Empty -> catalog default. |
+| `GENERATE_PROVIDER_PRIORITY` | CSV of provider names reordering generation auto-fallback. Defaults to `grok,openai,gemini`. |
+
+Understanding is routed through litellm (`provider/model` passthrough), so any litellm
+provider works -- supply that provider's `<PROVIDER>_API_KEY`. Generation stays on the
+native provider SDKs (Gemini, OpenAI, Grok). Example:
+
+```json
+{
+  "mcpServers": {
+    "imagine": {
+      "command": "uvx",
+      "args": ["imagine-mcp"],
+      "env": {
+        "UNDERSTAND_MODELS": "gemini/gemini-3.1-pro-preview,openai/gpt-5.4",
+        "GEMINI_API_KEY": "AIza...",
+        "OPENAI_API_KEY": "sk-..."
+      }
+    }
+  }
+}
+```
+
+### Runtime knobs
+
+`config(action="set", key=..., value=...)` adjusts `log_level`, `default_provider`,
+`default_tier`, and `cache_ttl_seconds` at runtime.
 
 ## Documentation
 
@@ -99,11 +177,6 @@ Full docs at **[mcp.n24q02m.com/servers/imagine-mcp/setup/](https://mcp.n24q02m.
 - [Setup](https://mcp.n24q02m.com/servers/imagine-mcp/setup/) -- install methods for Claude Code, Codex, Gemini CLI, Cursor, Windsurf, mcp.json
 - [Modes overview](https://mcp.n24q02m.com/get-started/modes-overview/) -- stdio / local-relay / remote-relay / remote-oauth
 - [Multi-user setup](https://mcp.n24q02m.com/get-started/multi-user/) -- per-JWT-sub credential model
-
-**Install with AI agent** -- paste this to your AI coding agent:
-
-> Install MCP server `imagine-mcp` following the steps at  
-> https://raw.githubusercontent.com/n24q02m/claude-plugins/main/plugins/imagine-mcp/setup-with-agent.md
 
 ## Tools
 
@@ -143,7 +216,7 @@ How imagine-mcp stacks up against direct competitors in each pillar:
 git clone https://github.com/n24q02m/imagine-mcp.git
 cd imagine-mcp
 mise run setup      # or: uv sync --group dev
-mise run dev        # run http local relay daemon
+mise run dev        # run the server in stdio mode (add --http for the HTTP daemon)
 ```
 
 ## Trust Model
