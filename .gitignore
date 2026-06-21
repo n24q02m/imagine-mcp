@@ -19,6 +19,7 @@ package-lock.json
 # Cloudflare Worker
 .wrangler/
 .wrangler-dryrun/
+wrangler.deploy-tmp.jsonc
 
 # AI traces (per CLAUDE.md public repo policy — superpower content lives in private repo n24q02m/.superpower)
 .jules/
