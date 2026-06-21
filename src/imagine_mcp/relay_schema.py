@@ -1,9 +1,10 @@
 """Config schema for the relay setup page.
 
-ONE model-chain task: ``understand`` (order = litellm fallback chain). The
-three provider key fields are *derived* — they surface automatically for the
-providers the chosen understand models use, and the SAME keys also drive the
-native ``generate`` path (provider/tier catalog).
+TWO model-chain tasks: ``understand`` (litellm fallback chain) and ``generate``
+(native provider/model selection -- the first entry's prefix picks the provider
+and its model segment overrides the catalog model_id). The three provider key
+fields are *derived* — they surface automatically for the providers the chosen
+models use, and the SAME keys drive both the understand and generate paths.
 """
 
 from __future__ import annotations
@@ -18,6 +19,21 @@ _UNDERSTAND_SUGGESTED = [
     "gemini/gemini-3.1-pro-preview",
     "openai/gpt-5.4-mini",
     "openai/gpt-5.4",
+]
+
+# Catalog generate models, explicit ``provider/`` prefixes. The first entry of
+# a chosen GENERATE_MODELS chain selects the native provider + overrides the
+# catalog model_id; leaving it empty keeps the provider/tier catalog default.
+_GENERATE_SUGGESTED = [
+    "gemini/gemini-3.1-flash-image-preview",
+    "gemini/gemini-3-pro-image-preview",
+    "gemini/veo-3.1-lite-generate-preview",
+    "gemini/veo-3.1-generate-preview",
+    "openai/gpt-image-1-mini",
+    "openai/gpt-image-1.5",
+    "grok/grok-imagine-image",
+    "grok/grok-imagine-image-pro",
+    "grok/grok-imagine-video",
 ]
 
 
@@ -50,6 +66,15 @@ RELAY_SCHEMA: dict[str, Any] = {
             "suggestedModels": _UNDERSTAND_SUGGESTED,
             "hasLocal": False,
             "placeholder": "add understand model…",
+        },
+        {
+            "key": "GENERATE_MODELS",
+            "label": "Generate models",
+            "type": "model-chain",
+            "task": "generate",
+            "suggestedModels": _GENERATE_SUGGESTED,
+            "hasLocal": False,
+            "placeholder": "add generate model…",
         },
         _key_field(
             "GEMINI_API_KEY",
@@ -89,11 +114,14 @@ RELAY_SCHEMA: dict[str, Any] = {
         },
         {
             "label": "Image / video generation",
-            "priority": "native (provider/tier catalog)",
+            "priority": "configurable (native)",
             "description": (
-                "Generation stays native and uses the SAME provider keys above "
-                "(no model chain): Gemini image + Veo video, OpenAI image, "
-                "Grok image/video. Provider auto-fallback XAI > OpenAI > Gemini."
+                "Generation stays native and uses the SAME provider keys above. "
+                "Pick GENERATE_MODELS to choose a provider + model (first entry "
+                "wins); leave empty to use the provider/tier catalog default. "
+                "Gemini image + Veo video, OpenAI image, Grok image/video. "
+                "Provider auto-fallback order XAI, OpenAI, Gemini "
+                "(override via GENERATE_PROVIDER_PRIORITY)."
             ),
         },
     ],

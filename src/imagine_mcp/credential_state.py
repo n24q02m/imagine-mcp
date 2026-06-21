@@ -140,6 +140,26 @@ def read_for_sub(sub: str) -> dict[str, str]:
     return PerPluginStore(PLUGIN_NAME, sub).load() or {}
 
 
+def config_value_for_current_request(key: str) -> str | None:
+    """Resolve a non-credential config value for the active request.
+
+    Mirrors ``credentials_for_current_request`` resolution but for arbitrary
+    config keys (e.g. ``UNDERSTAND_MODELS`` / ``GENERATE_MODELS`` /
+    ``GENERATE_PROVIDER_PRIORITY``):
+
+    * Multi-user HTTP (``_current_sub`` set): return the value from the per-sub
+      config (``~/.imagine-mcp/subs/<sub>/config.json``). ``os.environ`` is NOT
+      consulted -- a per-sub chain must never bleed into another sub's request.
+    * Single-user / stdio (no sub): return ``os.environ.get(key)``.
+
+    Returns ``None`` when the key is absent in the active scope.
+    """
+    sub = _current_sub.get()
+    if sub is None:
+        return os.environ.get(key)
+    return read_for_sub(sub).get(key)
+
+
 # ---------------------------------------------------------------------------
 # Public helpers (used by relay_setup + server)
 # ---------------------------------------------------------------------------

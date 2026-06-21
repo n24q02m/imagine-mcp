@@ -212,6 +212,7 @@ async def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
     output_mode: str = "both",
+    model_id: str | None = None,
 ) -> dict[str, Any]:
     # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     from google.genai import types
@@ -219,7 +220,9 @@ async def generate_image(
     from imagine_mcp.media import get_ssrf_safe_async_client, resolve_image_mime
 
     client = _client()
-    model = get_model_id("gemini", "generate", "image", tier)
+    # ``model_id`` (from a GENERATE_MODELS chain or explicit override) wins over
+    # the provider/tier catalog default.
+    model = model_id or get_model_id("gemini", "generate", "image", tier)
     contents: list[Any] = [prompt]
 
     if reference_image_url:
@@ -262,11 +265,14 @@ async def generate_video(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
     output_mode: str = "both",
+    model_id: str | None = None,
 ) -> dict[str, Any]:
     # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     from google.genai import types
 
-    model = get_model_id("gemini", "generate", "video", tier)
+    # ``model_id`` (from a GENERATE_MODELS chain or explicit override) wins over
+    # the provider/tier catalog default.
+    model = model_id or get_model_id("gemini", "generate", "video", tier)
     client = _client()
 
     if job_id is None:

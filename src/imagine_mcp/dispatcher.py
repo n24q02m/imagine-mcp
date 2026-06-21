@@ -98,6 +98,13 @@ def _validate(provider: str, tier: str) -> None:
         raise InvalidTierError(f"Unknown tier {tier!r}. Valid: {VALID_TIERS}")
 
 
+# Native generation provider -> its API-key env var. Built from the auto-
+# fallback priority so the two stay in lock-step.
+_PROVIDER_TO_ENV: dict[str, str] = {
+    provider: env_var for env_var, provider in _DEFAULT_PROVIDER_PRIORITY
+}
+
+
 def _default_provider() -> str:
     """Return the first provider whose API key is present for this request."""
     from imagine_mcp.credential_state import credentials_for_current_request
@@ -113,15 +120,78 @@ def _default_provider() -> str:
     )
 
 
+def _default_generate_provider() -> str:
+    """Auto-fallback provider for generation, honouring the sub-aware order.
+
+    Walks ``resolve_generate_provider_priority()`` (default = the native
+    ``_DEFAULT_PROVIDER_PRIORITY`` order) and returns the first provider whose
+    API key is present for this request. Raises ``CredentialMissingError`` when
+    none of the ordered providers has a key.
+    """
+    from imagine_mcp.credential_state import credentials_for_current_request
+
+    creds = credentials_for_current_request()
+    order = resolve_generate_provider_priority()
+    for provider in order:
+        env_var = _PROVIDER_TO_ENV.get(provider)
+        if env_var and creds.get(env_var):
+            return provider
+    keys = ", ".join(_PROVIDER_TO_ENV.values())
+    raise CredentialMissingError(
+        "No provider API key configured. Set one of: "
+        f"{keys}, or run config(action='open_relay') to configure via browser."
+    )
+
+
+def _csv_chain(raw: str | None) -> list[str]:
+    """Split a CSV config value into a clean ordered list (blanks dropped)."""
+    raw = (raw or "").strip()
+    return [m.strip() for m in raw.split(",") if m.strip()] if raw else []
+
+
 def resolve_understand_chain() -> list[str]:
     """Ordered ``UNDERSTAND_MODELS`` chain (litellm ``provider/model`` entries).
+
+    Sub-aware: in multi-user HTTP mode the relay-submitted chain is stored
+    per-sub (``credential_state.store_for_sub``) and read back via the per-sub
+    accessor -- never from ``os.environ`` (that would leak one sub's chain to a
+    concurrent request of another). Single-user / stdio reads ``os.getenv``.
 
     Empty / unset -> empty list, which preserves the provider/tier catalog
     default. The first entry is the primary model; the rest are litellm
     fallbacks.
     """
-    raw = (os.getenv("UNDERSTAND_MODELS") or "").strip()
-    return [m.strip() for m in raw.split(",") if m.strip()] if raw else []
+    from imagine_mcp.credential_state import config_value_for_current_request
+
+    return _csv_chain(config_value_for_current_request("UNDERSTAND_MODELS"))
+
+
+def resolve_generate_chain() -> list[str]:
+    """Ordered ``GENERATE_MODELS`` chain (litellm ``provider/model`` entries).
+
+    Sub-aware (same isolation contract as ``resolve_understand_chain``). When
+    set, the first entry's ``provider/`` prefix selects the native generation
+    provider and its model segment OVERRIDES the catalog ``model_id``. Empty /
+    unset -> empty list (catalog default preserved).
+    """
+    from imagine_mcp.credential_state import config_value_for_current_request
+
+    return _csv_chain(config_value_for_current_request("GENERATE_MODELS"))
+
+
+def resolve_generate_provider_priority() -> list[str]:
+    """Ordered generation provider auto-fallback for the active request.
+
+    Sub-aware ``GENERATE_PROVIDER_PRIORITY`` (CSV of provider names). When
+    unset, defaults to the native ``_DEFAULT_PROVIDER_PRIORITY`` order. Only
+    used when no explicit provider and no ``GENERATE_MODELS`` chain is given.
+    """
+    from imagine_mcp.credential_state import config_value_for_current_request
+
+    custom = _csv_chain(config_value_for_current_request("GENERATE_PROVIDER_PRIORITY"))
+    if custom:
+        return custom
+    return [provider for _env, provider in _DEFAULT_PROVIDER_PRIORITY]
 
 
 def _load_provider(provider: str) -> Any:
@@ -343,9 +413,17 @@ async def dispatch_generate(
 ) -> dict[str, Any]:
     """Dispatch generate call to provider (fully async).
 
-    When ``model`` is set, the litellm 'provider/model' prefix selects a
-    native generation provider (catalog still picks the concrete model by
-    tier); generation itself is never routed through litellm.
+    Provider + model resolution precedence (highest first):
+
+    1. Explicit ``model`` ('provider/model'): prefix selects the native
+       generation provider and its model segment overrides the catalog
+       ``model_id``; generation itself is never routed through litellm.
+    2. Explicit ``provider``: catalog path (catalog picks the model by tier).
+    3. ``GENERATE_MODELS`` chain (sub-aware): the first entry's prefix selects
+       the provider and its model segment overrides the catalog ``model_id``.
+    4. Auto-fallback: ``resolve_generate_provider_priority()`` (sub-aware,
+       defaults to the native priority) picks the first provider with a key;
+       the catalog supplies the model.
 
     ``output_mode`` controls how generated media is returned:
     ``"base64"`` (no disk write -- required on ephemeral CF FS),
@@ -355,10 +433,18 @@ async def dispatch_generate(
     """
     effective_output_mode = os.getenv("IMAGINE_OUTPUT_MODE") or output_mode
 
+    model_id_override: str | None = None
     if model is not None:
         provider = _resolve_generate_provider(model)
+        model_id_override = model.split("/", 1)[1] if "/" in model else model
     elif provider is None:
-        provider = _default_provider()
+        chain = resolve_generate_chain()
+        if chain:
+            entry = chain[0]
+            provider = _resolve_generate_provider(entry)
+            model_id_override = entry.split("/", 1)[1] if "/" in entry else entry
+        else:
+            provider = _default_generate_provider()
     _validate(provider, tier)
     if media_type not in VALID_MEDIA_TYPES:
         raise InvalidMediaTypeError(
@@ -367,6 +453,8 @@ async def dispatch_generate(
     if reference_image_url is not None:
         await _validate_url(reference_image_url, "reference_image_url")
 
+    # When an explicit model override is supplied, the catalog lookup is only a
+    # support guard (an UNSUPPORTED combo still cannot be served natively).
     catalog_model = get_model_id(provider, "generate", media_type, tier)
     if catalog_model is UNSUPPORTED:
         raise _unsupported(provider, media_type, "generate")
@@ -374,7 +462,12 @@ async def dispatch_generate(
     mod = _load_provider(provider)
     if media_type == "image":
         return await mod.generate_image(
-            prompt, tier, reference_image_url, aspect_ratio, effective_output_mode
+            prompt,
+            tier,
+            reference_image_url,
+            aspect_ratio,
+            effective_output_mode,
+            model_id=model_id_override,
         )
     return await mod.generate_video(
         prompt,
@@ -384,4 +477,5 @@ async def dispatch_generate(
         aspect_ratio,
         duration_seconds,
         effective_output_mode,
+        model_id=model_id_override,
     )

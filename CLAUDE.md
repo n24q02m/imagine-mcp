@@ -96,8 +96,9 @@ capability-checked via `mcp_core.llm.check_capability`, graceful on registry-mis
   `provider/model,provider/model`; order = litellm fallback (first entry is the
   primary model, the rest are fallbacks). Provider is inferred from the model
   prefix. **Empty/unset = understand off** (falls back to the provider/tier
-  catalog default). imagine has NO local fallback — generation stays native
-  (below) and is NOT affected by this chain.
+  catalog default). imagine has NO local fallback. In multi-user HTTP mode the
+  chain is resolved per-sub (from the relay-submitted config, never
+  `os.environ`); single-user / stdio reads the env var.
 - API keys follow the litellm convention `<PROVIDER>_API_KEY`. The 6 providers
   the server suggests for the understand chain:
 
@@ -116,6 +117,17 @@ capability-checked via `mcp_core.llm.check_capability`, graceful on registry-mis
 gemini image + Veo video via `google-genai`, openai image via the OpenAI SDK,
 grok image/video via raw httpx x.ai endpoints (xAI generation is a verified
 litellm gap). `google-genai` + `openai` deps are retained for these paths.
+
+- `GENERATE_MODELS` -- ordered model chain for generation, CSV
+  `provider/model,provider/model`. The FIRST entry selects the native provider
+  from its `provider/` prefix AND overrides the catalog `model_id` with its
+  model segment (generation is never routed through litellm). **Empty/unset =
+  use the provider/tier catalog default.** Sub-aware (per-sub in multi-user
+  HTTP; env var single-user / stdio).
+- `GENERATE_PROVIDER_PRIORITY` -- optional CSV of provider names
+  (`grok,openai,gemini`) reordering the generation auto-fallback when no
+  explicit provider and no `GENERATE_MODELS` chain are given. Defaults to the
+  native order (XAI, OpenAI, Gemini). Sub-aware like the chains above.
 
 - `LLM_API_BASE` -- custom OpenAI-compatible base URL for the understand path
   (optional; vetted through `mcp_core.http.vet_api_base` SSRF guard).

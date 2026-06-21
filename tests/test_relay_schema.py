@@ -17,11 +17,11 @@ def test_top_level_keys_present():
     assert RELAY_SCHEMA["server"] == "imagine-mcp"
 
 
-def test_exactly_one_model_chain_task_understand():
+def test_model_chain_tasks_are_understand_and_generate():
     tasks = {
         f["task"] for f in RELAY_SCHEMA["fields"] if f.get("type") == "model-chain"
     }
-    assert tasks == {"understand"}
+    assert tasks == {"understand", "generate"}
 
 
 def test_derived_keys_are_the_three_providers():

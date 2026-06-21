@@ -68,12 +68,26 @@ def test_apply_config_sets_missing_env(monkeypatch):
     assert os.environ["OPENAI_API_KEY"] == "ok"
 
 
-def test_apply_config_does_not_overwrite_existing_env(monkeypatch):
+def test_apply_config_overwrites_existing_env_when_value_differs(monkeypatch):
+    """Single-user relay re-submit must refresh a stale env key (Fix 3).
+
+    Previously apply_config skipped any key already in os.environ, so a user
+    re-submitting a rotated key via the browser form was silently ignored.
+    """
     monkeypatch.setenv("XAI_API_KEY", "original")
     apply_config({"XAI_API_KEY": "replacement"})
     import os
 
-    assert os.environ["XAI_API_KEY"] == "original"
+    assert os.environ["XAI_API_KEY"] == "replacement"
+
+
+def test_apply_config_noop_when_value_unchanged(monkeypatch):
+    """An identical re-submit is a no-op (no needless churn)."""
+    monkeypatch.setenv("OPENAI_API_KEY", "same")
+    apply_config({"OPENAI_API_KEY": "same"})
+    import os
+
+    assert os.environ["OPENAI_API_KEY"] == "same"
 
 
 def test_apply_config_skips_empty_values():

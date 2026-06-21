@@ -14,7 +14,7 @@ async def test_dispatch_generate_forwards_output_mode(monkeypatch):
     captured = {}
 
     async def fake_generate_image(
-        prompt, tier, reference_image_url, aspect_ratio, output_mode
+        prompt, tier, reference_image_url, aspect_ratio, output_mode, model_id=None
     ):
         captured["output_mode"] = output_mode
         return {"image_base64": "x", "model": "m", "provider": "gemini", "tier": tier}
@@ -36,7 +36,7 @@ async def test_env_override_wins_over_tool_arg(monkeypatch):
     captured = {}
 
     async def fake_generate_image(
-        prompt, tier, reference_image_url, aspect_ratio, output_mode
+        prompt, tier, reference_image_url, aspect_ratio, output_mode, model_id=None
     ):
         captured["output_mode"] = output_mode
         return {"image_base64": "x"}
