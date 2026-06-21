@@ -37,9 +37,16 @@ def load_config_from_file() -> dict[str, str] | None:
 
 
 def apply_config(config: dict[str, str]) -> None:
-    """Apply config dict to environment variables (does not overwrite existing)."""
+    """Apply a single-user config dict to ``os.environ``.
+
+    Overwrites an existing key when the submitted value differs so a relay
+    re-submit (e.g. a rotated key) is honoured rather than silently dropped;
+    skips empty values and identical re-submits (no churn). This is the
+    single-user path only -- multi-user mode scopes config per-sub via
+    ``credential_state.store_for_sub`` and never touches ``os.environ``.
+    """
     for key, value in config.items():
-        if value and key not in os.environ:
+        if value and os.environ.get(key) != value:
             os.environ[key] = value
             logger.debug("Applied relay config: {}", key)
 

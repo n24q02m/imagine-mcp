@@ -282,6 +282,7 @@ async def test_dispatch_generate_resolves_default_provider(
         reference_image_url: str | None,
         aspect_ratio: str,
         output_mode: str = "both",
+        model_id: str | None = None,
     ) -> dict:
         captured["called"] = "openai"
         return {"image": "...", "model": "gpt-image", "provider": "openai"}
@@ -463,6 +464,7 @@ async def test_passthrough_generate_xai_routes_native_grok(
         reference_image_url: str | None,
         aspect_ratio: str,
         output_mode: str = "both",
+        model_id: str | None = None,
     ) -> dict:
         captured["called"] = "grok"
         return {"image": "...", "model": "grok-imagine-image", "provider": "grok"}

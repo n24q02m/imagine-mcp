@@ -94,9 +94,12 @@ async def generate_image(
     reference_image_url: str | None = None,
     aspect_ratio: str = "1:1",
     output_mode: str = "both",
+    model_id: str | None = None,
 ) -> dict[str, Any]:
     # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
-    model = get_model_id("openai", "generate", "image", tier)
+    # ``model_id`` (from a GENERATE_MODELS chain or explicit override) wins over
+    # the provider/tier catalog default.
+    model = model_id or get_model_id("openai", "generate", "image", tier)
     size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
     size = size_map.get(aspect_ratio, "1024x1024")
 
@@ -140,6 +143,7 @@ async def generate_video(
     aspect_ratio: str = "16:9",
     duration_seconds: int = 8,
     output_mode: str = "both",
+    model_id: str | None = None,
 ) -> dict[str, Any]:
     raise ProviderUnsupportedError(
         "openai.generate.video: Sora 2 API shutdown 2026-09-24. "
