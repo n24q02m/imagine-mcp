@@ -2,6 +2,18 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.10 (2026-06-22)
+
+### Bug Fixes
+
+- Pin CF max_instances to 3 ([#343](https://github.com/n24q02m/imagine-mcp/pull/343),
+  [`02f4ad9`](https://github.com/n24q02m/imagine-mcp/commit/02f4ad9fe1a3ee6eb7024741c34d9020fe82a3da))
+
+- Rewrite README install + configuration sections to match current code
+  ([#340](https://github.com/n24q02m/imagine-mcp/pull/340),
+  [`e512742`](https://github.com/n24q02m/imagine-mcp/commit/e512742084ccf6dc671af8e0f6b757cee7d67f10))
+
+
 ## v1.7.0-beta.9 (2026-06-21)
 
 ### Bug Fixes
