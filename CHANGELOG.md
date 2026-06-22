@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.11 (2026-06-22)
+
+### Bug Fixes
+
+- Bump mcp-core to 1.18.0b19 (relay model-search catalog + OAuth refresh-TTL)
+  ([#344](https://github.com/n24q02m/imagine-mcp/pull/344),
+  [`7b539ab`](https://github.com/n24q02m/imagine-mcp/commit/7b539ab6bffcc99d1be39a1e87824544e89a8044))
+
+
 ## v1.7.0-beta.10 (2026-06-22)
 
 ### Bug Fixes
