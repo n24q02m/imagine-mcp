@@ -47,7 +47,7 @@ dependencies = [
     "pillow>=12.2.0",
     "diskcache>=5.6.3",
     "loguru>=0.7.3",
-    "n24q02m-mcp-core[llm]>=1.18.0b14,<2",
+    "n24q02m-mcp-core[llm]>=1.18.0b19,<2",
     "platformdirs>=4.10.0",
     # Security floors: transitive deps pinned to patched releases.
     # urllib3 < 2.7.0 -> PYSEC-2026-141/142; idna < 3.15 -> CVE-2026-45409.
