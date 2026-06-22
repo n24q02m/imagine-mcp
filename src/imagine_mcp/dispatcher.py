@@ -257,7 +257,8 @@ async def _passthrough_understand(
     # ⚡ Bolt: Use return_exceptions=True to ensure no background tasks are leaked
     # if one fetch fails. We then explicitly check and raise the first exception.
     results = await asyncio.gather(
-        *(_validate_and_fetch(i, u) for i, u in enumerate(media_urls)), return_exceptions=True
+        *(_validate_and_fetch(i, u) for i, u in enumerate(media_urls)),
+        return_exceptions=True,
     )
     for res in results:
         if isinstance(res, BaseException):
