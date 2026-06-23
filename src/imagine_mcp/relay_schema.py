@@ -11,26 +11,17 @@ from __future__ import annotations
 
 from typing import Any
 
-# Catalog understand IMAGE models, explicit ``provider/`` prefixes.
-_UNDERSTAND_SUGGESTED = [
-    "xai/grok-4.20-0309-non-reasoning",
-    "xai/grok-4.20-0309-reasoning",
-    "gemini/gemini-3.1-flash-lite-preview",
-    "gemini/gemini-3.1-pro-preview",
-    "openai/gpt-5.4-mini",
-    "openai/gpt-5.4",
-]
+# UNDERSTAND models are fully catalog-driven: the litellm chat catalog covers
+# the gemini/openai/xai vision models, so the dropdown carries no hardcoded
+# suggestions (the user searches the real provider/model space).
 
-# Catalog generate models, explicit ``provider/`` prefixes. The first entry of
+# GENERATE keeps a MINIMAL supplement: only the native grok (xAI) image/video
+# models, a verified litellm gap (absent from the generate catalog) with no
+# keyless list endpoint to fetch. Gemini/OpenAI generation models come from the
+# litellm generate catalog (image/video modes), not hardcode. The first entry of
 # a chosen GENERATE_MODELS chain selects the native provider + overrides the
 # catalog model_id; leaving it empty keeps the provider/tier catalog default.
 _GENERATE_SUGGESTED = [
-    "gemini/gemini-3.1-flash-image-preview",
-    "gemini/gemini-3-pro-image-preview",
-    "gemini/veo-3.1-lite-generate-preview",
-    "gemini/veo-3.1-generate-preview",
-    "openai/gpt-image-1-mini",
-    "openai/gpt-image-1.5",
     "grok/grok-imagine-image",
     "grok/grok-imagine-image-pro",
     "grok/grok-imagine-video",
@@ -63,7 +54,6 @@ RELAY_SCHEMA: dict[str, Any] = {
             "label": "Understand models",
             "type": "model-chain",
             "task": "understand",
-            "suggestedModels": _UNDERSTAND_SUGGESTED,
             "hasLocal": False,
             "placeholder": "add understand model…",
         },
