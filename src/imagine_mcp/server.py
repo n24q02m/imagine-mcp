@@ -8,6 +8,7 @@ from functools import cache
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlparse
 
 import platformdirs
 from fastmcp import FastMCP
@@ -318,15 +319,26 @@ async def run_http(port: int = 0) -> None:
 
     public_url = os.environ.get("PUBLIC_URL")
     if public_url:
+        parsed = urlparse(public_url)
+        if parsed.scheme.lower() not in ("http", "https"):
+            raise SystemExit(
+                f"imagine-mcp refuses to start: Invalid PUBLIC_URL scheme {parsed.scheme!r}. "
+                "Only http/https are allowed."
+            )
+        if not parsed.hostname:
+            raise SystemExit(
+                "imagine-mcp refuses to start: Invalid PUBLIC_URL: missing hostname."
+            )
+
         if not os.environ.get("MCP_DCR_SERVER_SECRET"):
             raise SystemExit(
                 "imagine-mcp refuses to start: PUBLIC_URL set but "
                 "MCP_DCR_SERVER_SECRET missing. Multi-user remote mode "
                 "requires the DCR secret."
             )
-        host = os.environ.get("MCP_HOST", "127.0.0.1")
         port = int(os.environ.get("MCP_PORT", "8080"))
         mode_label = "http remote relay (multi-user)"
+        host = os.environ.get("MCP_HOST", "127.0.0.1")
     else:
         host = "127.0.0.1"
         mode_label = "http local relay"
