@@ -93,11 +93,12 @@ class SSRFSafeBackend(httpcore.NetworkBackend):
         self,
         host: str,
         port: int,
+        *args: typing.Any,
         **kwargs: typing.Any,
     ) -> httpcore.NetworkStream:
         # Pin the request to a validated IP to prevent TOCTOU DNS rebinding.
         ip = _validate_hostname_and_get_ip(host, port, "url")
-        return self._backend.connect_tcp(host=ip, port=port, **kwargs)
+        return self._backend.connect_tcp(ip, port, *args, **kwargs)
 
     def connect_unix_socket(
         self,
@@ -122,11 +123,12 @@ class AsyncSSRFSafeBackend(httpcore.AsyncNetworkBackend):
         self,
         host: str,
         port: int,
+        *args: typing.Any,
         **kwargs: typing.Any,
     ) -> httpcore.AsyncNetworkStream:
         # Blocking DNS resolution offloaded to thread.
         ip = await asyncio.to_thread(_validate_hostname_and_get_ip, host, port, "url")
-        return await self._backend.connect_tcp(host=ip, port=port, **kwargs)
+        return await self._backend.connect_tcp(ip, port, *args, **kwargs)
 
     async def connect_unix_socket(
         self,
