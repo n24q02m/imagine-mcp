@@ -377,7 +377,12 @@ def _extract_extension(url: str) -> str:
     """Return lowercase file extension including dot, or '' if none."""
     path = url.split("?", 1)[0].split("#", 1)[0]
     _, ext = os.path.splitext(path)
-    return ext.lower()
+    ext = ext.lower()
+    # Security: Ensure extension is strictly alphanumeric and length-limited
+    # (1-10 chars after the dot).
+    if not ext.startswith(".") or not ext[1:].isalnum() or not (2 <= len(ext) <= 11):
+        return ""
+    return ext
 
 
 def _write_response(resp: httpx.Response, dest: Path) -> None:
