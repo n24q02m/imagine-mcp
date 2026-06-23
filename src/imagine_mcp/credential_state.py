@@ -56,6 +56,29 @@ _request_creds: contextvars.ContextVar[dict[str, str] | None] = contextvars.Cont
 )
 
 
+# Process-level cache for environment credentials to avoid repeated O(K) scans
+# of os.environ when running in single-user / stdio mode across requests.
+_env_creds_cache: dict[str, str] | None = None
+
+
+def _get_env_creds() -> dict[str, str]:
+    """Return cloud keys from os.environ, cached for the process lifetime.
+
+    The cache is cleared by ``clear_env_creds_cache()`` when ``os.environ``
+    is modified by ``relay_setup.apply_config``.
+    """
+    global _env_creds_cache
+    if _env_creds_cache is None:
+        _env_creds_cache = {k: v for k in CLOUD_KEYS if (v := os.environ.get(k))}
+    return _env_creds_cache
+
+
+def clear_env_creds_cache() -> None:
+    """Clear the process-level environment credentials cache."""
+    global _env_creds_cache
+    _env_creds_cache = None
+
+
 def set_current_sub(sub: str | None) -> None:
     """Set the JWT sub for the current request scope (testing helper).
 
@@ -91,14 +114,9 @@ def credentials_for_current_request() -> dict[str, str]:
         return cached
 
     sub = _current_sub.get()
-    if sub is None:
-        # Performance optimization:
-        # Avoid O(N) iteration over os.environ.items() by iterating directly
-        # over the bounded O(1) CLOUD_KEYS. This reduces latency significantly
-        # when the environment has many variables.
-        res = {k: v for k in CLOUD_KEYS if (v := os.environ.get(k))}
-    else:
-        res = read_for_sub(sub)
+    # Performance optimization:
+    # Leverage process-level cache to avoid repeated O(K) scans of os.environ.
+    res = _get_env_creds() if sub is None else read_for_sub(sub)
 
     _request_creds.set(res)
     return res
