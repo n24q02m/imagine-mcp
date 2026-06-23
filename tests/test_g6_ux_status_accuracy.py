@@ -103,6 +103,23 @@ class TestRelayStatusLiveDerivedState:
 
         assert res["providers_configured"].count("gemini") == 1
 
+    @pytest.mark.anyio
+    async def test_returns_pending_when_keys_are_empty_strings(
+        self, app, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """relay_status returns pending when keys are empty strings."""
+        monkeypatch.setenv("GEMINI_API_KEY", "")
+
+        with patch(
+            "mcp_core.storage.per_plugin_store.PerPluginStore.load",
+            return_value={"OPENAI_API_KEY": ""},
+        ):
+            result = await app.call_tool("config", {"action": "relay_status"})
+            res = json.loads(result.content[0].text)
+
+        assert res["status"] == "pending"
+        assert res["providers_configured"] == []
+
 
 class TestRelaySkipHonesty:
     """relay_skip reports needs_setup when no env vars are set (Bug 2 fix)."""
@@ -137,3 +154,17 @@ class TestRelaySkipHonesty:
         assert res["status"] == "using_env"
         assert res["message"] == "Using env vars for credentials."
         assert "openai" in res["providers"]
+
+    @pytest.mark.anyio
+    async def test_relay_skip_returns_needs_setup_when_env_empty_string(
+        self, app, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """relay_skip returns needs_setup when env var is empty string."""
+        monkeypatch.setenv("GEMINI_API_KEY", "")
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("XAI_API_KEY", raising=False)
+
+        result = await app.call_tool("config", {"action": "relay_skip"})
+        res = json.loads(result.content[0].text)
+
+        assert res["status"] == "needs_setup"
