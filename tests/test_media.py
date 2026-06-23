@@ -14,6 +14,7 @@ from imagine_mcp.media import (
     _extract_extension,
     detect_media_type,
     download_to_path,
+    download_to_path_async,
     resolve_image_mime,
     sniff_image_mime,
     validate_url_and_get_ip,
@@ -342,3 +343,77 @@ class TestSSRFProtection:
         transport = SSRFSafeTransport()
         transport.handle_request(httpx.Request("GET", "file:///etc/passwd"))
         assert called["validated"] is False
+
+
+@pytest.mark.asyncio
+async def test_download_to_path_async_success(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    dest = tmp_path / "subdir" / "test_async.png"
+    content = b"fake-async-image-bytes"
+
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+
+    async def mock_aiter_bytes(chunk_size=None):
+        yield content
+
+    mock_response.aiter_bytes = mock_aiter_bytes
+
+    class MockStreamContext:
+        async def __aenter__(self):
+            return mock_response
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    class MockClient:
+        def stream(self, method, url, **kw):
+            return MockStreamContext()
+
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: MockClient()
+    )
+
+    result = await download_to_path_async("https://example.com/test_async.png", dest)
+
+    assert result == dest
+    assert dest.exists()
+    assert dest.read_bytes() == content
+    mock_response.raise_for_status.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_download_to_path_async_exceeds_max_size(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    dest = tmp_path / "too_big.png"
+    # Create chunks that exceed 50MB
+    chunk = b"x" * (1024 * 1024)  # 1MB
+
+    mock_response = MagicMock()
+    mock_response.raise_for_status = MagicMock()
+
+    async def mock_aiter_bytes(chunk_size=None):
+        for _ in range(51):  # 51MB total
+            yield chunk
+
+    mock_response.aiter_bytes = mock_aiter_bytes
+
+    class MockStreamContext:
+        async def __aenter__(self):
+            return mock_response
+
+        async def __aexit__(self, exc_type, exc_val, exc_tb):
+            pass
+
+    class MockClient:
+        def stream(self, method, url, **kw):
+            return MockStreamContext()
+
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: MockClient()
+    )
+
+    with pytest.raises(httpx.HTTPError, match="Exceeded maximum size"):
+        await download_to_path_async("https://example.com/big.png", dest)

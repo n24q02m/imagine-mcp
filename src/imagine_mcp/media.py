@@ -396,8 +396,6 @@ def _write_response(resp: httpx.Response, dest: Path) -> None:
 async def _write_response_async(resp: httpx.Response, dest: Path) -> None:
     max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
     bytes_read = 0
-    # ⚡ Bolt: Replace high-overhead asyncio.to_thread with anyio.open_file
-    # Expected impact: Dramatically reduces context-switching overhead on file chunk writes
     async with await anyio.open_file(dest, "wb") as f:
         async for chunk in resp.aiter_bytes(chunk_size=65536):
             bytes_read += len(chunk)
