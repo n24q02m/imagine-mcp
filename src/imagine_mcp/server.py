@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import os
+import re
 from functools import cache
 from importlib.resources import files
 from pathlib import Path
@@ -310,6 +312,21 @@ async def _per_request_sub_scope(claims: dict[str, Any], next_: Any) -> None:
         _request_creds.reset(token_creds)
 
 
+def _is_valid_host(host: str) -> bool:
+    if not host:
+        return False
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        if len(host) > 253:
+            return False
+        if host.endswith("."):
+            host = host[:-1]
+        allowed = re.compile(r"(?!-)[A-Z\d-]{1,63}(?<!-)$", re.IGNORECASE)
+        return all(allowed.match(x) for x in host.split("."))
+
+
 async def run_http(port: int = 0) -> None:
     """Unified HTTP daemon -- single-user (default) or multi-user remote."""
     from mcp_core.transport.local_server import run_http_server
@@ -325,7 +342,20 @@ async def run_http(port: int = 0) -> None:
                 "requires the DCR secret."
             )
         host = os.environ.get("MCP_HOST", "127.0.0.1")
-        port = int(os.environ.get("MCP_PORT", "8080"))
+        port_env = os.environ.get("MCP_PORT", "8080")
+        try:
+            port = int(port_env)
+            if not (0 <= port <= 65535):
+                raise ValueError
+        except ValueError:
+            raise SystemExit(
+                f"Invalid MCP_PORT: {port_env!r}. Must be 0-65535."
+            ) from None
+
+        if not _is_valid_host(host):
+            raise SystemExit(
+                f"Invalid MCP_HOST: {host!r}. Must be a valid IP or hostname."
+            )
         mode_label = "http remote relay (multi-user)"
     else:
         host = "127.0.0.1"
