@@ -47,3 +47,14 @@ def test_capability_info_entries_well_formed():
         assert cap["label"]
         assert cap["priority"]
         assert cap["description"]
+
+
+def test_understand_catalog_driven_generate_keeps_grok_supplement():
+    # understand is fully catalog-driven (litellm chat catalog covers it); generate
+    # keeps ONLY the grok models litellm cannot list (no gemini/openai hardcode).
+    by_key = {f["key"]: f for f in RELAY_SCHEMA["fields"]}
+    assert not by_key["UNDERSTAND_MODELS"].get("suggestedModels")
+    gen = by_key["GENERATE_MODELS"].get("suggestedModels", [])
+    assert gen, "generate must keep a minimal grok supplement litellm lacks"
+    assert all("grok" in m for m in gen), f"only grok supplement expected, got {gen}"
+    assert not any(m.startswith(("gemini/", "openai/")) for m in gen)
