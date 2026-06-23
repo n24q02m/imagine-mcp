@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.12 (2026-06-23)
+
+### Bug Fixes
+
+- Bump mcp-core to 1.18.0b20 (relay catalog Jina/normalize + keyword)
+  ([#347](https://github.com/n24q02m/imagine-mcp/pull/347),
+  [`5ffc664`](https://github.com/n24q02m/imagine-mcp/commit/5ffc6647902252375bfc8049ff64e582c1bf1c6b))
+
+- Bump mcp-core to 1.18.0b20 for relay catalog + drop hardcoded suggestions
+  ([#347](https://github.com/n24q02m/imagine-mcp/pull/347),
+  [`5ffc664`](https://github.com/n24q02m/imagine-mcp/commit/5ffc6647902252375bfc8049ff64e582c1bf1c6b))
+
+### Features
+
+- Catalog-driven understand models; keep minimal grok generate supplement
+  ([#347](https://github.com/n24q02m/imagine-mcp/pull/347),
+  [`5ffc664`](https://github.com/n24q02m/imagine-mcp/commit/5ffc6647902252375bfc8049ff64e582c1bf1c6b))
+
+
 ## v1.7.0-beta.11 (2026-06-22)
 
 ### Bug Fixes
