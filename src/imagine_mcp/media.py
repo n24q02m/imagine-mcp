@@ -380,30 +380,49 @@ def _extract_extension(url: str) -> str:
     return ext.lower()
 
 
+_MAX_DOWNLOAD_SIZE = 50 * 1024 * 1024  # 50MB limit to prevent DoS
+
+
 def _write_response(resp: httpx.Response, dest: Path) -> None:
-    max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
+    if "content-length" in resp.headers:
+        try:
+            if int(resp.headers["content-length"]) > _MAX_DOWNLOAD_SIZE:
+                raise httpx.HTTPError(
+                    f"Download failed: Exceeded maximum size of {_MAX_DOWNLOAD_SIZE} bytes"
+                )
+        except ValueError:
+            pass  # ignore invalid content-length header
+
     bytes_read = 0
     with dest.open("wb") as f:
         for chunk in resp.iter_bytes(chunk_size=65536):
             bytes_read += len(chunk)
-            if bytes_read > max_size:
+            if bytes_read > _MAX_DOWNLOAD_SIZE:
                 raise httpx.HTTPError(
-                    f"Download failed: Exceeded maximum size of {max_size} bytes"
+                    f"Download failed: Exceeded maximum size of {_MAX_DOWNLOAD_SIZE} bytes"
                 )
             f.write(chunk)
 
 
 async def _write_response_async(resp: httpx.Response, dest: Path) -> None:
-    max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
+    if "content-length" in resp.headers:
+        try:
+            if int(resp.headers["content-length"]) > _MAX_DOWNLOAD_SIZE:
+                raise httpx.HTTPError(
+                    f"Download failed: Exceeded maximum size of {_MAX_DOWNLOAD_SIZE} bytes"
+                )
+        except ValueError:
+            pass  # ignore invalid content-length header
+
     bytes_read = 0
     # ⚡ Bolt: Replace high-overhead asyncio.to_thread with anyio.open_file
     # Expected impact: Dramatically reduces context-switching overhead on file chunk writes
     async with await anyio.open_file(dest, "wb") as f:
         async for chunk in resp.aiter_bytes(chunk_size=65536):
             bytes_read += len(chunk)
-            if bytes_read > max_size:
+            if bytes_read > _MAX_DOWNLOAD_SIZE:
                 raise httpx.HTTPError(
-                    f"Download failed: Exceeded maximum size of {max_size} bytes"
+                    f"Download failed: Exceeded maximum size of {_MAX_DOWNLOAD_SIZE} bytes"
                 )
             await f.write(chunk)
 

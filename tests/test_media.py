@@ -153,6 +153,63 @@ def test_extract_extension() -> None:
     assert _extract_extension("https://example.com/foo") == ""
 
 
+def test_download_to_path_preflight_content_length(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    dest = tmp_path / "subdir" / "test_large.png"
+
+    mock_response = MagicMock()
+    mock_response.__enter__.return_value = mock_response
+    mock_response.__exit__.return_value = None
+    mock_response.raise_for_status = MagicMock()
+    mock_response.headers = {"content-length": str(50 * 1024 * 1024 + 1)}
+
+    # We should NOT call iter_bytes if preflight fails
+    mock_response.iter_bytes = MagicMock(
+        side_effect=Exception("iter_bytes should not be called")
+    )
+
+    class MockClient:
+        def stream(self, method, url, **kw):
+            return mock_response
+
+    monkeypatch.setattr("imagine_mcp.media.get_ssrf_safe_client", lambda: MockClient())
+
+    with pytest.raises(httpx.HTTPError, match="Exceeded maximum size"):
+        download_to_path("https://example.com/test_large.png", dest)
+
+
+@pytest.mark.asyncio
+async def test_download_to_path_async_preflight_content_length(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    dest = tmp_path / "subdir" / "test_large_async.png"
+
+    mock_response = MagicMock()
+    mock_response.__aenter__.return_value = mock_response
+    mock_response.__aexit__.return_value = None
+    mock_response.raise_for_status = MagicMock()
+    mock_response.headers = {"content-length": str(50 * 1024 * 1024 + 1)}
+
+    # We should NOT call aiter_bytes if preflight fails
+    mock_response.aiter_bytes = MagicMock(
+        side_effect=Exception("aiter_bytes should not be called")
+    )
+
+    class MockAsyncClient:
+        def stream(self, method, url, **kw):
+            return mock_response
+
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: MockAsyncClient()
+    )
+
+    from imagine_mcp.media import download_to_path_async
+
+    with pytest.raises(httpx.HTTPError, match="Exceeded maximum size"):
+        await download_to_path_async("https://example.com/test_large_async.png", dest)
+
+
 def test_download_to_path_success(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -163,6 +220,7 @@ def test_download_to_path_success(
     mock_response.__enter__.return_value = mock_response
     mock_response.__exit__.return_value = None
     mock_response.raise_for_status = MagicMock()
+    mock_response.headers = {}
     mock_response.iter_bytes = MagicMock(return_value=[content])
 
     class MockClient:

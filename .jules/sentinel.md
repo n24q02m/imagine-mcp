@@ -1,0 +1,5 @@
+
+## 2026-10-24 - [Denial of Service Prevention via Early Content-Length Validation]
+**Vulnerability:** A DoS risk existed in `src/imagine_mcp/media.py` where a maliciously crafted or unexpectedly large media file could be fully downloaded up to a 50MB limit before being rejected, wasting I/O operations and memory due to the lack of pre-flight size validation on the `Content-Length` header.
+**Learning:** The previous implementation strictly validated the cumulative read size but failed to inspect the HTTP headers first. Relying solely on iteration limits allows an attacker to exhaust server resources (CPU/Network/Memory) by opening streams to very large files and forcing the server to iterate up to the maximum boundary.
+**Prevention:** We introduced a module-level `_MAX_DOWNLOAD_SIZE` constant and updated `_write_response` and `_write_response_async` to perform a pre-flight check on the `Content-Length` header. Responses reporting a length exceeding the maximum are now immediately rejected without calling `iter_bytes` or `aiter_bytes`, implementing a robust two-stage verification strategy.
