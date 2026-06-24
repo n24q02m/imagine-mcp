@@ -234,26 +234,17 @@ async def _passthrough_understand(
 
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
-    # ⚡ Bolt: Parallelize URL validation to reduce O(N) sequential latency.
-    # validate_url_and_get_ip offloads DNS to a thread pool internally.
-    results = await asyncio.gather(
-        *(_validate_url(u, f"media_urls[{i}]") for i, u in enumerate(media_urls)),
-        return_exceptions=True,
-    )
-    for res in results:
-        if isinstance(res, BaseException):
-            raise res
 
+    # Move fail-fast validation before network operations
     try:
         check_capability(model, _UNDERSTAND_MODES)
     except ModelCapabilityError as e:
         raise ProviderUnsupportedError(str(e)) from e
 
-    content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
-
-    # ⚡ Bolt: Optimize I/O by fetching images concurrently.
-    # Expected impact: Reduces network latency from O(N) to O(1).
-    async def _fetch_image(u: str) -> dict[str, Any]:
+    # ⚡ Bolt: Optimize throughput by pipelining validation and fetching into a single async flow.
+    # Expected impact: Eliminates the barrier synchronization delay between validation and fetching.
+    async def _validate_and_fetch(u: str, index: int) -> dict[str, Any]:
+        await _validate_url(u, f"media_urls[{index}]")
         resp_img = await get_ssrf_safe_async_client().get(
             u, follow_redirects=True, timeout=60
         )
@@ -262,10 +253,13 @@ async def _passthrough_understand(
         data_url = f"data:{mime_type};base64,{img_b64}"
         return {"type": "image_url", "image_url": {"url": data_url}}
 
+    content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
+
     # ⚡ Bolt: Use return_exceptions=True to ensure no background tasks are leaked
     # if one fetch fails. We then explicitly check and raise the first exception.
     results = await asyncio.gather(
-        *(_fetch_image(u) for u in media_urls), return_exceptions=True
+        *(_validate_and_fetch(u, i) for i, u in enumerate(media_urls)),
+        return_exceptions=True,
     )
     for res in results:
         if isinstance(res, BaseException):
@@ -324,20 +318,16 @@ async def dispatch_understand(
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
 
-    # ⚡ Bolt: Parallelize URL validation to reduce O(N) sequential latency.
-    # validate_url_and_get_ip offloads DNS to a thread pool internally.
-    results_val = await asyncio.gather(
-        *(_validate_url(u, f"media_urls[{i}]") for i, u in enumerate(media_urls)),
-        return_exceptions=True,
-    )
-    for res in results_val:
-        if isinstance(res, BaseException):
-            raise res
+    # ⚡ Bolt: Optimize throughput by pipelining validation and media type detection
+    # into a single async flow. Eliminates the barrier synchronization delay.
+    async def _validate_and_detect(u: str, index: int) -> str:
+        await _validate_url(u, f"media_urls[{index}]")
+        return await detect_media_type_async(u)
 
     # ⚡ Bolt: Concurrent media type detection with robust error handling.
     # return_exceptions=True prevents background tasks from leaking on failure.
     results_mt = await asyncio.gather(
-        *(detect_media_type_async(u) for u in media_urls),
+        *(_validate_and_detect(u, i) for i, u in enumerate(media_urls)),
         return_exceptions=True,
     )
     media_types: list[str] = []
