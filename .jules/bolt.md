@@ -32,3 +32,7 @@
 ## 2026-06-13 - Request-Scoped ContextVar Caching for Sub-Aware Configurations
 **Learning:** `config_value_for_current_request` in `src/imagine_mcp/credential_state.py` retrieved configurations directly via `read_for_sub(sub)` for every lookup (like `UNDERSTAND_MODELS` and `GENERATE_MODELS` chained across requests). Since `read_for_sub` invokes `PerPluginStore.load()` internally, this introduced redundant disk I/O, JSON parsing, and AES-GCM decryption for *each* configuration variable requested during a single tool call. Even though credentials were being cached via the `_request_creds` `ContextVar`, the configuration lookups were incorrectly bypassing that cache.
 **Action:** Always route configuration variable lookups through the same request-scoped cache used for credentials when operating under the same tenant isolation boundaries, avoiding repetitive and expensive I/O operations per key.
+
+## 2025-02-12 - Pipeline URL validation and network requests
+**Learning:** Sequential `asyncio.gather` calls on collections of inputs (e.g., URL validation followed by fetching) create a synchronization barrier. The second phase cannot start for any item until the first phase completes for all items.
+**Action:** Pipeline these operations by defining an internal async helper that performs both actions sequentially for a single item, and then `asyncio.gather` these helper tasks. This allows faster items to proceed immediately to the second phase, improving overall throughput.
