@@ -32,3 +32,7 @@
 ## 2026-06-13 - Request-Scoped ContextVar Caching for Sub-Aware Configurations
 **Learning:** `config_value_for_current_request` in `src/imagine_mcp/credential_state.py` retrieved configurations directly via `read_for_sub(sub)` for every lookup (like `UNDERSTAND_MODELS` and `GENERATE_MODELS` chained across requests). Since `read_for_sub` invokes `PerPluginStore.load()` internally, this introduced redundant disk I/O, JSON parsing, and AES-GCM decryption for *each* configuration variable requested during a single tool call. Even though credentials were being cached via the `_request_creds` `ContextVar`, the configuration lookups were incorrectly bypassing that cache.
 **Action:** Always route configuration variable lookups through the same request-scoped cache used for credentials when operating under the same tenant isolation boundaries, avoiding repetitive and expensive I/O operations per key.
+
+## 2026-06-26 - Optimize sequence deduplication
+**Learning:** Manual loops that use a `seen` set and list `append` to deduplicate an ordered sequence introduce unnecessary Python-level iteration overhead. Python dictionaries preserve insertion order, making `list(dict.fromkeys(...))` a much faster native mechanism for producing an ordered, deduplicated list.
+**Action:** Replace `seen` set loops with `list(dict.fromkeys(generator_expression))` to speed up sequence deduplication while strictly preserving element order.
