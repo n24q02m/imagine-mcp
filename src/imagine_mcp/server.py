@@ -126,8 +126,7 @@ async def _tool_understand(
     """
     if len(media_urls) > settings.max_media_urls:
         raise ValueError(
-            f"Too many media_urls ({len(media_urls)}). "
-            f"Max: {settings.max_media_urls}."
+            f"Too many media_urls ({len(media_urls)}). Max: {settings.max_media_urls}."
         )
     return await dispatch_understand(
         media_urls, prompt, provider, tier, max_tokens, model
