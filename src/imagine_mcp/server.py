@@ -14,10 +14,12 @@ import platformdirs
 from fastmcp import FastMCP
 from loguru import logger
 from mcp_core.relay.tool_helpers import register_open_relay_tool
+from mcp_core.storage.per_plugin_store import PerPluginStore
 
 from imagine_mcp.config import settings
 from imagine_mcp.dispatcher import dispatch_generate, dispatch_understand
 from imagine_mcp.relay_schema import RELAY_SCHEMA
+from imagine_mcp.relay_setup import CREDENTIAL_KEYS, PLUGIN_NAME
 
 VALID_HELP_TOPICS = {"understand", "generate", "config"}
 
@@ -27,6 +29,13 @@ _VALID_SET_KEYS = {
     "default_tier",
     "cache_ttl_seconds",
 }
+
+_KEY_TO_PROVIDER = {
+    "GEMINI_API_KEY": "gemini",
+    "OPENAI_API_KEY": "openai",
+    "XAI_API_KEY": "grok",
+}
+_CREDENTIAL_KEYS_SET = set(CREDENTIAL_KEYS)
 
 
 def _get_version() -> str:
@@ -45,18 +54,14 @@ def _creds_state() -> str:
 
 def _providers_configured() -> list[str]:
     """Return list of providers configured via environment variables."""
-    from imagine_mcp.relay_setup import CREDENTIAL_KEYS
-
-    _key_to_provider = {
-        "GEMINI_API_KEY": "gemini",
-        "OPENAI_API_KEY": "openai",
-        "XAI_API_KEY": "grok",
-    }
+    active = os.environ.keys() & _CREDENTIAL_KEYS_SET
     return list(
         dict.fromkeys(
-            _key_to_provider.get(key, key)
-            for key in CREDENTIAL_KEYS
-            if os.environ.get(key)
+            [
+                _KEY_TO_PROVIDER[k]
+                for k in CREDENTIAL_KEYS
+                if k in active and os.environ[k]
+            ]
         )
     )
 
@@ -67,21 +72,17 @@ def _providers_configured_live() -> list[str]:
     env vars may not be populated at startup (no lifespan apply_config call),
     so this reads the store directly for an accurate live view.
     """
-    from mcp_core.storage.per_plugin_store import PerPluginStore
-
-    from imagine_mcp.relay_setup import CREDENTIAL_KEYS, PLUGIN_NAME
-
     saved = PerPluginStore(PLUGIN_NAME).load() or {}
-    _key_to_provider = {
-        "GEMINI_API_KEY": "gemini",
-        "OPENAI_API_KEY": "openai",
-        "XAI_API_KEY": "grok",
-    }
+    active = (os.environ.keys() & _CREDENTIAL_KEYS_SET) | (
+        saved.keys() & _CREDENTIAL_KEYS_SET
+    )
     return list(
         dict.fromkeys(
-            _key_to_provider.get(key, key)
-            for key in CREDENTIAL_KEYS
-            if os.environ.get(key) or saved.get(key)
+            [
+                _KEY_TO_PROVIDER[k]
+                for k in CREDENTIAL_KEYS
+                if k in active and (os.environ.get(k) or saved.get(k))
+            ]
         )
     )
 
