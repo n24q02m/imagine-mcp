@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import os
+import re
 from functools import cache
 from importlib.resources import files
 from pathlib import Path
@@ -18,6 +20,11 @@ from mcp_core.relay.tool_helpers import register_open_relay_tool
 from imagine_mcp.config import settings
 from imagine_mcp.dispatcher import dispatch_generate, dispatch_understand
 from imagine_mcp.relay_schema import RELAY_SCHEMA
+
+_HOSTNAME_REGEX = re.compile(
+    r"^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*"
+    r"([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$"
+)
 
 VALID_HELP_TOPICS = {"understand", "generate", "config"}
 
@@ -330,9 +337,40 @@ async def run_http(port: int = 0) -> None:
                 "MCP_DCR_SERVER_SECRET missing. Multi-user remote mode "
                 "requires the DCR secret."
             )
-        port = int(os.environ.get("MCP_PORT", "8080"))
         mode_label = "http remote relay (multi-user)"
+        # Port validation
+        port_raw = os.environ.get("MCP_PORT", "8080")
+        try:
+            port = int(port_raw)
+            if not (0 <= port <= 65535):
+                raise ValueError
+        except ValueError:
+            raise SystemExit(
+                f"imagine-mcp refuses to start: Invalid MCP_PORT {port_raw!r}. "
+                "Must be an integer 0-65535."
+            ) from None
+
+        # Host validation
         host = os.environ.get("MCP_HOST", "127.0.0.1")
+        is_ip = False
+        try:
+            ipaddress.ip_address(host)
+            is_ip = True
+        except ValueError:
+            pass
+
+        if not is_ip:
+            # If it looks like an IPv4 (digits and dots), it is a malformed IP.
+            if "." in host and all(c.isdigit() or c == "." for c in host):
+                raise SystemExit(
+                    f"imagine-mcp refuses to start: Invalid MCP_HOST {host!r}. "
+                    "Must be a valid IP address or hostname."
+                )
+            if not _HOSTNAME_REGEX.match(host):
+                raise SystemExit(
+                    f"imagine-mcp refuses to start: Invalid MCP_HOST {host!r}. "
+                    "Must be a valid IP address or hostname."
+                )
     else:
         host = "127.0.0.1"
         mode_label = "http local relay"
