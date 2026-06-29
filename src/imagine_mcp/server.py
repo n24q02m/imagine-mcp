@@ -105,6 +105,156 @@ def _get_help_content(topic: str) -> str:
     return doc_file.read_text(encoding="utf-8")
 
 
+async def _tool_understand(
+    media_urls: list[str],
+    prompt: str,
+    provider: str | None = None,
+    model: str | None = None,
+    tier: str = "poor",
+    max_tokens: int = 2048,
+) -> dict[str, Any]:
+    """Understand image/video content with a prompt.
+
+    ``model`` overrides the provider/tier catalog with a litellm
+    'provider/model' string (e.g. 'gemini/gemini-3.1-pro-preview') --
+    bypasses the provider/tier catalog.
+    """
+    if len(media_urls) > settings.max_media_urls:
+        raise ValueError(
+            f"Too many media_urls ({len(media_urls)}). Max: {settings.max_media_urls}."
+        )
+    return await dispatch_understand(
+        media_urls, prompt, provider, tier, max_tokens, model
+    )
+
+
+async def _tool_generate(
+    media_type: Literal["image", "video"],
+    prompt: str,
+    provider: str | None = None,
+    model: str | None = None,
+    tier: str = "poor",
+    reference_image_url: str | None = None,
+    job_id: str | None = None,
+    output_mode: Literal["base64", "path", "both"] = "both",
+    aspect_ratio: str = "16:9",
+    duration_seconds: int = 8,
+) -> dict[str, Any]:
+    """Generate image or video.
+
+    ``model`` overrides the provider/tier catalog with a litellm
+    'provider/model' string -- bypasses the provider/tier catalog.
+    """
+    return await dispatch_generate(
+        media_type,
+        prompt,
+        provider,
+        tier,
+        reference_image_url,
+        job_id,
+        aspect_ratio,
+        duration_seconds,
+        model,
+        output_mode,
+    )
+
+
+async def _tool_config(
+    action: str,
+    key: str | None = None,
+    value: str | None = None,
+) -> dict[str, Any]:
+    """Server config and credential management."""
+    from imagine_mcp import relay_setup
+
+    match action:
+        case "open_relay":
+            result = await relay_setup.ensure_config(force=True)
+            if result is None:
+                return {
+                    "status": "degraded",
+                    "message": (
+                        "No credentials loaded. Set MCP_RELAY_URL and retry, "
+                        "or run the server in `http local relay mode` (default)."
+                    ),
+                }
+            return {
+                "status": "saved",
+                "providers_configured": await asyncio.to_thread(
+                    _providers_configured_live
+                ),
+            }
+        case "relay_status":
+            _live_providers = await asyncio.to_thread(_providers_configured_live)
+            return {
+                "status": "configured" if _live_providers else "pending",
+                "providers_configured": _live_providers,
+            }
+        case "relay_complete":
+            _live_providers = await asyncio.to_thread(_providers_configured_live)
+            return {
+                "status": "saved" if _live_providers else "no_credentials",
+                "providers_configured": _live_providers,
+            }
+        case "relay_skip":
+            _env_providers = await asyncio.to_thread(_providers_configured)
+            if not _env_providers:
+                return {
+                    "status": "needs_setup",
+                    "message": "No env vars set. Run config(action='open_relay') to configure via browser.",
+                }
+            return {
+                "status": "using_env",
+                "message": "Using env vars for credentials.",
+                "providers": _env_providers,
+            }
+        case "relay_reset":
+            return await asyncio.to_thread(relay_setup.reset_credentials)
+        case "warmup":
+            return {
+                "status": "ok",
+                "message": "No heavy resources to warm up in v1.",
+            }
+        case "status":
+            return {
+                "version": await asyncio.to_thread(_get_version),
+                "credentials_state": await asyncio.to_thread(_creds_state),
+                "providers_configured": await asyncio.to_thread(
+                    _providers_configured_live
+                ),
+                "default_provider": settings.default_provider,
+                "default_tier": settings.default_tier,
+                "cache_ttl_seconds": settings.cache_ttl_seconds,
+            }
+        case "set":
+            return _set_runtime(key, value)
+        case "cache_clear":
+            from imagine_mcp.cache import ResponseCache
+
+            cache_obj = ResponseCache(
+                path=Path(platformdirs.user_cache_dir("imagine-mcp")) / "cache",
+                default_ttl=settings.cache_ttl_seconds,
+            )
+            await asyncio.to_thread(cache_obj.clear)
+            return {"status": "ok", "message": "Cache cleared."}
+        case _:
+            return {
+                "status": "error",
+                "message": (
+                    f"Unknown action {action!r}. Valid: open_relay|relay_status|"
+                    "relay_skip|relay_reset|relay_complete|warmup|"
+                    "status|set|cache_clear"
+                ),
+            }
+
+
+async def _tool_help(topic: str = "understand") -> str:
+    """Load documentation for a specific tool or topic."""
+    if topic not in VALID_HELP_TOPICS:
+        return f"Unknown topic {topic!r}. Valid: {sorted(VALID_HELP_TOPICS)}"
+    return await asyncio.to_thread(_get_help_content, topic)
+
+
 def build_app() -> FastMCP:
     """Create FastMCP app with 4 tools registered."""
     app: FastMCP = FastMCP(
@@ -117,175 +267,36 @@ def build_app() -> FastMCP:
         ),
     )
 
-    @app.tool(
+    app.tool(
+        name="understand",
         description=(
             "Understand images and/or videos (multi-URL) with a prompt. "
             "Gemini supports mixed image+video in one call; "
             "OpenAI/Grok are image-only."
         ),
-    )
-    async def understand(
-        media_urls: list[str],
-        prompt: str,
-        provider: str | None = None,
-        model: str | None = None,
-        tier: str = "poor",
-        max_tokens: int = 2048,
-    ) -> dict[str, Any]:
-        """Understand image/video content with a prompt.
+    )(_tool_understand)
 
-        ``model`` overrides the provider/tier catalog with a litellm
-        'provider/model' string (e.g. 'gemini/gemini-3.1-pro-preview') --
-        bypasses the provider/tier catalog.
-        """
-        if len(media_urls) > settings.max_media_urls:
-            raise ValueError(
-                f"Too many media_urls ({len(media_urls)}). "
-                f"Max: {settings.max_media_urls}."
-            )
-        return await dispatch_understand(
-            media_urls, prompt, provider, tier, max_tokens, model
-        )
-
-    @app.tool(
+    app.tool(
+        name="generate",
         description=(
             "Generate an image or video from a text prompt. "
             "Video is async: first call returns job_id; call again with job_id to poll."
         ),
-    )
-    async def generate(
-        media_type: Literal["image", "video"],
-        prompt: str,
-        provider: str | None = None,
-        model: str | None = None,
-        tier: str = "poor",
-        reference_image_url: str | None = None,
-        job_id: str | None = None,
-        output_mode: Literal["base64", "path", "both"] = "both",
-        aspect_ratio: str = "16:9",
-        duration_seconds: int = 8,
-    ) -> dict[str, Any]:
-        """Generate image or video.
+    )(_tool_generate)
 
-        ``model`` overrides the provider/tier catalog with a litellm
-        'provider/model' string -- bypasses the provider/tier catalog.
-        """
-        return await dispatch_generate(
-            media_type,
-            prompt,
-            provider,
-            tier,
-            reference_image_url,
-            job_id,
-            aspect_ratio,
-            duration_seconds,
-            model,
-            output_mode,
-        )
-
-    @app.tool(
+    app.tool(
+        name="config",
         description=(
             "Server config + credential setup (MERGED). Actions: "
             "(relay) open_relay|relay_status|relay_skip|relay_reset|"
             "relay_complete|warmup; (runtime) status|set|cache_clear."
         ),
-    )
-    async def config(
-        action: str,
-        key: str | None = None,
-        value: str | None = None,
-    ) -> dict[str, Any]:
-        """Server config and credential management."""
-        from imagine_mcp import relay_setup
+    )(_tool_config)
 
-        match action:
-            case "open_relay":
-                result = await relay_setup.ensure_config(force=True)
-                if result is None:
-                    return {
-                        "status": "degraded",
-                        "message": (
-                            "No credentials loaded. Set MCP_RELAY_URL and retry, "
-                            "or run the server in `http local relay mode` (default)."
-                        ),
-                    }
-                return {
-                    "status": "saved",
-                    "providers_configured": await asyncio.to_thread(
-                        _providers_configured_live
-                    ),
-                }
-            case "relay_status":
-                _live_providers = await asyncio.to_thread(_providers_configured_live)
-                return {
-                    "status": "configured" if _live_providers else "pending",
-                    "providers_configured": _live_providers,
-                }
-            case "relay_complete":
-                _live_providers = await asyncio.to_thread(_providers_configured_live)
-                return {
-                    "status": "saved" if _live_providers else "no_credentials",
-                    "providers_configured": _live_providers,
-                }
-            case "relay_skip":
-                _env_providers = await asyncio.to_thread(_providers_configured)
-                if not _env_providers:
-                    return {
-                        "status": "needs_setup",
-                        "message": "No env vars set. Run config(action='open_relay') to configure via browser.",
-                    }
-                return {
-                    "status": "using_env",
-                    "message": "Using env vars for credentials.",
-                    "providers": _env_providers,
-                }
-            case "relay_reset":
-                return await asyncio.to_thread(relay_setup.reset_credentials)
-            case "warmup":
-                return {
-                    "status": "ok",
-                    "message": "No heavy resources to warm up in v1.",
-                }
-            case "status":
-                return {
-                    "version": await asyncio.to_thread(_get_version),
-                    "credentials_state": await asyncio.to_thread(_creds_state),
-                    "providers_configured": await asyncio.to_thread(
-                        _providers_configured_live
-                    ),
-                    "default_provider": settings.default_provider,
-                    "default_tier": settings.default_tier,
-                    "cache_ttl_seconds": settings.cache_ttl_seconds,
-                }
-            case "set":
-                return _set_runtime(key, value)
-            case "cache_clear":
-                from imagine_mcp.cache import ResponseCache
-
-                cache_obj = ResponseCache(
-                    path=Path(platformdirs.user_cache_dir("imagine-mcp")) / "cache",
-                    default_ttl=settings.cache_ttl_seconds,
-                )
-                await asyncio.to_thread(cache_obj.clear)
-                return {"status": "ok", "message": "Cache cleared."}
-            case _:
-                return {
-                    "status": "error",
-                    "message": (
-                        f"Unknown action {action!r}. Valid: open_relay|relay_status|"
-                        "relay_skip|relay_reset|relay_complete|warmup|"
-                        "status|set|cache_clear"
-                    ),
-                }
-
-    @app.tool(
+    app.tool(
+        name="help",
         description=("Full documentation. Topics: understand | generate | config."),
-    )
-    async def help(topic: str = "understand") -> str:
-        """Load documentation for a specific tool or topic."""
-        if topic not in VALID_HELP_TOPICS:
-            return f"Unknown topic {topic!r}. Valid: {sorted(VALID_HELP_TOPICS)}"
-        return await asyncio.to_thread(_get_help_content, topic)
+    )(_tool_help)
 
     register_open_relay_tool(app, "imagine-mcp", os.environ.get("PUBLIC_URL"))
 
