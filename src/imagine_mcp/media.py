@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import ipaddress
-import os
+import posixpath
 import socket
 import threading
 import typing
@@ -376,11 +376,18 @@ async def detect_media_type_async(url: str) -> MediaType:
 
 def _extract_extension(url: str) -> str:
     """Return lowercase file extension including dot, or '' if none."""
-    path = url.split("?", 1)[0].split("#", 1)[0]
-    _, ext = os.path.splitext(path)
-    ext = ext.lower()
-    if ext.startswith(".") and 1 <= len(ext) - 1 <= 10 and ext[1:].isalnum():
-        return ext
+    try:
+        parsed = urlparse(url)
+        path = parsed.path
+        if not path:
+            return ""
+        # Use posixpath for URL paths to ensure consistent behavior across platforms
+        _, ext = posixpath.splitext(path)
+        ext = ext.lower()
+        if ext.startswith(".") and 1 <= len(ext) - 1 <= 10 and ext[1:].isalnum():
+            return ext
+    except Exception:
+        pass
     return ""
 
 
