@@ -134,8 +134,11 @@ def reset_credentials() -> dict[str, Any]:
 
     Returns {"status": "reset"} on success, {"status": "not_found"} if no config.
     """
+    from imagine_mcp.credential_state import get_current_sub
+
+    sub = get_current_sub()
     try:
-        store = PerPluginStore(PLUGIN_NAME)
+        store = PerPluginStore(PLUGIN_NAME, sub)
         if not store.cred_path.exists():
             return {"status": "not_found", "server": SERVER_NAME}
         store.clear()

@@ -38,9 +38,10 @@ class TestRelayStatusLiveDerivedState:
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("XAI_API_KEY", raising=False)
+        monkeypatch.setenv("MCP_TRANSPORT", "http")
 
         with patch(
-            "mcp_core.storage.per_plugin_store.PerPluginStore.load",
+            "imagine_mcp.credential_state.PerPluginStore.load",
             return_value={"GEMINI_API_KEY": "test-key-123"},
         ):
             result = await app.call_tool("config", {"action": "relay_status"})
@@ -57,9 +58,10 @@ class TestRelayStatusLiveDerivedState:
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("XAI_API_KEY", raising=False)
+        monkeypatch.setenv("MCP_TRANSPORT", "http")
 
         with patch(
-            "mcp_core.storage.per_plugin_store.PerPluginStore.load",
+            "imagine_mcp.credential_state.PerPluginStore.load",
             return_value={},
         ):
             result = await app.call_tool("config", {"action": "relay_status"})
@@ -80,9 +82,10 @@ class TestRelayCompleteLiveDerivedState:
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("XAI_API_KEY", raising=False)
+        monkeypatch.setenv("MCP_TRANSPORT", "http")
 
         with patch(
-            "mcp_core.storage.per_plugin_store.PerPluginStore.load",
+            "imagine_mcp.credential_state.PerPluginStore.load",
             return_value={"OPENAI_API_KEY": "sk-test-123"},
         ):
             result = await app.call_tool("config", {"action": "relay_complete"})
@@ -99,9 +102,10 @@ class TestRelayCompleteLiveDerivedState:
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("XAI_API_KEY", raising=False)
+        monkeypatch.setenv("MCP_TRANSPORT", "http")
 
         with patch(
-            "mcp_core.storage.per_plugin_store.PerPluginStore.load",
+            "imagine_mcp.credential_state.PerPluginStore.load",
             return_value={},
         ):
             result = await app.call_tool("config", {"action": "relay_complete"})

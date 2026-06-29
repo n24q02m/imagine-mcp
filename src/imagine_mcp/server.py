@@ -38,14 +38,22 @@ def _get_version() -> str:
 def _creds_state() -> str:
     """Return CONFIGURED if any provider is set (env or store), else NEEDS_SETUP.
 
-    Checks live store because env vars may not be populated at startup.
+    Checks live store because env vars may not be populated at startup,
+    and respects multi-user sub-isolation.
     """
     return "CONFIGURED" if _providers_configured_live() else "NEEDS_SETUP"
 
 
 def _providers_configured() -> list[str]:
-    """Return list of providers configured via environment variables."""
+    """Return list of providers configured via environment variables.
+
+    In multi-user mode (sub set), returns [] to ensure relay_skip honesty.
+    """
+    from imagine_mcp.credential_state import get_current_sub
     from imagine_mcp.relay_setup import CREDENTIAL_KEYS
+
+    if get_current_sub() is not None:
+        return []
 
     _key_to_provider = {
         "GEMINI_API_KEY": "gemini",
@@ -62,28 +70,20 @@ def _providers_configured() -> list[str]:
 
 
 def _providers_configured_live() -> list[str]:
-    """Like _providers_configured but also checks PerPluginStore.
+    """Return list of providers configured for the active request.
 
-    env vars may not be populated at startup (no lifespan apply_config call),
-    so this reads the store directly for an accurate live view.
+    Checks live store + env because env vars may not be populated at startup,
+    and respects multi-user sub-isolation.
     """
-    from mcp_core.storage.per_plugin_store import PerPluginStore
+    from imagine_mcp.credential_state import credentials_for_current_request
 
-    from imagine_mcp.relay_setup import CREDENTIAL_KEYS, PLUGIN_NAME
-
-    saved = PerPluginStore(PLUGIN_NAME).load() or {}
+    creds = credentials_for_current_request()
     _key_to_provider = {
         "GEMINI_API_KEY": "gemini",
         "OPENAI_API_KEY": "openai",
         "XAI_API_KEY": "grok",
     }
-    return list(
-        dict.fromkeys(
-            _key_to_provider.get(key, key)
-            for key in CREDENTIAL_KEYS
-            if os.environ.get(key) or saved.get(key)
-        )
-    )
+    return list(dict.fromkeys(_key_to_provider.get(key, key) for key in creds))
 
 
 def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:

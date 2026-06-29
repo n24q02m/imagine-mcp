@@ -96,7 +96,11 @@ def credentials_for_current_request() -> dict[str, str]:
         # Avoid O(N) iteration over os.environ.items() by iterating directly
         # over the bounded O(1) CLOUD_KEYS. This reduces latency significantly
         # when the environment has many variables.
-        res = {k: v for k in CLOUD_KEYS if (v := os.environ.get(k))}
+        if _is_http():
+            saved = PerPluginStore(PLUGIN_NAME).load() or {}
+            res = {k: v for k in CLOUD_KEYS if (v := os.environ.get(k) or saved.get(k))}
+        else:
+            res = {k: v for k in CLOUD_KEYS if (v := os.environ.get(k))}
     else:
         res = read_for_sub(sub)
 
