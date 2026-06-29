@@ -652,3 +652,43 @@ async def test_validate_url_blocks_cgnat() -> None:
     # but is considered not global by is_global. Our updated validation must block it.
     with pytest.raises(InvalidURLError, match="URL resolves to an internal/private IP"):
         await _validate_url("http://100.64.0.1/test", "test_param")
+
+
+@pytest.mark.asyncio
+async def test_validate_url_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    from imagine_mcp.dispatcher import _validate_url
+
+    def mock_validate(url: str, param: str) -> str:
+        return "1.1.1.1"
+
+    monkeypatch.setattr("imagine_mcp.dispatcher.validate_url_and_get_ip", mock_validate)
+
+    # Should not raise
+    await _validate_url("https://example.com/image.png", "test_param")
+
+
+@pytest.mark.asyncio
+async def test_validate_url_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    from imagine_mcp.dispatcher import _validate_url
+
+    def mock_validate(url: str, param: str) -> str:
+        raise InvalidURLError("mocked failure")
+
+    monkeypatch.setattr("imagine_mcp.dispatcher.validate_url_and_get_ip", mock_validate)
+
+    with pytest.raises(InvalidURLError, match="mocked failure"):
+        await _validate_url("https://example.com/image.png", "test_param")
+
+
+def test_validate_invalid_provider() -> None:
+    from imagine_mcp.dispatcher import _validate
+
+    with pytest.raises(InvalidProviderError, match="Unknown provider"):
+        _validate("invalid-provider", "poor")
+
+
+def test_validate_invalid_tier() -> None:
+    from imagine_mcp.dispatcher import _validate
+
+    with pytest.raises(InvalidTierError, match="Unknown tier"):
+        _validate("gemini", "invalid-tier")
