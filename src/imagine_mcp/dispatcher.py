@@ -234,15 +234,6 @@ async def _passthrough_understand(
 
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
-    # ⚡ Bolt: Parallelize URL validation to reduce O(N) sequential latency.
-    # validate_url_and_get_ip offloads DNS to a thread pool internally.
-    results = await asyncio.gather(
-        *(_validate_url(u, f"media_urls[{i}]") for i, u in enumerate(media_urls)),
-        return_exceptions=True,
-    )
-    for res in results:
-        if isinstance(res, BaseException):
-            raise res
 
     try:
         check_capability(model, _UNDERSTAND_MODES)
@@ -251,9 +242,9 @@ async def _passthrough_understand(
 
     content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
 
-    # ⚡ Bolt: Optimize I/O by fetching images concurrently.
-    # Expected impact: Reduces network latency from O(N) to O(1).
-    async def _fetch_image(u: str) -> dict[str, Any]:
+    # ⚡ Bolt: Pipeline URL validation and image fetching per URL to eliminate barrier synchronization delays.
+    async def _validate_and_fetch_image(i: int, u: str) -> dict[str, Any]:
+        await _validate_url(u, f"media_urls[{i}]")
         resp_img = await get_ssrf_safe_async_client().get(
             u, follow_redirects=True, timeout=60
         )
@@ -265,7 +256,7 @@ async def _passthrough_understand(
     # ⚡ Bolt: Use return_exceptions=True to ensure no background tasks are leaked
     # if one fetch fails. We then explicitly check and raise the first exception.
     results = await asyncio.gather(
-        *(_fetch_image(u) for u in media_urls), return_exceptions=True
+        *(_validate_and_fetch_image(i, u) for i, u in enumerate(media_urls)), return_exceptions=True
     )
     for res in results:
         if isinstance(res, BaseException):
@@ -324,24 +315,18 @@ async def dispatch_understand(
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
 
-    # ⚡ Bolt: Parallelize URL validation to reduce O(N) sequential latency.
-    # validate_url_and_get_ip offloads DNS to a thread pool internally.
-    results_val = await asyncio.gather(
-        *(_validate_url(u, f"media_urls[{i}]") for i, u in enumerate(media_urls)),
-        return_exceptions=True,
-    )
-    for res in results_val:
-        if isinstance(res, BaseException):
-            raise res
+    # ⚡ Bolt: Pipeline URL validation and media type detection per URL to eliminate barrier synchronization delays.
+    async def _process_url(i: int, u: str) -> str:
+        await _validate_url(u, f"media_urls[{i}]")
+        return await detect_media_type_async(u)
 
-    # ⚡ Bolt: Concurrent media type detection with robust error handling.
     # return_exceptions=True prevents background tasks from leaking on failure.
-    results_mt = await asyncio.gather(
-        *(detect_media_type_async(u) for u in media_urls),
+    results = await asyncio.gather(
+        *(_process_url(i, u) for i, u in enumerate(media_urls)),
         return_exceptions=True,
     )
     media_types: list[str] = []
-    for res in results_mt:
+    for res in results:
         if isinstance(res, BaseException):
             raise res
         media_types.append(res)
