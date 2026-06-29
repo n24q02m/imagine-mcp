@@ -36,6 +36,7 @@ _VIDEO_MIME_PREFIX = "video/"
 # Most image hosts serve JPEG, so it is the safest fallback when neither the
 # Content-Type header nor the magic bytes identify the format.
 _IMAGE_FALLBACK_MIME = "image/jpeg"
+_MAX_DOWNLOAD_SIZE = 50 * 1024 * 1024  # 50MB limit to prevent DoS
 
 
 def sniff_image_mime(data: bytes) -> str | None:
@@ -381,31 +382,49 @@ def _extract_extension(url: str) -> str:
 
 
 def _write_response(resp: httpx.Response, dest: Path) -> None:
-    max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
+    content_length_str = resp.headers.get("Content-Length")
+    if content_length_str:
+        try:
+            if int(content_length_str) > _MAX_DOWNLOAD_SIZE:
+                raise httpx.HTTPError(
+                    f"Download failed: Content-Length {content_length_str} exceeds limit of {_MAX_DOWNLOAD_SIZE} bytes"
+                )
+        except ValueError:
+            pass
+
     bytes_read = 0
     with dest.open("wb") as f:
         for chunk in resp.iter_bytes(chunk_size=65536):
-            bytes_read += len(chunk)
-            if bytes_read > max_size:
+            if bytes_read + len(chunk) > _MAX_DOWNLOAD_SIZE:
                 raise httpx.HTTPError(
-                    f"Download failed: Exceeded maximum size of {max_size} bytes"
+                    f"Download failed: Exceeded maximum size of {_MAX_DOWNLOAD_SIZE} bytes"
                 )
             f.write(chunk)
+            bytes_read += len(chunk)
 
 
 async def _write_response_async(resp: httpx.Response, dest: Path) -> None:
-    max_size = 50 * 1024 * 1024  # 50MB limit to prevent DoS
+    content_length_str = resp.headers.get("Content-Length")
+    if content_length_str:
+        try:
+            if int(content_length_str) > _MAX_DOWNLOAD_SIZE:
+                raise httpx.HTTPError(
+                    f"Download failed: Content-Length {content_length_str} exceeds limit of {_MAX_DOWNLOAD_SIZE} bytes"
+                )
+        except ValueError:
+            pass
+
     bytes_read = 0
     # ⚡ Bolt: Replace high-overhead asyncio.to_thread with anyio.open_file
     # Expected impact: Dramatically reduces context-switching overhead on file chunk writes
     async with await anyio.open_file(dest, "wb") as f:
         async for chunk in resp.aiter_bytes(chunk_size=65536):
-            bytes_read += len(chunk)
-            if bytes_read > max_size:
+            if bytes_read + len(chunk) > _MAX_DOWNLOAD_SIZE:
                 raise httpx.HTTPError(
-                    f"Download failed: Exceeded maximum size of {max_size} bytes"
+                    f"Download failed: Exceeded maximum size of {_MAX_DOWNLOAD_SIZE} bytes"
                 )
             await f.write(chunk)
+            bytes_read += len(chunk)
 
 
 def download_to_path(url: str, dest: Path) -> Path:
