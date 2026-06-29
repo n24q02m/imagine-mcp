@@ -263,3 +263,72 @@ async def test_generate_video_poll_failed(
         ProviderAPIError, match="Grok video generation failed: Safety violation"
     ):
         await provider.generate_video(prompt="", tier="poor", job_id="job-123")
+
+
+@pytest.mark.asyncio
+async def test_generate_video_with_reference(
+    mock_media: AsyncMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    # Mock download of reference image
+    mock_ref_resp = MagicMock()
+    mock_ref_resp.content = b"ref-bytes"
+    mock_ref_resp.headers = {"content-type": "image/jpeg"}
+
+    # Mock API response for submission
+    mock_api_resp = MagicMock()
+    mock_api_resp.status_code = 200
+    mock_api_resp.json.return_value = {"id": "job-123"}
+
+    # Sequential returns for GET (ref) then POST (gen)
+    mock_media.get.return_value = mock_ref_resp
+    mock_media.post.return_value = mock_api_resp
+
+    await provider.generate_video(
+        prompt="like this",
+        tier="poor",
+        reference_image_url="https://example.com/ref.jpg",
+    )
+
+    # Check if reference image was downloaded
+    mock_media.get.assert_called_with(
+        "https://example.com/ref.jpg", follow_redirects=True, timeout=60
+    )
+
+    # Check if POST payload contains source_image
+    kwargs = mock_media.post.call_args[1]
+    assert "source_image" in kwargs["json"]
+    assert kwargs["json"]["source_image"].startswith("data:image/jpeg;base64,")
+
+
+@pytest.mark.asyncio
+async def test_generate_video_submit_error(
+    mock_media: AsyncMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 500
+    mock_resp.text = "Internal Server Error"
+    mock_media.post.return_value = mock_resp
+
+    with pytest.raises(
+        ProviderAPIError, match="Grok video submit failed: Internal Server Error"
+    ):
+        await provider.generate_video(prompt="a dancing cat", tier="poor")
+
+
+@pytest.mark.asyncio
+async def test_generate_video_poll_error(
+    mock_media: AsyncMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 404
+    mock_resp.text = "Not Found"
+    mock_media.get.return_value = mock_resp
+
+    with pytest.raises(ProviderAPIError, match="Grok video poll failed: Not Found"):
+        await provider.generate_video(prompt="", tier="poor", job_id="job-123")
