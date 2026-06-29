@@ -52,13 +52,15 @@ def _providers_configured() -> list[str]:
         "OPENAI_API_KEY": "openai",
         "XAI_API_KEY": "grok",
     }
-    return list(
-        dict.fromkeys(
-            _key_to_provider.get(key, key)
-            for key in CREDENTIAL_KEYS
-            if os.environ.get(key)
-        )
-    )
+    configured = []
+    seen = set()
+    for key in CREDENTIAL_KEYS:
+        if os.environ.get(key):
+            provider = _key_to_provider.get(key, key)
+            if provider not in seen:
+                configured.append(provider)
+                seen.add(provider)
+    return configured
 
 
 def _providers_configured_live() -> list[str]:
@@ -77,13 +79,15 @@ def _providers_configured_live() -> list[str]:
         "OPENAI_API_KEY": "openai",
         "XAI_API_KEY": "grok",
     }
-    return list(
-        dict.fromkeys(
-            _key_to_provider.get(key, key)
-            for key in CREDENTIAL_KEYS
-            if os.environ.get(key) or saved.get(key)
-        )
-    )
+    configured = []
+    seen = set()
+    for key in CREDENTIAL_KEYS:
+        if os.environ.get(key) or saved.get(key):
+            provider = _key_to_provider.get(key, key)
+            if provider not in seen:
+                configured.append(provider)
+                seen.add(provider)
+    return configured
 
 
 def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
