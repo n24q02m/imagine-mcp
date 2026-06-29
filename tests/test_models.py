@@ -126,3 +126,23 @@ def test_default_provider_for_rank_1() -> None:
 def test_default_provider_fallback_when_only_unsupported() -> None:
     # openai has UNSUPPORTED for video understand; default_provider should fall back to gemini
     assert default_provider_for("understand", "video", "poor") == "gemini"
+
+
+def test_default_provider_fallback_unknown_combo() -> None:
+    # An unknown combo should fall back to gemini
+    assert default_provider_for("unknown_action", "unknown_media", "poor") == "gemini"
+
+
+def test_list_models_sort_by_provider() -> None:
+    group = list_models(sort_by="provider")
+    assert len(group) == len(MODELS)
+
+
+def test_list_models_sort_by_cost() -> None:
+    group = list_models(sort_by="cost")
+    assert len(group) == len(MODELS)
+
+
+def test_unsupported_sentinel() -> None:
+    assert repr(UNSUPPORTED) == "UNSUPPORTED"
+    assert not UNSUPPORTED
