@@ -122,11 +122,12 @@ async def test_openai_generate_image_base64_no_disk(monkeypatch, tmp_path):
     monkeypatch.setattr("platformdirs.user_cache_dir", lambda *a, **k: str(tmp_path))
     import base64 as _b64
 
-    fake_client = MagicMock()
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     fake_resp = MagicMock()
     fake_resp.data = [MagicMock(b64_json=_b64.b64encode(b"PNGDATA").decode())]
-    fake_client.images.generate = AsyncMock(return_value=fake_resp)
-    monkeypatch.setattr(openai_provider, "_client", lambda: fake_client)
+    monkeypatch.setattr(
+        "mcp_core.llm.aimage_generation", AsyncMock(return_value=fake_resp)
+    )
 
     out = await openai_provider.generate_image(
         prompt="a cat", tier="poor", output_mode="base64"

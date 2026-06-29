@@ -74,10 +74,14 @@ async def test_generate_image_basic_mocked(monkeypatch: pytest.MonkeyPatch) -> N
     mock_item.b64_json = base64.b64encode(b"generated-image").decode()
     mock_resp.data = [mock_item]
 
-    mock_client_inst = MagicMock()
-    mock_client_inst.images.generate = AsyncMock(return_value=mock_resp)
+    captured: dict[str, object] = {}
 
-    monkeypatch.setattr(provider, "_client", lambda: mock_client_inst)
+    async def fake_aimage_generation(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return mock_resp
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr("mcp_core.llm.aimage_generation", fake_aimage_generation)
 
     async def fake_emit_media(data, suffix, key, output_mode):
         assert data == b"generated-image"
@@ -93,9 +97,10 @@ async def test_generate_image_basic_mocked(monkeypatch: pytest.MonkeyPatch) -> N
     assert result["model"] == "gpt-image-1-mini"
     assert result["provider"] == "openai"
     assert result["tier"] == "poor"
-    mock_client_inst.images.generate.assert_called_once_with(
-        model="gpt-image-1-mini", prompt="a sunset", size="1792x1024", n=1
-    )
+    assert captured["model"] == "openai/gpt-image-1-mini"
+    assert captured["prompt"] == "a sunset"
+    assert captured["size"] == "1792x1024"
+    assert captured["api_key"] == "sk-test"
 
 
 @pytest.mark.asyncio
@@ -142,10 +147,57 @@ async def test_generate_image_no_data_raises(monkeypatch: pytest.MonkeyPatch) ->
     mock_item.b64_json = None
     mock_resp.data = [mock_item]
 
-    mock_client_inst = MagicMock()
-    mock_client_inst.images.generate = AsyncMock(return_value=mock_resp)
-
-    monkeypatch.setattr(provider, "_client", lambda: mock_client_inst)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr(
+        "mcp_core.llm.aimage_generation", AsyncMock(return_value=mock_resp)
+    )
 
     with pytest.raises(ProviderAPIError, match="OpenAI returned no image"):
         await provider.generate_image(prompt="nothing", tier="poor")
+
+
+@pytest.mark.asyncio
+async def test_generate_image_model_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    mock_resp = MagicMock()
+    mock_item = MagicMock()
+    mock_item.b64_json = base64.b64encode(b"overridden").decode()
+    mock_resp.data = [mock_item]
+
+    captured: dict[str, object] = {}
+
+    async def fake_aimage_generation(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return mock_resp
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setattr("mcp_core.llm.aimage_generation", fake_aimage_generation)
+    monkeypatch.setattr("imagine_mcp.media.emit_media", AsyncMock(return_value={}))
+
+    await provider.generate_image(
+        prompt="override", tier="poor", model_id="dall-e-3-experimental"
+    )
+    assert captured["model"] == "openai/dall-e-3-experimental"
+
+
+@pytest.mark.asyncio
+async def test_reset_client() -> None:
+    # Coverage for _reset_client
+    provider._reset_client()
+
+
+def test_client_factory() -> None:
+    # Coverage for _client_factory
+    from openai import AsyncOpenAI
+
+    client = provider._client_factory(api_key="sk-test")
+    assert isinstance(client, AsyncOpenAI)
+    assert client.api_key == "sk-test"
+
+
+def test_get_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Coverage for _client()
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    client = provider._client()
+    from openai import AsyncOpenAI
+
+    assert isinstance(client, AsyncOpenAI)

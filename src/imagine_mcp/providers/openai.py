@@ -115,8 +115,19 @@ async def generate_image(
             model=model, image=img_bytes, prompt=prompt, size=size
         )
     else:
-        resp = await _client().images.generate(
-            model=model, prompt=prompt, size=size, n=1
+        # Normalise empty string to None: a non-None api_key suppresses litellm's
+        # provider env-var fallback (would 401 on "").
+        resolved_api_key = _manager.get_api_key() or None
+
+        from mcp_core.llm import aimage_generation
+
+        resp = await aimage_generation(
+            model=f"openai/{model}",
+            prompt=prompt,
+            size=size,
+            n=1,
+            api_key=resolved_api_key,
+            response_format="b64_json",
         )
 
     img_b64 = resp.data[0].b64_json
