@@ -69,22 +69,23 @@ async def test_generate_image_b64(
     monkeypatch.setenv("XAI_API_KEY", "xai-test")
 
     mock_resp = MagicMock()
-    mock_resp.status_code = 200
-    mock_resp.json.return_value = {
-        "data": [{"b64_json": base64.b64encode(b"gen-image-bytes").decode()}]
-    }
-    mock_media.post.return_value = mock_resp
+    mock_resp.data = [{"b64_json": base64.b64encode(b"gen-image-bytes").decode()}]
+
+    captured: dict[str, object] = {}
+
+    async def fake_aimage_generation(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return mock_resp
+
+    monkeypatch.setattr("mcp_core.llm.aimage_generation", fake_aimage_generation)
 
     result = await provider.generate_image(prompt="a sunset", tier="poor")
 
     assert result["image_base64"] == "fake-b64"
     assert result["model"] == "grok-imagine-image"
-
-    # Verify POST call
-    args, kwargs = mock_media.post.call_args
-    assert args[0].endswith("/images/generations")
-    assert kwargs["json"]["prompt"] == "a sunset"
-    assert kwargs["headers"]["Authorization"] == "Bearer xai-test"
+    assert captured["prompt"] == "a sunset"
+    assert captured["api_key"] == "xai-test"
+    assert captured["model"] == "xai/grok-imagine-image"
 
 
 @pytest.mark.asyncio
@@ -93,15 +94,15 @@ async def test_generate_image_url(
 ) -> None:
     monkeypatch.setenv("XAI_API_KEY", "xai-test")
 
-    # First call: POST returns URL
-    mock_post_resp = MagicMock()
-    mock_post_resp.status_code = 200
-    mock_post_resp.json.return_value = {
-        "data": [{"url": "https://example.com/generated.png"}]
-    }
-    mock_media.post.return_value = mock_post_resp
+    # Mock aimage_generation returning URL
+    mock_resp = MagicMock()
+    mock_resp.data = [{"url": "https://example.com/generated.png"}]
 
-    # Second call: GET fetches the URL
+    monkeypatch.setattr(
+        "mcp_core.llm.aimage_generation", AsyncMock(return_value=mock_resp)
+    )
+
+    # Mock download of the generated URL
     mock_get_resp = MagicMock()
     mock_get_resp.content = b"fetched-image-bytes"
     mock_media.get.return_value = mock_get_resp
@@ -124,17 +125,19 @@ async def test_generate_image_with_reference(
     mock_ref_resp = MagicMock()
     mock_ref_resp.content = b"ref-bytes"
     mock_ref_resp.headers = {"content-type": "image/jpeg"}
-
-    # Mock API response
-    mock_api_resp = MagicMock()
-    mock_api_resp.status_code = 200
-    mock_api_resp.json.return_value = {
-        "data": [{"b64_json": base64.b64encode(b"gen-bytes").decode()}]
-    }
-
-    # Sequential returns for GET (ref) then POST (gen)
     mock_media.get.return_value = mock_ref_resp
-    mock_media.post.return_value = mock_api_resp
+
+    # Mock aimage_generation response
+    mock_resp = MagicMock()
+    mock_resp.data = [{"b64_json": base64.b64encode(b"gen-bytes").decode()}]
+
+    captured: dict[str, object] = {}
+
+    async def fake_aimage_generation(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return mock_resp
+
+    monkeypatch.setattr("mcp_core.llm.aimage_generation", fake_aimage_generation)
 
     await provider.generate_image(
         prompt="like this",
@@ -147,10 +150,9 @@ async def test_generate_image_with_reference(
         "https://example.com/ref.jpg", follow_redirects=True, timeout=60
     )
 
-    # Check if POST payload contains reference_image
-    kwargs = mock_media.post.call_args[1]
-    assert "reference_image" in kwargs["json"]
-    assert kwargs["json"]["reference_image"].startswith("data:image/jpeg;base64,")
+    # Check if aimage_generation call contains reference_image
+    assert "reference_image" in captured
+    assert str(captured["reference_image"]).startswith("data:image/jpeg;base64,")
 
 
 @pytest.mark.asyncio
@@ -159,14 +161,12 @@ async def test_generate_image_error(
 ) -> None:
     monkeypatch.setenv("XAI_API_KEY", "xai-test")
 
-    mock_resp = MagicMock()
-    mock_resp.status_code = 400
-    mock_resp.text = "Bad Prompt"
-    mock_media.post.return_value = mock_resp
+    monkeypatch.setattr(
+        "mcp_core.llm.aimage_generation",
+        AsyncMock(side_effect=ProviderAPIError("LiteLLM Error", status_code=500)),
+    )
 
-    with pytest.raises(
-        ProviderAPIError, match="Grok image generate failed: Bad Prompt"
-    ):
+    with pytest.raises(ProviderAPIError, match="LiteLLM Error"):
         await provider.generate_image(prompt="invalid", tier="poor")
 
 
@@ -261,5 +261,90 @@ async def test_generate_video_poll_failed(
 
     with pytest.raises(
         ProviderAPIError, match="Grok video generation failed: Safety violation"
+    ):
+        await provider.generate_video(prompt="", tier="poor", job_id="job-123")
+
+
+@pytest.mark.asyncio
+async def test_generate_image_no_data(
+    mock_media: AsyncMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    mock_resp = MagicMock()
+    mock_resp.data = [{}]  # No b64_json and no url
+
+    monkeypatch.setattr(
+        "mcp_core.llm.aimage_generation", AsyncMock(return_value=mock_resp)
+    )
+
+    with pytest.raises(ProviderAPIError, match="Grok returned no image data"):
+        await provider.generate_image(prompt="invalid", tier="poor")
+
+
+@pytest.mark.asyncio
+async def test_generate_video_with_reference(
+    mock_media: AsyncMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    # Mock download of reference image
+    mock_ref_resp = MagicMock()
+    mock_ref_resp.content = b"ref-bytes"
+    mock_ref_resp.headers = {"content-type": "image/jpeg"}
+
+    # Mock submit response
+    mock_submit_resp = MagicMock()
+    mock_submit_resp.status_code = 200
+    mock_submit_resp.json.return_value = {"id": "job-123"}
+
+    mock_media.get.return_value = mock_ref_resp
+    mock_media.post.return_value = mock_submit_resp
+
+    await provider.generate_video(
+        prompt="dancing", tier="poor", reference_image_url="https://example.com/ref.jpg"
+    )
+
+    # Check if reference image was downloaded
+    mock_media.get.assert_called_with(
+        "https://example.com/ref.jpg", follow_redirects=True, timeout=60
+    )
+
+    # Check if POST payload contains source_image
+    kwargs = mock_media.post.call_args[1]
+    assert "source_image" in kwargs["json"]
+    assert kwargs["json"]["source_image"].startswith("data:image/jpeg;base64,")
+
+
+@pytest.mark.asyncio
+async def test_generate_video_submit_error(
+    mock_media: AsyncMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 400
+    mock_resp.text = "Bad Video Prompt"
+    mock_media.post.return_value = mock_resp
+
+    with pytest.raises(
+        ProviderAPIError, match="Grok video submit failed: Bad Video Prompt"
+    ):
+        await provider.generate_video(prompt="invalid", tier="poor")
+
+
+@pytest.mark.asyncio
+async def test_generate_video_poll_error(
+    mock_media: AsyncMock, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 500
+    mock_resp.text = "Internal Error"
+    mock_media.get.return_value = mock_resp
+
+    with pytest.raises(
+        ProviderAPIError, match="Grok video poll failed: Internal Error"
     ):
         await provider.generate_video(prompt="", tier="poor", job_id="job-123")

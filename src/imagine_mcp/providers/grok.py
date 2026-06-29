@@ -91,13 +91,18 @@ async def generate_image(
     output_mode: str = "both",
     model_id: str | None = None,
 ) -> dict[str, Any]:
-    # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
+    # litellm passthrough via mcp_core.llm; live-verified 2026-06-11 (xAI vision).
+    from mcp_core.llm import aimage_generation
+
     # ``model_id`` (from a GENERATE_MODELS chain or explicit override) wins over
     # the provider/tier catalog default.
     model = model_id or get_model_id("grok", "generate", "image", tier)
-    headers = {"Authorization": f"Bearer {_api_key()}"}
-    payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
 
+    # Normalise empty string to None: a non-None api_key suppresses litellm's
+    # provider env-var fallback (would 401 on "").
+    resolved_api_key = _api_key() or None
+
+    kwargs: dict[str, Any] = {}
     if reference_image_url:
         # Download reference image and pass as base64 data URL
         resp_img = await get_ssrf_safe_async_client().get(
@@ -106,25 +111,22 @@ async def generate_image(
         img_b64 = base64.b64encode(resp_img.content).decode()
         mime_type = resp_img.headers.get("content-type", "image/png")
         data_url = f"data:{mime_type};base64,{img_b64}"
-        payload["reference_image"] = data_url
+        # LiteLLM/xAI passthrough for image-to-image/reference
+        kwargs["reference_image"] = data_url
 
-    resp = await get_ssrf_safe_async_client().post(
-        f"{_BASE_URL}/images/generations",
-        json=payload,
-        headers=headers,
-        timeout=120,
-        follow_redirects=True,
+    resp = await aimage_generation(
+        model=f"xai/{model}",
+        prompt=prompt,
+        api_key=resolved_api_key,
+        **kwargs,
     )
-    if resp.status_code != 200:
-        raise ProviderAPIError(
-            f"Grok image generate failed: {resp.text}",
-            status_code=resp.status_code,
-        )
 
-    data = resp.json()
-    img_b64 = data["data"][0].get("b64_json")
+    img_b64 = resp.data[0].get("b64_json")
     if not img_b64:
-        img_url = data["data"][0].get("url")
+        img_url = resp.data[0].get("url")
+        if not img_url:
+            raise ProviderAPIError("Grok returned no image data", status_code=500)
+
         img_b64 = base64.b64encode(
             (
                 await get_ssrf_safe_async_client().get(
