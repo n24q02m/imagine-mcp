@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError as PydanticValidationError
 
@@ -64,3 +66,37 @@ def test_settings_constraints() -> None:
         Settings(max_media_urls=0)
     with pytest.raises(PydanticValidationError):
         Settings(max_media_urls=21)
+
+
+def test_settings_config_behavior(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # 1. Verify env_file=None (Never load .env)
+    env_file = tmp_path / ".env"
+    env_file.write_text("GEMINI_API_KEY=env-file-key")
+
+    with monkeypatch.context() as m:
+        m.chdir(tmp_path)
+        m.delenv("GEMINI_API_KEY", raising=False)
+        s = Settings()
+        assert s.gemini_api_key is None
+
+    # 2. Verify case_sensitive=False
+    # Pydantic BaseSettings by default matches environment variables case-insensitively
+    # to field names when case_sensitive=False.
+    with monkeypatch.context() as m:
+        m.setenv("gemini_api_key", "lowercase-key")
+        s1 = Settings()
+        assert s1.gemini_api_key == "lowercase-key"
+
+        m.setenv("GEMINI_API_KEY", "UPPERCASE-KEY")
+        s2 = Settings()
+        assert s2.gemini_api_key == "UPPERCASE-KEY"
+
+    # 3. Verify extra="ignore"
+    # This means extra environment variables or constructor arguments are ignored
+    with monkeypatch.context() as m:
+        m.setenv("UNKNOWN_SETTING", "some-value")
+        s = Settings(extra_arg="another-value")  # type: ignore
+        assert not hasattr(s, "extra_arg")
+        assert not hasattr(s, "UNKNOWN_SETTING")
