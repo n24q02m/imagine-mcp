@@ -2,6 +2,62 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.13 (2026-06-29)
+
+### Bug Fixes
+
+- Add coverage for default provider fallback and models.py
+  ([`89042ff`](https://github.com/n24q02m/imagine-mcp/commit/89042ffee487894281743d38685efb207a8bc6fd))
+
+- Add test coverage for openai generate_image logic
+  ([`7f64b0b`](https://github.com/n24q02m/imagine-mcp/commit/7f64b0bf77c174fb1586002368e4ddcbcf4d6cd1))
+
+- Cap max_instances=1 for CF container cost (solo dev default)
+  ([`f4589a1`](https://github.com/n24q02m/imagine-mcp/commit/f4589a1a82e6805e40c94980184b3734014cde03))
+
+- Cover default-provider fallback
+  ([`89042ff`](https://github.com/n24q02m/imagine-mcp/commit/89042ffee487894281743d38685efb207a8bc6fd))
+
+- Cover dispatcher _validate_url edge cases
+  ([`16ae754`](https://github.com/n24q02m/imagine-mcp/commit/16ae7547f9e86be55df7302d1c1f2f5daa9a88be))
+
+- Cover Grok generate_image
+  ([`922b41a`](https://github.com/n24q02m/imagine-mcp/commit/922b41a31188139c5b58b707313a29f07706cc54))
+
+- Cover OpenAI generate_image
+  ([`7f64b0b`](https://github.com/n24q02m/imagine-mcp/commit/7f64b0bf77c174fb1586002368e4ddcbcf4d6cd1))
+
+- Cover relay_complete live-state path
+  ([`90e3dd0`](https://github.com/n24q02m/imagine-mcp/commit/90e3dd0f7e007dfbf93f8ab4d0fdc546d28be494))
+
+- Cover Settings defaults/constraints
+  ([`15e9184`](https://github.com/n24q02m/imagine-mcp/commit/15e91844d063cecc1516e6331b2943ee4b923db1))
+
+- Enforce Content-Length pre-flight cap on download streams
+  ([`170434c`](https://github.com/n24q02m/imagine-mcp/commit/170434cd8e6d4936fc6242dca30fd675361c6de9))
+
+- Harden file-extension extraction against bypass
+  ([`9d840f3`](https://github.com/n24q02m/imagine-mcp/commit/9d840f3518fb0f6fe5ec6dd9822fbd0adbc89039))
+
+- Lock file maintenance
+  ([`95629de`](https://github.com/n24q02m/imagine-mcp/commit/95629de6bd2c7f95c7d8ef89b0dc65352d122af9))
+
+- Order-preserving provider dedup via set op
+  ([`7df5385`](https://github.com/n24q02m/imagine-mcp/commit/7df5385c5d43a0bbb2d1b807eb29112315499c34))
+
+- Update actions/setup-python digest
+  ([`e528e48`](https://github.com/n24q02m/imagine-mcp/commit/e528e48c6802936e9df726d027513b8dec885f87))
+
+- Update dawidd6/action-send-mail action
+  ([`a152f07`](https://github.com/n24q02m/imagine-mcp/commit/a152f07060a21b073bee412a7e42373bce3ef91c))
+
+- Validate PUBLIC_URL scheme and hostname at startup
+  ([`65b012e`](https://github.com/n24q02m/imagine-mcp/commit/65b012e9e8a38edd3497b8667cf26db9712f46f6))
+
+- **deps**: Update non-major dependencies ([#364](https://github.com/n24q02m/imagine-mcp/pull/364),
+  [`faaf0fd`](https://github.com/n24q02m/imagine-mcp/commit/faaf0fd1de1e1bbe1c71e54e91b64cec32a5ee24))
+
+
 ## v1.7.0-beta.12 (2026-06-23)
 
 ### Bug Fixes
