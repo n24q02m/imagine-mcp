@@ -68,11 +68,34 @@ class TestRelayStatusLiveDerivedState:
         assert res["status"] == "pending"
         assert res["providers_configured"] == []
 
+
+class TestRelayCompleteLiveDerivedState:
+    """relay_complete derives state from live PerPluginStore, not env-only."""
+
     @pytest.mark.anyio
-    async def test_response_includes_providers_configured_field(
+    async def test_returns_saved_when_store_has_keys(
         self, app, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """relay_status always includes providers_configured key in response."""
+        """relay_complete returns saved when PerPluginStore has provider keys."""
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("XAI_API_KEY", raising=False)
+
+        with patch(
+            "mcp_core.storage.per_plugin_store.PerPluginStore.load",
+            return_value={"OPENAI_API_KEY": "sk-test-123"},
+        ):
+            result = await app.call_tool("config", {"action": "relay_complete"})
+            res = json.loads(result.content[0].text)
+
+        assert res["status"] == "saved"
+        assert "openai" in res["providers_configured"]
+
+    @pytest.mark.anyio
+    async def test_returns_no_credentials_when_store_empty(
+        self, app, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """relay_complete returns no_credentials when store empty and no env vars."""
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("XAI_API_KEY", raising=False)
@@ -81,27 +104,11 @@ class TestRelayStatusLiveDerivedState:
             "mcp_core.storage.per_plugin_store.PerPluginStore.load",
             return_value={},
         ):
-            result = await app.call_tool("config", {"action": "relay_status"})
+            result = await app.call_tool("config", {"action": "relay_complete"})
             res = json.loads(result.content[0].text)
 
-        assert "providers_configured" in res
-        assert isinstance(res["providers_configured"], list)
-
-    @pytest.mark.anyio
-    async def test_no_duplicate_providers(
-        self, app, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        """If same key appears in both env and store, provider appears only once."""
-        monkeypatch.setenv("GEMINI_API_KEY", "key-from-env")
-
-        with patch(
-            "mcp_core.storage.per_plugin_store.PerPluginStore.load",
-            return_value={"GEMINI_API_KEY": "key-from-store"},
-        ):
-            result = await app.call_tool("config", {"action": "relay_status"})
-            res = json.loads(result.content[0].text)
-
-        assert res["providers_configured"].count("gemini") == 1
+        assert res["status"] == "no_credentials"
+        assert res["providers_configured"] == []
 
 
 class TestRelaySkipHonesty:
