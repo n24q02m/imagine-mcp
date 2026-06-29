@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import os
+import re
 from functools import cache
 from importlib.resources import files
 from pathlib import Path
@@ -305,6 +307,30 @@ async def _per_request_sub_scope(claims: dict[str, Any], next_: Any) -> None:
         _request_creds.reset(token_creds)
 
 
+def _is_valid_host(host: str) -> bool:
+    """Check if host is a valid IP or hostname."""
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        pass
+
+    if len(host) > 253:
+        return False
+
+    if host.endswith("."):
+        host = host[:-1]
+
+    labels = host.split(".")
+    # RFC 1123: TLDs (last label) cannot be all numeric.
+    if labels[-1].isdigit():
+        return False
+
+    return all(
+        re.match(r"(?!-)[A-Z0-9-]{1,63}(?<!-)$", label, re.I) for label in labels
+    )
+
+
 async def run_http(port: int = 0) -> None:
     """Unified HTTP daemon -- single-user (default) or multi-user remote."""
     from mcp_core.transport.local_server import run_http_server
@@ -330,9 +356,24 @@ async def run_http(port: int = 0) -> None:
                 "MCP_DCR_SERVER_SECRET missing. Multi-user remote mode "
                 "requires the DCR secret."
             )
-        port = int(os.environ.get("MCP_PORT", "8080"))
-        mode_label = "http remote relay (multi-user)"
+
+        try:
+            port = int(os.environ.get("MCP_PORT", "8080"))
+            if not (0 <= port <= 65535):
+                raise ValueError
+        except ValueError:
+            raise SystemExit(
+                f"imagine-mcp refuses to start: Invalid MCP_PORT {os.environ.get('MCP_PORT')!r}. "
+                "Must be 0-65535."
+            ) from None
+
         host = os.environ.get("MCP_HOST", "127.0.0.1")
+        if not _is_valid_host(host):
+            raise SystemExit(
+                f"imagine-mcp refuses to start: Invalid MCP_HOST {host!r}. "
+                "Must be a valid IP or hostname."
+            )
+        mode_label = "http remote relay (multi-user)"
     else:
         host = "127.0.0.1"
         mode_label = "http local relay"
