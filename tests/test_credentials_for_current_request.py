@@ -81,3 +81,52 @@ def test_set_current_sub_clears_cache(monkeypatch):
     _request_creds.set({"dummy": "data"})
     set_current_sub(None)
     assert _request_creds.get() is None
+
+
+def test_credentials_environment_caching_process_level(monkeypatch):
+    """Test that environment credentials are cached at the process level."""
+    from imagine_mcp.credential_state import clear_env_creds_cache
+
+    set_current_sub(None)
+    monkeypatch.setenv("GEMINI_API_KEY", "val1")
+
+    # First call populates process-level cache
+    creds1 = credentials_for_current_request()
+    assert creds1 == {"GEMINI_API_KEY": "val1"}
+
+    # Clear request-level cache but NOT process-level cache
+    _request_creds.set(None)
+    monkeypatch.setenv("GEMINI_API_KEY", "val2")
+
+    # Second call should still return val1 from process-level cache
+    creds2 = credentials_for_current_request()
+    assert creds2 == {"GEMINI_API_KEY": "val1"}
+
+    # Now clear process-level cache
+    clear_env_creds_cache()
+    _request_creds.set(None)
+
+    # Third call should pick up val2
+    creds3 = credentials_for_current_request()
+    assert creds3 == {"GEMINI_API_KEY": "val2"}
+
+
+def test_apply_config_clears_env_cache(monkeypatch):
+    """Test that apply_config clears the environment credential cache."""
+    from imagine_mcp.relay_setup import apply_config
+
+    set_current_sub(None)
+    monkeypatch.setenv("GEMINI_API_KEY", "old-val")
+
+    # Populate cache
+    credentials_for_current_request()
+
+    # Apply new config via relay_setup
+    apply_config({"GEMINI_API_KEY": "new-val"})
+
+    # Clear request cache to force re-reading from process cache/environ
+    _request_creds.set(None)
+
+    # Should have picked up new-val because apply_config cleared process cache
+    creds = credentials_for_current_request()
+    assert creds == {"GEMINI_API_KEY": "new-val"}

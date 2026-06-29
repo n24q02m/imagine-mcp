@@ -45,10 +45,17 @@ def apply_config(config: dict[str, str]) -> None:
     single-user path only -- multi-user mode scopes config per-sub via
     ``credential_state.store_for_sub`` and never touches ``os.environ``.
     """
+    modified = False
     for key, value in config.items():
         if value and os.environ.get(key) != value:
             os.environ[key] = value
             logger.debug("Applied relay config: {}", key)
+            modified = True
+
+    if modified:
+        from .credential_state import clear_env_creds_cache
+
+        clear_env_creds_cache()
 
 
 def save_credentials(

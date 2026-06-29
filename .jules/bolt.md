@@ -36,3 +36,8 @@
 ## 2024-05-18 - [TEST] Mocking threaded DNS resolution in dispatcher
 **Learning:** The `_validate_url` function in `src/imagine_mcp/dispatcher.py` wraps the blocking `validate_url_and_get_ip` call using `asyncio.to_thread`. To test this without triggering real DNS resolution or hitting sandbox network limits, `monkeypatch` can be used to swap the internal `validate_url_and_get_ip` reference with a synchronous mock. This ensures the test remains fast and deterministic while still verifying that the dispatcher correctly awaits the threaded work and propagates exceptions.
 **Action:** Use `monkeypatch.setattr` to mock blocking functions wrapped in `asyncio.to_thread` when writing unit tests for async dispatchers.
+## 2026-06-29 - [PERF] Optimized environment credential resolution
+**Optimization:** Implemented a process-level cache for `os.environ` lookups in `credential_state.py`.
+**Rationale:** Avoided O(K) iteration over `os.environ` per request when no JWT sub is present.
+**Impact:** Significantly reduced latency for stdio/single-user HTTP requests by reusing the cached credential dictionary across the process lifetime, invalidated only on explicit config changes.
+**Measurement:** Verified via new test cases that cache persists across request scopes and is correctly cleared by `relay_setup.apply_config`.

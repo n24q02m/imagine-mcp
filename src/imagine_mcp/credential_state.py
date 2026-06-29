@@ -45,6 +45,17 @@ CLOUD_KEYS: tuple[str, ...] = (
 # Per-request JWT sub. Set by ``auth_scope`` middleware in HTTP multi-user
 # mode; ``None`` in stdio + single-user HTTP. ContextVar is asyncio-safe and
 # stays scoped to the request task (ASGI handlers are tasks).
+# Process-level cache for environment credentials (single-user/stdio mode).
+# This avoids O(K) iteration over os.environ per request when sub is None.
+_env_creds_cache: dict[str, str] | None = None
+
+
+def clear_env_creds_cache() -> None:
+    """Clear the process-level environment credential cache."""
+    global _env_creds_cache
+    _env_creds_cache = None
+
+
 _current_sub: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "imagine_current_sub", default=None
 )
@@ -92,11 +103,14 @@ def credentials_for_current_request() -> dict[str, str]:
 
     sub = _current_sub.get()
     if sub is None:
-        # Performance optimization:
-        # Avoid O(N) iteration over os.environ.items() by iterating directly
-        # over the bounded O(1) CLOUD_KEYS. This reduces latency significantly
-        # when the environment has many variables.
-        res = {k: v for k in CLOUD_KEYS if (v := os.environ.get(k))}
+        global _env_creds_cache
+        if _env_creds_cache is None:
+            # Performance optimization:
+            # Avoid O(N) iteration over os.environ.items() by iterating directly
+            # over the bounded O(1) CLOUD_KEYS. This reduces latency significantly
+            # when the environment has many variables.
+            _env_creds_cache = {k: v for k in CLOUD_KEYS if (v := os.environ.get(k))}
+        res = _env_creds_cache
     else:
         res = read_for_sub(sub)
 
