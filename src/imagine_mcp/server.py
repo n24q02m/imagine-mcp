@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import os
+import re
 from functools import cache
 from importlib.resources import files
 from pathlib import Path
@@ -330,9 +332,39 @@ async def run_http(port: int = 0) -> None:
                 "MCP_DCR_SERVER_SECRET missing. Multi-user remote mode "
                 "requires the DCR secret."
             )
-        port = int(os.environ.get("MCP_PORT", "8080"))
+        port_str = os.environ.get("MCP_PORT", "8080")
+        try:
+            port = int(port_str)
+            if not (0 <= port <= 65535):
+                raise ValueError("Port out of range")
+        except ValueError:
+            raise SystemExit(
+                f"imagine-mcp refuses to start: Invalid MCP_PORT {port_str!r}. "
+                "Must be an integer 0-65535."
+            ) from None
+
         mode_label = "http remote relay (multi-user)"
         host = os.environ.get("MCP_HOST", "127.0.0.1")
+
+        is_valid_ip = False
+        try:
+            ipaddress.ip_address(host)
+            is_valid_ip = True
+        except ValueError:
+            pass
+
+        if not is_valid_ip:
+            if re.match(r"^[0-9\.]+$", host) or ":" in host:
+                raise SystemExit(
+                    f"imagine-mcp refuses to start: Invalid MCP_HOST IP address {host!r}."
+                )
+            if not re.match(
+                r"^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$",
+                host,
+            ):
+                raise SystemExit(
+                    f"imagine-mcp refuses to start: Invalid MCP_HOST hostname {host!r}."
+                )
     else:
         host = "127.0.0.1"
         mode_label = "http local relay"

@@ -375,6 +375,44 @@ async def test_run_http_remote_relay_missing_secret(monkeypatch) -> None:
         await run_http()
 
 
+@pytest.mark.asyncio
+async def test_run_http_invalid_mcp_port(monkeypatch) -> None:
+    from imagine_mcp.server import run_http
+
+    monkeypatch.setenv("PUBLIC_URL", "https://ex.com")
+    monkeypatch.setenv("MCP_DCR_SERVER_SECRET", "secret")
+
+    monkeypatch.setenv("MCP_PORT", "abc")
+    with pytest.raises(SystemExit, match="Invalid MCP_PORT 'abc'"):
+        await run_http()
+
+    monkeypatch.setenv("MCP_PORT", "-1")
+    with pytest.raises(SystemExit, match="Invalid MCP_PORT '-1'"):
+        await run_http()
+
+    monkeypatch.setenv("MCP_PORT", "65536")
+    with pytest.raises(SystemExit, match="Invalid MCP_PORT '65536'"):
+        await run_http()
+
+
+@pytest.mark.asyncio
+async def test_run_http_invalid_mcp_host(monkeypatch) -> None:
+    from imagine_mcp.server import run_http
+
+    monkeypatch.setenv("PUBLIC_URL", "https://ex.com")
+    monkeypatch.setenv("MCP_DCR_SERVER_SECRET", "secret")
+
+    monkeypatch.setenv("MCP_HOST", "999.999.999.999")
+    with pytest.raises(
+        SystemExit, match=r"Invalid MCP_HOST IP address '999\.999\.999\.999'"
+    ):
+        await run_http()
+
+    monkeypatch.setenv("MCP_HOST", "!invalid_host!")
+    with pytest.raises(SystemExit, match=r"Invalid MCP_HOST hostname '!invalid_host!'"):
+        await run_http()
+
+
 def test_main_calls_run_http() -> None:
     from imagine_mcp.server import main
 
