@@ -2,6 +2,35 @@
 
 <!-- version list -->
 
+## v1.7.0-beta.14 (2026-06-30)
+
+### Bug Fixes
+
+- Add dispatcher validation tests
+  ([`ce19684`](https://github.com/n24q02m/imagine-mcp/commit/ce19684659260f04e9b99d550ed1193275d65b46))
+
+- Add grok generate_video provider tests
+  ([`b0a20ae`](https://github.com/n24q02m/imagine-mcp/commit/b0a20ae1bf3a57f26da4ac62f36eca2172b889db))
+
+- Bound download read size with pre-flight Content-Length check
+  ([`6fce026`](https://github.com/n24q02m/imagine-mcp/commit/6fce026f12cc730957f9460f4670da7668feac46))
+
+- Canary Gate-A/B settle-retry to avoid false-fail on slow container startup
+  ([#392](https://github.com/n24q02m/imagine-mcp/pull/392),
+  [`26b7626`](https://github.com/n24q02m/imagine-mcp/commit/26b7626e8cdcbcc4c3a806ad1197d39a821a0669))
+
+- Collapse OAuth + per-sub routing to one DO (resolve max_instances=1 deadlock)
+  ([#397](https://github.com/n24q02m/imagine-mcp/pull/397),
+  [`f77066a`](https://github.com/n24q02m/imagine-mcp/commit/f77066a7ef47f16448154923732c7e44fb13bbd9))
+
+- Route OAuth /token refresh to the sub's DO to avoid max_instances=1 deadlock
+  ([#393](https://github.com/n24q02m/imagine-mcp/pull/393),
+  [`aefdf15`](https://github.com/n24q02m/imagine-mcp/commit/aefdf15ac0b4b1f1f4afcbd3a997d17021123a20))
+
+- Use urlparse + posixpath.splitext for platform-independent URL extension
+  ([`209de15`](https://github.com/n24q02m/imagine-mcp/commit/209de156e40578812f84875f06d6c4d18cf97550))
+
+
 ## v1.7.0-beta.13 (2026-06-29)
 
 ### Bug Fixes

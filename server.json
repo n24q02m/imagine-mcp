@@ -6,12 +6,12 @@
     "url": "https://github.com/n24q02m/imagine-mcp.git",
     "source": "github"
   },
-  "version": "1.7.0-beta.13",
+  "version": "1.7.0-beta.14",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "imagine-mcp",
-      "version": "1.7.0-beta.13",
+      "version": "1.7.0-beta.14",
       "runtimeHint": "uvx",
       "runtimeArgs": [
         "--python",
