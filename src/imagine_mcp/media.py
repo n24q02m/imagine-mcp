@@ -388,7 +388,10 @@ def _write_response(resp: httpx.Response, dest: Path) -> None:
     content_length_str = resp.headers.get("Content-Length")
     if content_length_str:
         try:
-            if int(content_length_str) > _MAX_DOWNLOAD_SIZE:
+            if (
+                content_length_str.isdigit()
+                and int(content_length_str) > _MAX_DOWNLOAD_SIZE
+            ):
                 raise httpx.HTTPError(
                     f"Download failed: Content-Length {content_length_str} exceeds limit of {_MAX_DOWNLOAD_SIZE} bytes"
                 )
@@ -410,7 +413,10 @@ async def _write_response_async(resp: httpx.Response, dest: Path) -> None:
     content_length_str = resp.headers.get("Content-Length")
     if content_length_str:
         try:
-            if int(content_length_str) > _MAX_DOWNLOAD_SIZE:
+            if (
+                content_length_str.isdigit()
+                and int(content_length_str) > _MAX_DOWNLOAD_SIZE
+            ):
                 raise httpx.HTTPError(
                     f"Download failed: Content-Length {content_length_str} exceeds limit of {_MAX_DOWNLOAD_SIZE} bytes"
                 )

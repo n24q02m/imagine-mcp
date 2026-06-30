@@ -260,17 +260,27 @@ def fetch_all(client: httpx.Client) -> dict[str, list[LBRow]]:
     max_size = 5 * 1024 * 1024  # 5MB limit
     for url in LB_URLS:
         try:
-            html_chunks = []
             bytes_read = 0
             with client.stream("GET", url, timeout=30.0, follow_redirects=True) as r:
                 r.raise_for_status()
-                for chunk in r.iter_text():
-                    bytes_read += len(chunk.encode("utf-8"))
-                    if bytes_read > max_size:
-                        raise ValueError(f"Response exceeded 5MB limit: {url}")
-                    html_chunks.append(chunk)
+                content_length = r.headers.get("Content-Length")
+                if (
+                    content_length
+                    and content_length.isdigit()
+                    and int(content_length) > max_size
+                ):
+                    raise ValueError(
+                        f"Content-Length {content_length} exceeds limit: {url}"
+                    )
 
-            html = "".join(html_chunks)
+                html_bytes_chunks = []
+                for chunk in r.iter_bytes():
+                    if bytes_read + len(chunk) > max_size:
+                        raise ValueError(f"Response exceeded 5MB limit: {url}")
+                    html_bytes_chunks.append(chunk)
+                    bytes_read += len(chunk)
+
+            html = b"".join(html_bytes_chunks).decode("utf-8")
             out[url] = parse_leaderboard(url, html)
             log.info("fetched %s: %d rows after filter", url, len(out[url]))
         except Exception as exc:
