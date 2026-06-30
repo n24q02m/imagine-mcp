@@ -36,3 +36,11 @@
 ## 2024-05-18 - [TEST] Mocking threaded DNS resolution in dispatcher
 **Learning:** The `_validate_url` function in `src/imagine_mcp/dispatcher.py` wraps the blocking `validate_url_and_get_ip` call using `asyncio.to_thread`. To test this without triggering real DNS resolution or hitting sandbox network limits, `monkeypatch` can be used to swap the internal `validate_url_and_get_ip` reference with a synchronous mock. This ensures the test remains fast and deterministic while still verifying that the dispatcher correctly awaits the threaded work and propagates exceptions.
 **Action:** Use `monkeypatch.setattr` to mock blocking functions wrapped in `asyncio.to_thread` when writing unit tests for async dispatchers.
+
+## 2024-06-14 - [TEST] Achieve 100% coverage for dispatcher validation logic
+**Learning:** achieved 100% test coverage for  by targeting previously untested edge cases in  error propagation and configuration-driven provider selection. Mocking internal async utilities like  and  (which wraps threaded blocking I/O) allows for robust unit testing of high-level dispatch logic without actual network dependencies.
+**Action:** When extending test coverage for dispatchers, use a dedicated extension test file to isolate new edge cases and mock all internal network-bound helpers to ensure test suite stability and speed.
+
+## 2024-06-14 - [TEST] Achieve 100% coverage for dispatcher validation logic
+**Learning:** Achieved 100% test coverage for `src/imagine_mcp/dispatcher.py` by targeting previously untested edge cases in `asyncio.gather` error propagation and configuration-driven provider selection. Mocking internal async utilities like `detect_media_type_async` and `_validate_url` (which wraps threaded blocking I/O) allows for robust unit testing of high-level dispatch logic without actual network dependencies.
+**Action:** When extending test coverage for dispatchers, use a dedicated extension test file to isolate new edge cases and mock all internal network-bound helpers to ensure test suite stability and speed.
