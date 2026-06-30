@@ -58,6 +58,23 @@ def test_resolve_image_mime_unknown_falls_back_to_jpeg() -> None:
     assert resolve_image_mime("text/html", b"\x00\x01\x02\x03") == "image/jpeg"
 
 
+def test_extract_extension_robustness() -> None:
+    from imagine_mcp.media import _extract_extension
+
+    assert _extract_extension("https://example.com/foo.png") == ".png"
+    assert _extract_extension("https://example.com/bar.jpg?w=100") == ".jpg"
+    assert _extract_extension("https://example.com/x.webp#anchor") == ".webp"
+    assert _extract_extension("http://example.png") == ""
+    assert _extract_extension("https://my.image.png/path/file.gif") == ".gif"
+    assert _extract_extension("https://example.com/file.PNG") == ".png"
+    assert _extract_extension("https://example.com/file.verylongextension") == ""
+    assert _extract_extension("https://example.com/file.123") == ".123"
+    assert _extract_extension("https://example.com/file.png.exe") == ".exe"
+    assert _extract_extension("https://example.com/path.with.dots/file.jpg") == ".jpg"
+    assert _extract_extension("https://example.com/") == ""
+    assert _extract_extension("https://example.com") == ""
+
+
 def test_detect_by_extension_image() -> None:
     assert detect_media_type("https://example.com/foo.png") == "image"
     assert detect_media_type("https://example.com/bar.jpg?w=100") == "image"
