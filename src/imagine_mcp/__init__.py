@@ -7,4 +7,4 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("imagine-mcp")
 except PackageNotFoundError:
-    __version__ = "1.7.0"
+    __version__ = "1.7.1-beta.1"

@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.7.1-beta.1 (2026-07-01)
+
+### Bug Fixes
+
+- Add Vertex AI (Express) support to relay form and credential state
+  ([#402](https://github.com/n24q02m/imagine-mcp/pull/402),
+  [`18ef291`](https://github.com/n24q02m/imagine-mcp/commit/18ef291980a1c376163f7b34ac34d367bc924c35))
+
+- Bump mcp-core to 1.18.1b1 for the vertex relay dropdown fix
+  ([#403](https://github.com/n24q02m/imagine-mcp/pull/403),
+  [`5454d49`](https://github.com/n24q02m/imagine-mcp/commit/5454d497ea791fff11a2bc85f18692da964e3160))
+
+
 ## v1.7.0 (2026-07-01)
 
 
