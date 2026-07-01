@@ -18,6 +18,7 @@ CREDENTIAL_KEYS: list[str] = [
     "GEMINI_API_KEY",
     "OPENAI_API_KEY",
     "XAI_API_KEY",
+    "GOOGLE_VERTEX_EXPRESS_API_KEY",
 ]
 
 # 5 minutes: user needs time to copy URL, open browser, fill up to 3 keys

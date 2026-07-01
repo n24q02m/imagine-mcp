@@ -40,6 +40,7 @@ CLOUD_KEYS: tuple[str, ...] = (
     "XAI_API_KEY",
     "OPENAI_API_KEY",
     "GEMINI_API_KEY",
+    "GOOGLE_VERTEX_EXPRESS_API_KEY",
 )
 
 # Per-request JWT sub. Set by ``auth_scope`` middleware in HTTP multi-user

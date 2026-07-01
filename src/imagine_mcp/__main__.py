@@ -54,7 +54,13 @@ def main() -> None:
     # No daemon, no bridge. Env-only creds; exit 1 if all 3 missing
     # (server has no functional tools without at least one provider).
     if not any(
-        os.environ.get(k) for k in ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
+        os.environ.get(k)
+        for k in (
+            "GEMINI_API_KEY",
+            "OPENAI_API_KEY",
+            "XAI_API_KEY",
+            "GOOGLE_VERTEX_EXPRESS_API_KEY",
+        )
     ):
         sys.stderr.write(_STDIO_MISSING_CRED_MSG)
         raise SystemExit(1)

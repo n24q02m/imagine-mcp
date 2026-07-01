@@ -51,6 +51,7 @@ def _providers_configured() -> list[str]:
         "GEMINI_API_KEY": "gemini",
         "OPENAI_API_KEY": "openai",
         "XAI_API_KEY": "grok",
+        "GOOGLE_VERTEX_EXPRESS_API_KEY": "vertex_express",
     }
     return list(
         dict.fromkeys(
@@ -76,6 +77,7 @@ def _providers_configured_live() -> list[str]:
         "GEMINI_API_KEY": "gemini",
         "OPENAI_API_KEY": "openai",
         "XAI_API_KEY": "grok",
+        "GOOGLE_VERTEX_EXPRESS_API_KEY": "vertex_express",
     }
     return list(
         dict.fromkeys(

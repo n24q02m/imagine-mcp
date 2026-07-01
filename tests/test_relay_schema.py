@@ -8,7 +8,12 @@ from __future__ import annotations
 
 from imagine_mcp.relay_schema import RELAY_SCHEMA
 
-_CREDENTIAL_KEYS = {"GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY"}
+_CREDENTIAL_KEYS = {
+    "GEMINI_API_KEY",
+    "OPENAI_API_KEY",
+    "XAI_API_KEY",
+    "GOOGLE_VERTEX_EXPRESS_API_KEY",
+}
 
 
 def test_top_level_keys_present():
