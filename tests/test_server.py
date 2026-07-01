@@ -387,3 +387,43 @@ def test_main_calls_run_http() -> None:
             main()
             mock_run.assert_called_once()
         coro.close()
+
+
+@pytest.mark.asyncio
+async def test_run_http_invalid_port(monkeypatch) -> None:
+    from imagine_mcp.server import run_http
+
+    monkeypatch.setenv("PUBLIC_URL", "https://ex.com")
+    monkeypatch.setenv("MCP_DCR_SERVER_SECRET", "secret")
+    monkeypatch.setenv("MCP_PORT", "99999")
+
+    with pytest.raises(
+        SystemExit, match="MCP_PORT must be an integer between 0 and 65535"
+    ):
+        await run_http()
+
+
+@pytest.mark.asyncio
+async def test_run_http_invalid_host_ip(monkeypatch) -> None:
+    from imagine_mcp.server import run_http
+
+    monkeypatch.setenv("PUBLIC_URL", "https://ex.com")
+    monkeypatch.setenv("MCP_DCR_SERVER_SECRET", "secret")
+    monkeypatch.setenv("MCP_HOST", "999.999.999.999")
+
+    with pytest.raises(
+        SystemExit, match=r"Invalid MCP_HOST: malformed IP address '999\.999\.999\.999'"
+    ):
+        await run_http()
+
+
+@pytest.mark.asyncio
+async def test_run_http_invalid_hostname(monkeypatch) -> None:
+    from imagine_mcp.server import run_http
+
+    monkeypatch.setenv("PUBLIC_URL", "https://ex.com")
+    monkeypatch.setenv("MCP_DCR_SERVER_SECRET", "secret")
+    monkeypatch.setenv("MCP_HOST", "-invalid-host-")
+
+    with pytest.raises(SystemExit, match="Invalid MCP_HOST: '-invalid-host-'"):
+        await run_http()
