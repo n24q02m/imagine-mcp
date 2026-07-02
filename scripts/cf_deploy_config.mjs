@@ -12,7 +12,8 @@
 // against it, so the committed wrangler.jsonc stays placeholder-clean. The
 // <YOUR_WORKER_DOMAIN> routes placeholder needs no value -- the routes block is
 // stripped below (the config-only token can't reconcile zone Workers Routes).
-// Pass --dry-run to print the substituted config and exit without deploying.
+// Pass --dry-run to write the substituted config to wrangler.deploy-tmp.jsonc
+// (gitignored, for inspection) and exit without deploying.
 //
 // It is config-only: it does NOT rebuild or push the container image. It reuses
 // the image tag already pushed to the CF managed registry (default `beta`,
@@ -39,9 +40,9 @@ const root = process.cwd();
 const srcConfig = join(root, 'wrangler.jsonc');
 const tmpConfig = join(root, 'wrangler.deploy-tmp.jsonc');
 
-// --dry-run substitutes + prints the temp config without deploying (no CF token
-// needed); account/KV fall back to obvious dummies so a quick PUBLIC_URL check
-// works with only PUBLIC_URL set.
+// --dry-run substitutes + writes the temp config (for inspection) without
+// deploying (no CF token needed); account/KV fall back to obvious dummies so a
+// quick PUBLIC_URL check works with only PUBLIC_URL set.
 const dryRun = process.argv.includes('--dry-run');
 
 const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || (dryRun ? 'DRYRUN_ACCOUNT' : undefined);
@@ -91,17 +92,19 @@ if (config.includes(PUBLIC_URL_PLACEHOLDER)) {
 writeFileSync(tmpConfig, config, 'utf8');
 
 if (dryRun) {
-  // Print the fully-substituted config and flag any placeholder still left, then
-  // exit without touching Cloudflare (the temp config is not deployed).
+  // Verify substitution without deploying (no CF token needed). The substituted
+  // config was written to `tmpConfig` above; leave it in place (gitignored) so a
+  // BYO adopter can inspect exactly what would deploy, and flag any placeholder
+  // still left. Do NOT echo the substituted config to stdout -- it carries
+  // env-derived values (account / KV id, PUBLIC_URL) that must not be logged in
+  // clear text.
   const leftover = [...new Set(config.match(/<[A-Za-z0-9_-]+>/g) || [])];
-  console.log('cf:deploy --dry-run - substituted config (not deploying):\n');
-  console.log(config);
-  rmSync(tmpConfig, { force: true });
   if (leftover.length) {
-    console.error(`\nFAIL: unsubstituted placeholder(s) remain: ${leftover.join(', ')}`);
+    rmSync(tmpConfig, { force: true });
+    console.error(`FAIL: unsubstituted placeholder(s) remain: ${leftover.join(', ')}`);
     process.exit(1);
   }
-  console.log('\nOK: no unsubstituted <...> placeholders remain.');
+  console.log(`OK: no unsubstituted <...> placeholders remain. Substituted config written to ${tmpConfig} for inspection.`);
   process.exit(0);
 }
 
