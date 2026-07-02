@@ -29,11 +29,11 @@
   // and any provider keys you want server-default (GEMINI_API_KEY / OPENAI_API_KEY /
   // XAI_API_KEY) -- though per-sub keys via the /authorize form are preferred.
   "vars": {
-    "PUBLIC_URL": "https://imagine.n24q02m.com",
+    "PUBLIC_URL": "<YOUR_PUBLIC_URL>",
     "MCP_STORAGE_BACKEND": "cf-kv",
     "MCP_KV_BASE_URL": "http://kv.internal",
     "IMAGINE_OUTPUT_MODE": "base64"
   },
-  "routes": [{ "pattern": "imagine.n24q02m.com", "custom_domain": true }],
+  "routes": [{ "pattern": "<YOUR_WORKER_DOMAIN>", "custom_domain": true }],
   "observability": { "enabled": true }
 }

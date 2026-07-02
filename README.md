@@ -53,6 +53,7 @@ mcp-name: io.github.n24q02m/imagine-mcp
 - [Comparison](#comparison)
 - [Security](#security)
 - [Build from Source](#build-from-source)
+- [Deploy to Cloudflare](#deploy-to-cloudflare)
 - [Trust Model](#trust-model)
 - [Contributing](#contributing)
 - [License](#license)
@@ -218,6 +219,52 @@ cd imagine-mcp
 mise run setup      # or: uv sync --group dev
 mise run dev        # run the server in stdio mode (add --http for the HTTP daemon)
 ```
+
+## Deploy to Cloudflare
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/n24q02m/imagine-mcp)
+
+Run your own imagine instance serverless on Cloudflare (Worker + Container + KV). Storage
+is KV-only -- the per-user credential vault lives in KV, and generation returns base64 only
+because the container filesystem is ephemeral (`IMAGINE_OUTPUT_MODE=base64`).
+
+**Prerequisites:** a Cloudflare account on the **Workers Paid plan** -- required for Containers (the Cloudflare free tier does not include Containers) -- and the `wrangler` CLI.
+
+1. `git clone https://github.com/n24q02m/imagine-mcp && cd imagine-mcp`
+2. `wrangler login`
+3. Create the KV namespace (imagine is KV-only -- no D1 or Vectorize), then paste the
+   returned id into `wrangler.jsonc` (the `<imagine-kv-namespace-id>` placeholder):
+   ```
+   wrangler kv namespace create imagine-kv
+   ```
+4. Push the container image to your Cloudflare managed registry (CF Containers cannot pull
+   from external registries directly), then set `<YOUR_ACCOUNT_ID>` in `wrangler.jsonc`:
+   ```
+   docker pull ghcr.io/n24q02m/imagine-mcp:beta
+   docker tag ghcr.io/n24q02m/imagine-mcp:beta imagine-mcp:beta
+   wrangler containers push imagine-mcp:beta   # prints registry.cloudflare.com/<ACCOUNT_ID>/imagine-mcp:beta
+   ```
+5. Point the remaining `wrangler.jsonc` placeholders at your own domain: `<YOUR_PUBLIC_URL>`
+   (the `vars.PUBLIC_URL`, e.g. `https://imagine.example.com`) and `<YOUR_WORKER_DOMAIN>`
+   (the `routes` custom-domain pattern, e.g. `imagine.example.com`).
+6. Set secrets. `CREDENTIAL_SECRET` (stable JWT signing key + per-user vault key) and
+   `MCP_DCR_SERVER_SECRET` (proof of an intentional multi-user deploy) are required;
+   `MCP_RELAY_PASSWORD` gates the browser setup form's login. Provider keys are optional
+   server defaults -- users normally paste their own through the setup form instead:
+   ```
+   wrangler secret put CREDENTIAL_SECRET
+   wrangler secret put MCP_DCR_SERVER_SECRET
+   wrangler secret put MCP_RELAY_PASSWORD
+   wrangler secret put GEMINI_API_KEY       # optional provider default
+   wrangler secret put OPENAI_API_KEY       # optional provider default
+   wrangler secret put XAI_API_KEY          # optional provider default
+   ```
+7. `wrangler deploy`, then open your Worker domain and finish setup in the browser relay form.
+
+The `http` container image already runs multi-user (`MCP_TRANSPORT=http` is baked into the
+image target). Storage maps to Cloudflare via `MCP_STORAGE_BACKEND=cf-kv` (encrypted
+credential vault) with `IMAGINE_OUTPUT_MODE=base64`, which forces base64 responses so no
+media path is written to the ephemeral container filesystem.
 
 ## Trust Model
 
