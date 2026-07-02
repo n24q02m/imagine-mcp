@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.8.0 (2026-07-02)
+
+### Bug Fixes
+
+- Bump mcp-core to 1.18.1 ([#412](https://github.com/n24q02m/imagine-mcp/pull/412),
+  [`707a88f`](https://github.com/n24q02m/imagine-mcp/commit/707a88fa1e7c210197e8edb913fa890ee1da60f2))
+
+### Features
+
+- Document vertex_express provider option ([#410](https://github.com/n24q02m/imagine-mcp/pull/410),
+  [`329ba24`](https://github.com/n24q02m/imagine-mcp/commit/329ba24deb513a6d56f7b390e432c952dbacbecd))
+
+
 ## v1.8.0-beta.1 (2026-07-02)
 
 ### Features
