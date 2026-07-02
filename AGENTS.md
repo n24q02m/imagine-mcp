@@ -87,12 +87,13 @@ passthrough, `n24q02m-mcp-core[llm]`) with OpenAI-format vision messages. Pass
 - `UNDERSTAND_MODELS` -- ordered model chain for understand, CSV `provider/model,...`;
   order = litellm fallback. Provider inferred from the model prefix. Empty/unset =
   understand off (provider/tier catalog default). imagine has NO local fallback.
-- API keys follow the litellm convention `<PROVIDER>_API_KEY`. The 6 providers the
+- API keys follow the litellm convention `<PROVIDER>_API_KEY`. The 7 providers the
   server suggests for the understand chain:
 
   | model prefix | key env var | get it at |
   |---|---|---|
   | `gemini/` | `GEMINI_API_KEY` | aistudio.google.com/apikey |
+  | `vertex_express/` | `GOOGLE_VERTEX_EXPRESS_API_KEY` | cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview |
   | `openai/` (or bare) | `OPENAI_API_KEY` | platform.openai.com |
   | `jina_ai/` | `JINA_AI_API_KEY` | jina.ai/api-key |
   | `cohere/` | `COHERE_API_KEY` | dashboard.cohere.com |
