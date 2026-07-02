@@ -56,7 +56,11 @@ def _providers_configured() -> list[str]:
     out = []
     seen = set()
     for key in CREDENTIAL_KEYS:
-        if os.environ.get(key) and os.environ.get(key).strip() and (p := _key_to_provider.get(key, key)) not in seen:
+        if (
+            os.environ.get(key)
+            and os.environ.get(key).strip()
+            and (p := _key_to_provider.get(key, key)) not in seen
+        ):
             seen.add(p)
             out.append(p)
     return out
@@ -82,7 +86,10 @@ def _providers_configured_live() -> list[str]:
     out = []
     seen = set()
     for key in CREDENTIAL_KEYS:
-        if ((os.environ.get(key) and os.environ.get(key).strip()) or (saved.get(key) and saved.get(key).strip())) and (p := _key_to_provider.get(key, key)) not in seen:
+        if (
+            (os.environ.get(key) and os.environ.get(key).strip())
+            or (saved.get(key) and saved.get(key).strip())
+        ) and (p := _key_to_provider.get(key, key)) not in seen:
             seen.add(p)
             out.append(p)
     return out
