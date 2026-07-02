@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.8.0-beta.1 (2026-07-02)
+
+### Features
+
+- Deploy CF Worker+Container on release from cd.yml
+  ([#409](https://github.com/n24q02m/imagine-mcp/pull/409),
+  [`81f8caf`](https://github.com/n24q02m/imagine-mcp/commit/81f8caff77994f1576af86e6cbde6a466b65e4f5))
+
+
 ## v1.7.1-beta.1 (2026-07-01)
 
 ### Bug Fixes
