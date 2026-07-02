@@ -228,7 +228,7 @@ Run your own imagine instance serverless on Cloudflare (Worker + Container + KV)
 is KV-only -- the per-user credential vault lives in KV, and generation returns base64 only
 because the container filesystem is ephemeral (`IMAGINE_OUTPUT_MODE=base64`).
 
-**Prerequisites:** a Cloudflare account on the Workers Paid plan and the `wrangler` CLI.
+**Prerequisites:** a Cloudflare account on the **Workers Paid plan** -- required for Containers (the Cloudflare free tier does not include Containers) -- and the `wrangler` CLI.
 
 1. `git clone https://github.com/n24q02m/imagine-mcp && cd imagine-mcp`
 2. `wrangler login`
