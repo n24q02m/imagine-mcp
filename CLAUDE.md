@@ -99,12 +99,13 @@ capability-checked via `mcp_core.llm.check_capability`, graceful on registry-mis
   catalog default). imagine has NO local fallback. In multi-user HTTP mode the
   chain is resolved per-sub (from the relay-submitted config, never
   `os.environ`); single-user / stdio reads the env var.
-- API keys follow the litellm convention `<PROVIDER>_API_KEY`. The 6 providers
+- API keys follow the litellm convention `<PROVIDER>_API_KEY`. The 7 providers
   the server suggests for the understand chain:
 
   | model prefix | key env var | get it at |
   |---|---|---|
   | `gemini/` | `GEMINI_API_KEY` | aistudio.google.com/apikey |
+  | `vertex_express/` | `GOOGLE_VERTEX_EXPRESS_API_KEY` | cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview |
   | `openai/` (or bare) | `OPENAI_API_KEY` | platform.openai.com |
   | `jina_ai/` | `JINA_AI_API_KEY` | jina.ai/api-key |
   | `cohere/` | `COHERE_API_KEY` | dashboard.cohere.com |
