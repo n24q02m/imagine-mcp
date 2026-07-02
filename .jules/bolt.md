@@ -44,3 +44,7 @@
 ## 2024-06-14 - [TEST] Achieve 100% coverage for dispatcher validation logic
 **Learning:** Achieved 100% test coverage for `src/imagine_mcp/dispatcher.py` by targeting previously untested edge cases in `asyncio.gather` error propagation and configuration-driven provider selection. Mocking internal async utilities like `detect_media_type_async` and `_validate_url` (which wraps threaded blocking I/O) allows for robust unit testing of high-level dispatch logic without actual network dependencies.
 **Action:** When extending test coverage for dispatchers, use a dedicated extension test file to isolate new edge cases and mock all internal network-bound helpers to ensure test suite stability and speed.
+
+## 2026-07-02 - [Pipeline Async I/O Gathers]
+**Learning:** Pipelining sequential asynchronous phases (like URL validation followed by fetching) into a single concurrent phase per URL using `asyncio.gather` can severely degrade error handling and latency if the first phase was intended as a fast fail-safe. If `return_exceptions=True` is used, a quick validation failure will be masked and delayed until all other slow tasks finish, wasting resources and degrading latency.
+**Action:** Preserve barrier synchronization between fast validation phases and slow I/O phases when the fast phase is intended to fail-fast. Do not pipeline them into a single `gather` call if it compromises early error detection.
