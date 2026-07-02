@@ -46,7 +46,6 @@ const dryRun = process.argv.includes('--dry-run');
 
 const accountId = process.env.CLOUDFLARE_ACCOUNT_ID || (dryRun ? 'DRYRUN_ACCOUNT' : undefined);
 const kvId = process.env.IMAGINE_KV_NAMESPACE_ID || (dryRun ? 'DRYRUN_KV_ID' : undefined);
-const publicUrl = process.env.PUBLIC_URL;
 const imageTag = process.env.IMAGINE_IMAGE_TAG || 'beta';
 
 if (!dryRun && !process.env.CLOUDFLARE_API_TOKEN) {
@@ -61,16 +60,11 @@ if (!kvId) {
   console.error('IMAGINE_KV_NAMESPACE_ID is required (substitutes <imagine-kv-namespace-id>).');
   process.exit(1);
 }
-if (!publicUrl) {
-  console.error('PUBLIC_URL is required (substitutes <YOUR_PUBLIC_URL>).');
-  process.exit(1);
-}
 
 let config = readFileSync(srcConfig, 'utf8');
 config = config
   .replaceAll('<YOUR_ACCOUNT_ID>', accountId)
   .replaceAll('<imagine-kv-namespace-id>', kvId)
-  .replaceAll('<YOUR_PUBLIC_URL>', publicUrl)
   .replace(/(registry\.cloudflare\.com\/[^/]+\/imagine-mcp):[^"]+/, `$1:${imageTag}`)
   // Drop the routes block: imagine.n24q02m.com is already attached as a custom
   // domain, and editing zone Workers Routes needs a zone-scoped token the
@@ -81,6 +75,18 @@ config = config
   // *.workers.dev URL + Preview URLs. Pin them off so the only public surface
   // stays the already-attached custom domain.
   .replace(/^(\s*)"name":\s*"imagine-mcp-worker",\s*$/m, '$1"name": "imagine-mcp-worker",\n$1"workers_dev": false,\n$1"preview_urls": false,');
+
+// Substitute the public origin only if the base config still carries the
+// placeholder (a maintainer who hardcoded their own domain needs no PUBLIC_URL).
+const PUBLIC_URL_PLACEHOLDER = '<YOUR_PUBLIC_URL>';
+if (config.includes(PUBLIC_URL_PLACEHOLDER)) {
+  const publicUrl = process.env.PUBLIC_URL;
+  if (!publicUrl) {
+    console.error('PUBLIC_URL is not set (base wrangler.jsonc uses <YOUR_PUBLIC_URL>).');
+    process.exit(1);
+  }
+  config = config.split(PUBLIC_URL_PLACEHOLDER).join(publicUrl);
+}
 
 writeFileSync(tmpConfig, config, 'utf8');
 
