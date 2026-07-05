@@ -2,6 +2,56 @@
 
 <!-- version list -->
 
+## v1.8.1-beta.1 (2026-07-05)
+
+### Bug Fixes
+
+- Add BYO Deploy to Cloudflare section to README
+  ([#413](https://github.com/n24q02m/imagine-mcp/pull/413),
+  [`4e81ac3`](https://github.com/n24q02m/imagine-mcp/commit/4e81ac35ca49925946d9929ed33bfd8e1fe6b499))
+
+- Clarify Workers Paid plan is required for Containers in README
+  ([#413](https://github.com/n24q02m/imagine-mcp/pull/413),
+  [`4e81ac3`](https://github.com/n24q02m/imagine-mcp/commit/4e81ac35ca49925946d9929ed33bfd8e1fe6b499))
+
+- Do not log substituted CF config in cf_deploy dry-run
+  ([#413](https://github.com/n24q02m/imagine-mcp/pull/413),
+  [`4e81ac3`](https://github.com/n24q02m/imagine-mcp/commit/4e81ac35ca49925946d9929ed33bfd8e1fe6b499))
+
+- Guard PUBLIC_URL substitution on placeholder presence in cf_deploy_config.mjs
+  ([#413](https://github.com/n24q02m/imagine-mcp/pull/413),
+  [`4e81ac3`](https://github.com/n24q02m/imagine-mcp/commit/4e81ac35ca49925946d9929ed33bfd8e1fe6b499))
+
+- Pipeline URL validation and fetching to remove barrier sync
+  ([`b9071ea`](https://github.com/n24q02m/imagine-mcp/commit/b9071eac389f07c1ec214264b8b840a0f2bac233))
+
+- Substitute PUBLIC_URL in cf_deploy_config.mjs (BYO-generic base wrangler.jsonc)
+  ([#413](https://github.com/n24q02m/imagine-mcp/pull/413),
+  [`4e81ac3`](https://github.com/n24q02m/imagine-mcp/commit/4e81ac35ca49925946d9929ed33bfd8e1fe6b499))
+
+- Use placeholders for PUBLIC_URL and routes in wrangler.jsonc (BYO-generic)
+  ([#413](https://github.com/n24q02m/imagine-mcp/pull/413),
+  [`4e81ac3`](https://github.com/n24q02m/imagine-mcp/commit/4e81ac35ca49925946d9929ed33bfd8e1fe6b499))
+
+- Validate MCP_PORT and MCP_HOST configuration at startup
+  ([`2aee318`](https://github.com/n24q02m/imagine-mcp/commit/2aee3180c7a33458291304311c5700067f3dea14))
+
+- **deps**: Lock file maintenance
+  ([`6a689dd`](https://github.com/n24q02m/imagine-mcp/commit/6a689dd878214cda843ef83e3d50491c64fee7e4))
+
+- **deps**: Update docker/build-push-action digest
+  ([`5226ad1`](https://github.com/n24q02m/imagine-mcp/commit/5226ad1d39a50ce4bce8d7bba721f4a771a67a6e))
+
+- **deps**: Update docker/login-action digest to af1e73f
+  ([`5d6e7b8`](https://github.com/n24q02m/imagine-mcp/commit/5d6e7b89106cf3c94b002a44eb8a310f6115fcc3))
+
+- **deps**: Update docker/setup-buildx-action digest
+  ([`201fa7f`](https://github.com/n24q02m/imagine-mcp/commit/201fa7f6b1f25324a7fb4df27524b8ee336c77bc))
+
+- **deps**: Update non-major dependencies
+  ([`b322ceb`](https://github.com/n24q02m/imagine-mcp/commit/b322ceb863cc7313ce66c8dc01f5b102801bc4dc))
+
+
 ## v1.8.0 (2026-07-02)
 
 ### Bug Fixes
