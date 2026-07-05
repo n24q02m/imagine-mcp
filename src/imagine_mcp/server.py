@@ -55,13 +55,17 @@ def _providers_configured() -> list[str]:
         "XAI_API_KEY": "grok",
         "GOOGLE_VERTEX_EXPRESS_API_KEY": "vertex_express",
     }
-    return list(
-        dict.fromkeys(
-            _key_to_provider.get(key, key)
-            for key in CREDENTIAL_KEYS
-            if os.environ.get(key)
-        )
-    )
+    out = []
+    seen = set()
+    for key in CREDENTIAL_KEYS:
+        if (
+            os.environ.get(key)
+            and os.environ.get(key).strip()
+            and (p := _key_to_provider.get(key, key)) not in seen
+        ):
+            seen.add(p)
+            out.append(p)
+    return out
 
 
 def _providers_configured_live() -> list[str]:
@@ -81,13 +85,16 @@ def _providers_configured_live() -> list[str]:
         "XAI_API_KEY": "grok",
         "GOOGLE_VERTEX_EXPRESS_API_KEY": "vertex_express",
     }
-    return list(
-        dict.fromkeys(
-            _key_to_provider.get(key, key)
-            for key in CREDENTIAL_KEYS
-            if os.environ.get(key) or saved.get(key)
-        )
-    )
+    out = []
+    seen = set()
+    for key in CREDENTIAL_KEYS:
+        if (
+            (os.environ.get(key) and os.environ.get(key).strip())
+            or (saved.get(key) and saved.get(key).strip())
+        ) and (p := _key_to_provider.get(key, key)) not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
 
 
 def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
