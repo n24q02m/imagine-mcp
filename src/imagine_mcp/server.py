@@ -332,36 +332,9 @@ async def run_http(port: int = 0) -> None:
                 "MCP_DCR_SERVER_SECRET missing. Multi-user remote mode "
                 "requires the DCR secret."
             )
-
-        try:
-            port = int(os.environ.get("MCP_PORT", "8080"))
-            if not (0 <= port <= 65535):
-                raise ValueError
-        except ValueError:
-            raise SystemExit(
-                "imagine-mcp refuses to start: MCP_PORT must be an integer between 0 and 65535."
-            ) from None
-
-        host = os.environ.get("MCP_HOST", "127.0.0.1")
-        import ipaddress
-        import re
-
-        try:
-            ipaddress.ip_address(host)
-        except ValueError:
-            if re.match(r"^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$", host):
-                raise SystemExit(
-                    f"imagine-mcp refuses to start: Invalid MCP_HOST: malformed IP address {host!r}"
-                ) from None
-            if not re.match(
-                r"^localhost$|^(?!-)[A-Za-z0-9-]{1,63}(?<!-)(\.[A-Za-z0-9-]{1,63})*$",
-                host,
-            ):
-                raise SystemExit(
-                    f"imagine-mcp refuses to start: Invalid MCP_HOST: {host!r}"
-                ) from None
-
+        port = int(os.environ.get("MCP_PORT", "8080"))
         mode_label = "http remote relay (multi-user)"
+        host = os.environ.get("MCP_HOST", "127.0.0.1")
     else:
         host = "127.0.0.1"
         mode_label = "http local relay"
