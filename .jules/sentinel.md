@@ -11,3 +11,7 @@
 **Vulnerability:** Use of `os.path.splitext()` for URL extensions is platform-dependent and susceptible to bypasses if query parameters or fragments are not perfectly stripped.
 **Learning:** `os.path.splitext()` follows the host OS's path rules (e.g., handling backslashes on Windows), which may not align with URL path semantics. Also, manual string splitting for URL components is error-prone compared to standard `urlparse`.
 **Prevention:** Use `urllib.parse.urlparse` to extract the path from a URL, and use `posixpath.splitext()` to ensure consistent extension extraction regardless of the server's operating system.
+## 2026-07-03 - [MEDIUM] Add input validation for MCP_PORT and MCP_HOST
+**Vulnerability:** The application blindly casted `MCP_PORT` to an integer and passed `MCP_HOST` without verifying format validity. Malformed environment variables could cause unhandled exceptions leading to stack trace leakage or unexpected behavior.
+**Learning:** Application startup code should robustly validate user-provided environment configuration (like port numbers and IPs/hostnames) and handle exceptions securely (using clear log messages or generic exits instead of throwing internal tracebacks).
+**Prevention:** Use defensive parsing (`int()` with range checks for ports, `ipaddress.ip_address` or regex for hostnames) and employ `try...except` blocks that catch formatting errors, raising clean `SystemExit` messages using `from None` to hide internal stack traces from operators.

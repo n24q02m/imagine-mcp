@@ -387,3 +387,54 @@ def test_main_calls_run_http() -> None:
             main()
             mock_run.assert_called_once()
         coro.close()
+
+
+@pytest.mark.asyncio
+async def test_run_http_remote_relay_invalid_port(monkeypatch) -> None:
+    from imagine_mcp.server import run_http
+
+    monkeypatch.setenv("PUBLIC_URL", "https://ex.com")
+    monkeypatch.setenv("MCP_DCR_SERVER_SECRET", "secret")
+
+    # Test non-integer port
+    monkeypatch.setenv("MCP_PORT", "not-a-port")
+    with pytest.raises(
+        SystemExit, match="imagine-mcp refuses to start: Invalid MCP_PORT"
+    ):
+        await run_http()
+
+    # Test negative port
+    monkeypatch.setenv("MCP_PORT", "-1")
+    with pytest.raises(
+        SystemExit, match="imagine-mcp refuses to start: Invalid MCP_PORT"
+    ):
+        await run_http()
+
+    # Test out of range port
+    monkeypatch.setenv("MCP_PORT", "70000")
+    with pytest.raises(
+        SystemExit, match="imagine-mcp refuses to start: Invalid MCP_PORT"
+    ):
+        await run_http()
+
+
+@pytest.mark.asyncio
+async def test_run_http_remote_relay_invalid_host(monkeypatch) -> None:
+    from imagine_mcp.server import run_http
+
+    monkeypatch.setenv("PUBLIC_URL", "https://ex.com")
+    monkeypatch.setenv("MCP_DCR_SERVER_SECRET", "secret")
+
+    # Test malformed IP
+    monkeypatch.setenv("MCP_HOST", "999.999.999.999")
+    with pytest.raises(
+        SystemExit, match="imagine-mcp refuses to start: Invalid MCP_HOST IP address"
+    ):
+        await run_http()
+
+    # Test invalid hostname format
+    monkeypatch.setenv("MCP_HOST", "invalid host name")
+    with pytest.raises(
+        SystemExit, match="imagine-mcp refuses to start: Invalid MCP_HOST hostname"
+    ):
+        await run_http()
