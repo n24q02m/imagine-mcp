@@ -502,8 +502,15 @@ async def emit_media(
         out[f"{key}_base64"] = _b64.b64encode(data).decode()
     if output_mode in ("path", "both"):
         out_dir = Path(_pd.user_cache_dir("imagine-mcp")) / "generations"
-        await asyncio.to_thread(out_dir.mkdir, parents=True, exist_ok=True)
-        out_path = out_dir / f"{_uuid.uuid4().hex}{suffix}"
-        await asyncio.to_thread(out_path.write_bytes, data)
+
+        # ⚡ Bolt: Consolidate multiple asyncio.to_thread calls into a single synchronous
+        # helper to significantly reduce context-switching overhead for small I/O operations.
+        def _write_file_sync() -> Path:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path = out_dir / f"{_uuid.uuid4().hex}{suffix}"
+            out_path.write_bytes(data)
+            return out_path
+
+        out_path = await asyncio.to_thread(_write_file_sync)
         out[f"{key}_path"] = str(out_path)
     return out
