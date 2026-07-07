@@ -48,3 +48,6 @@
 ## 2026-07-02 - [Pipeline Async I/O Gathers]
 **Learning:** Pipelining sequential asynchronous phases (like URL validation followed by fetching) into a single concurrent phase per URL using `asyncio.gather` can severely degrade error handling and latency if the first phase was intended as a fast fail-safe. If `return_exceptions=True` is used, a quick validation failure will be masked and delayed until all other slow tasks finish, wasting resources and degrading latency.
 **Action:** Preserve barrier synchronization between fast validation phases and slow I/O phases when the fast phase is intended to fail-fast. Do not pipeline them into a single `gather` call if it compromises early error detection.
+## 2025-02-23 - Thread Pool Context Switching Overhead
+**Learning:** Consecutive single-shot synchronous I/O operations (like `mkdir` then `write_bytes`) executed individually via `asyncio.to_thread()` create severe thread-pool scheduling and context-switching overhead, effectively negating the benefits of offloading them from the main event loop.
+**Action:** Always consolidate sequential, synchronous file system operations into a single synchronous helper function and dispatch it with a single `asyncio.to_thread()` call.
