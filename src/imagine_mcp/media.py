@@ -454,8 +454,7 @@ def download_to_path(url: str, dest: Path) -> Path:
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
     except Exception:
-        if dest.exists():
-            dest.unlink(missing_ok=True)
+        dest.unlink(missing_ok=True)
         raise
     return dest
 
@@ -471,8 +470,7 @@ async def download_to_path_async(url: str, dest: Path) -> Path:
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
     except Exception:
-        if await asyncio.to_thread(dest.exists):
-            await asyncio.to_thread(dest.unlink, missing_ok=True)
+        await asyncio.to_thread(dest.unlink, missing_ok=True)
         raise
     return dest
 
@@ -502,8 +500,12 @@ async def emit_media(
         out[f"{key}_base64"] = _b64.b64encode(data).decode()
     if output_mode in ("path", "both"):
         out_dir = Path(_pd.user_cache_dir("imagine-mcp")) / "generations"
-        await asyncio.to_thread(out_dir.mkdir, parents=True, exist_ok=True)
         out_path = out_dir / f"{_uuid.uuid4().hex}{suffix}"
-        await asyncio.to_thread(out_path.write_bytes, data)
+
+        def _write_file_sync() -> None:
+            out_dir.mkdir(parents=True, exist_ok=True)
+            out_path.write_bytes(data)
+
+        await asyncio.to_thread(_write_file_sync)
         out[f"{key}_path"] = str(out_path)
     return out
