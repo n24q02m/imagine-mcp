@@ -2,6 +2,29 @@
 
 <!-- version list -->
 
+## v1.9.0-beta.1 (2026-07-10)
+
+### Bug Fixes
+
+- Reject unauthenticated /mcp at the Worker edge
+  ([#428](https://github.com/n24q02m/imagine-mcp/pull/428),
+  [`11e9fb3`](https://github.com/n24q02m/imagine-mcp/commit/11e9fb3c0d94e3ebb69ab3c7350d81202d318d45))
+
+### Features
+
+- Add opencode github agent (responds to /oc)
+  ([`0941743`](https://github.com/n24q02m/imagine-mcp/commit/09417434aced6c108b37c78c86032a1ee5537fc5))
+
+- Add review-learnings store the automated reviewer must obey
+  ([`0c99963`](https://github.com/n24q02m/imagine-mcp/commit/0c999636a54d664e852f1a53777e8f71aacf0f6a))
+
+- Auto-respond only to issues and PRs opened by outside people
+  ([`64e6309`](https://github.com/n24q02m/imagine-mcp/commit/64e6309242e1253c29f09f3569f49e0dd4b78d4d))
+
+- Reviewer must obey .github/review-learnings.md
+  ([`dcd6a5c`](https://github.com/n24q02m/imagine-mcp/commit/dcd6a5ccd53e621f50053df0e86a5aa7435ab723))
+
+
 ## v1.8.1 (2026-07-05)
 
 
