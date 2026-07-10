@@ -91,9 +91,14 @@ describe('single-user DO contract (E.2)', () => {
     }
   }
 
-  it('no Bearer token -> routes to the "default" DO', async () => {
+  it('no Bearer token on a non-/mcp path -> routes to the "default" DO', async () => {
+    // Uses /authorize, not /mcp: the edge auth gate (added alongside this test)
+    // now rejects an unauthenticated /mcp request before extractUserId() is
+    // ever reached, so /mcp is no longer a valid path to exercise the DO-naming
+    // fallback in isolation. /authorize is unauthenticated by design (it is
+    // where mcp-core's OAuth AS itself issues the token) and stays ungated.
     const { calls, env } = envWithDoSpy()
-    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/mcp'), env as never)
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/authorize'), env as never)
     expect(res.status).toBe(200)
     expect(calls).toEqual(['default'])
   })
@@ -109,13 +114,74 @@ describe('single-user DO contract (E.2)', () => {
     expect(calls).toEqual(['default'])
   })
 
-  it('Bearer token with sub -> routes to that sub DO (per-user isolation)', async () => {
+  it('Bearer token with sub -> still routes to the "default" DO (SINGLE-DO COLLAPSE, see extractUserId)', async () => {
     const { calls, env } = envWithDoSpy()
     const jwt = `h.${btoa(JSON.stringify({ sub: 'user-123' }))}.s`
     await worker.fetch(
-      new Request('https://imagine.n24q02m.com/mcp', { headers: { authorization: `Bearer ${jwt}` } }),
+      new Request('https://imagine.n24q02m.com/mcp', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${jwt}` },
+      }),
       env as never,
     )
-    expect(calls).toEqual(['user-123'])
+    expect(calls).toEqual(['default'])
+  })
+})
+
+describe('edge auth gate rejects anonymous /mcp before touching the container DO', () => {
+  function envWithDoSpy() {
+    let stubCalls = 0
+    return {
+      calls: () => stubCalls,
+      env: {
+        IMAGINE: {
+          idFromName: (n: string) => ({ name: n }),
+          get: (_id: unknown) => ({
+            fetch: async () => {
+              stubCalls++
+              return new Response('routed', { status: 200 })
+            },
+          }),
+        },
+      },
+    }
+  }
+
+  it('POST /mcp with no Authorization -> 401, stub never called', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/mcp', { method: 'POST' }), env as never)
+    expect(res.status).toBe(401)
+    expect(res.headers.get('WWW-Authenticate')).toMatch(
+      /^Bearer resource_metadata="https:\/\/[^"]+\/\.well-known\/oauth-protected-resource"$/,
+    )
+    expect(await res.text()).toBe('')
+    expect(calls()).toBe(0)
+  })
+
+  it('OPTIONS /mcp with no Authorization -> 401, stub never called', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/mcp', { method: 'OPTIONS' }), env as never)
+    expect(res.status).toBe(401)
+    expect(calls()).toBe(0)
+  })
+
+  it('POST /mcp with Authorization: Bearer anything -> stub called exactly once', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(
+      new Request('https://imagine.n24q02m.com/mcp', {
+        method: 'POST',
+        headers: { authorization: 'Bearer anything' },
+      }),
+      env as never,
+    )
+    expect(res.status).toBe(200)
+    expect(calls()).toBe(1)
+  })
+
+  it('GET /authorize with no Authorization -> non-/mcp path passes through to the DO', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/authorize?foo=1'), env as never)
+    expect(res.status).toBe(200)
+    expect(calls()).toBe(1)
   })
 })
