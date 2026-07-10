@@ -48,3 +48,7 @@
 ## 2026-07-02 - [Pipeline Async I/O Gathers]
 **Learning:** Pipelining sequential asynchronous phases (like URL validation followed by fetching) into a single concurrent phase per URL using `asyncio.gather` can severely degrade error handling and latency if the first phase was intended as a fast fail-safe. If `return_exceptions=True` is used, a quick validation failure will be masked and delayed until all other slow tasks finish, wasting resources and degrading latency.
 **Action:** Preserve barrier synchronization between fast validation phases and slow I/O phases when the fast phase is intended to fail-fast. Do not pipeline them into a single `gather` call if it compromises early error detection.
+
+## 2024-07-07 - Consolidate Consecutive Synchronous I/O in Async Contexts
+**Learning:** Executing consecutive synchronous file operations (e.g., `mkdir` followed by `write_bytes`) by wrapping each individually in `asyncio.to_thread` introduces unnecessary thread-pool scheduling and context-switching overhead.
+**Action:** When performing multiple related blocking operations in an async context, consolidate them into a single synchronous helper function and execute that helper via a single `asyncio.to_thread()` call.
