@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.9.0-beta.2 (2026-07-10)
+
+### Bug Fixes
+
+- Decline standing GET /mcp SSE stream at the edge
+  ([#430](https://github.com/n24q02m/imagine-mcp/pull/430),
+  [`8403a48`](https://github.com/n24q02m/imagine-mcp/commit/8403a4837aa2ccef77e98634e9bb62c9b391443b))
+
+- Fail the release when the computed version already exists on PyPI
+  ([#429](https://github.com/n24q02m/imagine-mcp/pull/429),
+  [`8824f40`](https://github.com/n24q02m/imagine-mcp/commit/8824f40303338586311f5e84f5396caa4fda74a4))
+
+
 ## v1.9.0-beta.1 (2026-07-10)
 
 ### Bug Fixes
