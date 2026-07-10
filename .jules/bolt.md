@@ -52,3 +52,7 @@
 ## 2024-07-07 - Consolidate Consecutive Synchronous I/O in Async Contexts
 **Learning:** Executing consecutive synchronous file operations (e.g., `mkdir` followed by `write_bytes`) by wrapping each individually in `asyncio.to_thread` introduces unnecessary thread-pool scheduling and context-switching overhead.
 **Action:** When performing multiple related blocking operations in an async context, consolidate them into a single synchronous helper function and execute that helper via a single `asyncio.to_thread()` call.
+
+## 2024-07-28 - Optimize exception handling on cold paths
+**Learning:** Micro-optimizations on cold paths (e.g., inside an `except Exception` block for failed file downloads) provide negligible real-world performance benefits. The cost of code changes, even simple ones like removing redundant `exists()` checks before `unlink(missing_ok=True)`, does not yield a measurable impact and is considered premature optimization.
+**Action:** Focus optimizations on hot paths where measurable performance gains can be achieved. Avoid micro-optimizations in error handling or other cold execution paths.
