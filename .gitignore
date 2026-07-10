@@ -20,6 +20,9 @@ package-lock.json
 .wrangler/
 .wrangler-dryrun/
 wrangler.deploy-tmp.jsonc
+# Live substituted deploy config (real account/KV/D1/Vectorize IDs), written by
+# scripts/deploy_cf.py -- never commit
+wrangler.deploy.jsonc
 
 # AI traces (per CLAUDE.md public repo policy — superpower content lives in private repo n24q02m/.superpower)
 .jules/
