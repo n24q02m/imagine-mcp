@@ -107,8 +107,14 @@ describe('single-user DO contract (E.2)', () => {
     const { calls, env } = envWithDoSpy()
     // header.payload.sig where payload has no `sub`
     const jwt = `h.${btoa(JSON.stringify({ aud: 'x' }))}.s`
+    // POST, not GET: GET /mcp is declined with 405 at the edge (see "edge gate
+    // declines standing GET /mcp SSE stream" below) before extractUserId() is
+    // ever reached, so it is no longer a valid path to exercise DO routing.
     await worker.fetch(
-      new Request('https://imagine.n24q02m.com/mcp', { headers: { authorization: `Bearer ${jwt}` } }),
+      new Request('https://imagine.n24q02m.com/mcp', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${jwt}` },
+      }),
       env as never,
     )
     expect(calls).toEqual(['default'])
@@ -183,5 +189,54 @@ describe('edge auth gate rejects anonymous /mcp before touching the container DO
     const res = await worker.fetch(new Request('https://imagine.n24q02m.com/authorize?foo=1'), env as never)
     expect(res.status).toBe(200)
     expect(calls()).toBe(1)
+  })
+})
+
+describe('edge gate declines the standing GET /mcp SSE stream (405)', () => {
+  function envWithDoSpy() {
+    let stubCalls = 0
+    return {
+      calls: () => stubCalls,
+      env: {
+        IMAGINE: {
+          idFromName: (n: string) => ({ name: n }),
+          get: (_id: unknown) => ({
+            fetch: async () => {
+              stubCalls++
+              return new Response('routed', { status: 200 })
+            },
+          }),
+        },
+      },
+    }
+  }
+
+  it('GET /mcp with a Bearer token -> 405, Allow: POST, DELETE, stub never called', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(
+      new Request('https://imagine.n24q02m.com/mcp', { headers: { authorization: 'Bearer x' } }),
+      env as never,
+    )
+    expect(res.status).toBe(405)
+    expect(res.headers.get('Allow')).toBe('POST, DELETE')
+    expect(calls()).toBe(0)
+  })
+
+  it('GET /mcp/sub with a Bearer token -> 405, stub never called', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(
+      new Request('https://imagine.n24q02m.com/mcp/sub', { headers: { authorization: 'Bearer x' } }),
+      env as never,
+    )
+    expect(res.status).toBe(405)
+    expect(res.headers.get('Allow')).toBe('POST, DELETE')
+    expect(calls()).toBe(0)
+  })
+
+  it('GET /mcp with no Authorization -> still 401 (bearer gate runs before the 405 decline)', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/mcp'), env as never)
+    expect(res.status).toBe(401)
+    expect(calls()).toBe(0)
   })
 })
