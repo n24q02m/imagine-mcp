@@ -14,7 +14,6 @@ before claiming "using_env" and returns needs_setup if none are set.
 
 from __future__ import annotations
 
-import json
 from unittest.mock import patch
 
 import pytest
@@ -44,7 +43,7 @@ class TestRelayStatusLiveDerivedState:
             return_value={"GEMINI_API_KEY": "test-key-123"},
         ):
             result = await app.call_tool("config", {"action": "relay_status"})
-            res = json.loads(result.content[0].text)
+            res = result.structured_content
 
         assert res["status"] == "configured"
         assert "gemini" in res["providers_configured"]
@@ -63,7 +62,7 @@ class TestRelayStatusLiveDerivedState:
             return_value={},
         ):
             result = await app.call_tool("config", {"action": "relay_status"})
-            res = json.loads(result.content[0].text)
+            res = result.structured_content
 
         assert res["status"] == "pending"
         assert res["providers_configured"] == []
@@ -86,7 +85,7 @@ class TestRelayCompleteLiveDerivedState:
             return_value={"OPENAI_API_KEY": "sk-test-123"},
         ):
             result = await app.call_tool("config", {"action": "relay_complete"})
-            res = json.loads(result.content[0].text)
+            res = result.structured_content
 
         assert res["status"] == "saved"
         assert "openai" in res["providers_configured"]
@@ -105,7 +104,7 @@ class TestRelayCompleteLiveDerivedState:
             return_value={},
         ):
             result = await app.call_tool("config", {"action": "relay_complete"})
-            res = json.loads(result.content[0].text)
+            res = result.structured_content
 
         assert res["status"] == "no_credentials"
         assert res["providers_configured"] == []
@@ -124,7 +123,7 @@ class TestRelaySkipHonesty:
         monkeypatch.delenv("XAI_API_KEY", raising=False)
 
         result = await app.call_tool("config", {"action": "relay_skip"})
-        res = json.loads(result.content[0].text)
+        res = result.structured_content
 
         assert res["status"] == "needs_setup"
         assert "open_relay" in res["message"]
@@ -139,7 +138,7 @@ class TestRelaySkipHonesty:
         monkeypatch.delenv("XAI_API_KEY", raising=False)
 
         result = await app.call_tool("config", {"action": "relay_skip"})
-        res = json.loads(result.content[0].text)
+        res = result.structured_content
 
         assert res["status"] == "using_env"
         assert res["message"] == "Using env vars for credentials."

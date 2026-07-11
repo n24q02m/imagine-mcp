@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import json
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -16,6 +16,13 @@ from imagine_mcp.server import (
     _set_runtime,
     build_app,
 )
+
+
+def _structured(result: Any) -> dict[str, Any]:
+    """Narrow ``ToolResult.structured_content`` for callers below -- also
+    pins that dict-returning tools always populate it (never None)."""
+    assert result.structured_content is not None
+    return result.structured_content
 
 
 def test_build_app_attributes() -> None:
@@ -123,24 +130,24 @@ async def test_tool_config_basic_actions() -> None:
 
     # status
     result = await app.call_tool("config", {"action": "status"})
-    res = json.loads(result.content[0].text)
+    res = _structured(result)
     assert res["version"] == __version__
 
     # warmup
     result = await app.call_tool("config", {"action": "warmup"})
-    res = json.loads(result.content[0].text)
+    res = _structured(result)
     assert res["status"] == "ok"
 
     # set
     result = await app.call_tool(
         "config", {"action": "set", "key": "log_level", "value": "info"}
     )
-    res = json.loads(result.content[0].text)
+    res = _structured(result)
     assert res["status"] == "ok"
 
     # invalid action
     result = await app.call_tool("config", {"action": "nope"})
-    res = json.loads(result.content[0].text)
+    res = _structured(result)
     assert res["status"] == "error"
 
 
@@ -153,7 +160,7 @@ async def test_tool_config_cache_clear(monkeypatch) -> None:
 
     with patch("imagine_mcp.cache.ResponseCache.clear") as mock_clear:
         result = await app.call_tool("config", {"action": "cache_clear"})
-        res = json.loads(result.content[0].text)
+        res = _structured(result)
         assert res["status"] == "ok"
         mock_clear.assert_called_once()
 
@@ -162,7 +169,7 @@ async def test_tool_config_cache_clear(monkeypatch) -> None:
 async def test_tool_config_models_action_removed() -> None:
     app = build_app()
     result = await app.call_tool("config", {"action": "models"})
-    res = json.loads(result.content[0].text)
+    res = _structured(result)
     assert res["status"] == "error"
     assert "Unknown action 'models'" in res["message"]
 
@@ -176,7 +183,7 @@ async def test_tool_understand_wrapper() -> None:
         result = await app.call_tool(
             "understand", {"media_urls": ["http://ex.com/i.jpg"], "prompt": "tell me"}
         )
-        res = json.loads(result.content[0].text)
+        res = _structured(result)
         assert res == {"res": "ok"}
         mock_dispatch.assert_called_once()
 
@@ -235,7 +242,7 @@ async def test_tool_generate_wrapper() -> None:
         result = await app.call_tool(
             "generate", {"media_type": "image", "prompt": "draw me"}
         )
-        res = json.loads(result.content[0].text)
+        res = _structured(result)
         assert res == {"res": "gen"}
         mock_dispatch.assert_called_once()
 
@@ -249,20 +256,20 @@ async def test_tool_config_relay_actions(monkeypatch) -> None:
         "imagine_mcp.server._providers_configured_live", return_value=["gemini"]
     ):
         result = await app.call_tool("config", {"action": "relay_status"})
-        res = json.loads(result.content[0].text)
+        res = _structured(result)
         assert res["status"] == "configured"
         assert res["providers_configured"] == ["gemini"]
 
     # relay_complete
     with patch("imagine_mcp.server._providers_configured_live", return_value=[]):
         result = await app.call_tool("config", {"action": "relay_complete"})
-        res = json.loads(result.content[0].text)
+        res = _structured(result)
         assert res["status"] == "no_credentials"
 
     # relay_skip (using env)
     monkeypatch.setenv("GEMINI_API_KEY", "test")
     result = await app.call_tool("config", {"action": "relay_skip"})
-    res = json.loads(result.content[0].text)
+    res = _structured(result)
     assert res["status"] == "using_env"
 
     # relay_skip (needs setup)
@@ -270,7 +277,7 @@ async def test_tool_config_relay_actions(monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("XAI_API_KEY", raising=False)
     result = await app.call_tool("config", {"action": "relay_skip"})
-    res = json.loads(result.content[0].text)
+    res = _structured(result)
     assert res["status"] == "needs_setup"
 
     # relay_reset
@@ -278,7 +285,7 @@ async def test_tool_config_relay_actions(monkeypatch) -> None:
         "imagine_mcp.relay_setup.reset_credentials", return_value={"status": "reset"}
     ):
         result = await app.call_tool("config", {"action": "relay_reset"})
-        res = json.loads(result.content[0].text)
+        res = _structured(result)
         assert res == {"status": "reset"}
 
 
@@ -291,13 +298,13 @@ async def test_tool_config_open_relay() -> None:
         "imagine_mcp.relay_setup.ensure_config", return_value={"some": "config"}
     ):
         result = await app.call_tool("config", {"action": "open_relay"})
-        res = json.loads(result.content[0].text)
+        res = _structured(result)
         assert res["status"] == "saved"
 
     # Degraded
     with patch("imagine_mcp.relay_setup.ensure_config", return_value=None):
         result = await app.call_tool("config", {"action": "open_relay"})
-        res = json.loads(result.content[0].text)
+        res = _structured(result)
         assert res["status"] == "degraded"
 
 
