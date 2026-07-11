@@ -2,6 +2,37 @@
 
 <!-- version list -->
 
+## v1.9.0-beta.3 (2026-07-11)
+
+### Bug Fixes
+
+- Bump n24q02m-mcp-core to 1.18.2 ([#432](https://github.com/n24q02m/imagine-mcp/pull/432),
+  [`c2497fd`](https://github.com/n24q02m/imagine-mcp/commit/c2497fdd43fcc1349be4a1b47f125216ebd9f8f6))
+
+- Consolidate consecutive asyncio.to_thread calls in emit_media
+  ([`4db0628`](https://github.com/n24q02m/imagine-mcp/commit/4db0628e95f87ad71f86dd7701927275bfbdc1ce))
+
+- Enforce fix(deps) semantic commit prefix in renovate config
+  ([`f7a6176`](https://github.com/n24q02m/imagine-mcp/commit/f7a61768ddd30a3cd68b92079fd1551b42ad2fa6))
+
+- Lock file maintenance
+  ([`22769f1`](https://github.com/n24q02m/imagine-mcp/commit/22769f1c2faa69c90944338b1c06db9c37d69de4))
+
+- Make renovate automerge effective (isolated groups, digest+lockfile automerge, 7-day cooldown)
+  ([`83cde2c`](https://github.com/n24q02m/imagine-mcp/commit/83cde2c921a0509c38870d4fbbeb75d3b39ae9c7))
+
+- Update dependency @cloudflare/workers-types to v5
+  ([`a642705`](https://github.com/n24q02m/imagine-mcp/commit/a6427059d4377edf46fd27fbbf0862f24c9e4bf0))
+
+- **deps**: Update astral-sh/setup-uv action to v8.3.2
+  ([`8b91f37`](https://github.com/n24q02m/imagine-mcp/commit/8b91f379dd0c84b881826f70f03934c783312135))
+
+### Features
+
+- Pin structured output for domain tools ([#438](https://github.com/n24q02m/imagine-mcp/pull/438),
+  [`0421bbd`](https://github.com/n24q02m/imagine-mcp/commit/0421bbdecba94b5e135dabe897c41e88e2bf89dc))
+
+
 ## v1.9.0-beta.2 (2026-07-10)
 
 ### Bug Fixes
