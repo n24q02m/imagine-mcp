@@ -130,7 +130,16 @@ export default {
     // VALIDITY is never judged here -- the container remains the sole
     // authority, so no mcp-core auth logic is duplicated at the edge.
     const url = new URL(request.url)
-    if (url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) {
+
+    // Normalize path to prevent auth bypass via obfuscated URLs (e.g. //mcp)
+    let normalizedPath = url.pathname
+    try {
+      normalizedPath = decodeURIComponent(url.pathname).replace(/^\/+/, '/')
+    } catch (e) {
+      // Keep original pathname if malformed URI
+    }
+
+    if (normalizedPath === '/mcp' || normalizedPath.startsWith('/mcp/')) {
       if (!BEARER.test(request.headers.get('authorization') ?? '')) return unauthenticated(request)
     }
     // Standing GET /mcp = the streamable-HTTP server-push SSE stream. On a
@@ -141,7 +150,7 @@ export default {
     // messages; request-scoped notifications ride the POST's own SSE
     // response. The spec allows declining the stream: both official SDKs
     // treat 405 as the optional-feature path and continue POST-only.
-    if (request.method === 'GET' && (url.pathname === '/mcp' || url.pathname.startsWith('/mcp/'))) {
+    if (request.method === 'GET' && (normalizedPath === '/mcp' || normalizedPath.startsWith('/mcp/'))) {
       return new Response(null, { status: 405, headers: { Allow: 'POST, DELETE' } })
     }
     // Public entrypoint: ONLY routes inbound requests to the per-user container
