@@ -2,6 +2,39 @@
 
 <!-- version list -->
 
+## v1.9.0-beta.4 (2026-07-13)
+
+### Bug Fixes
+
+- Correct config tool's destructiveHint and idempotentHint
+  ([#450](https://github.com/n24q02m/imagine-mcp/pull/450),
+  [`dd7df2b`](https://github.com/n24q02m/imagine-mcp/commit/dd7df2b8f778437d2f22f33c79aed14e1c416530))
+
+- Correct mention gate expression (balanced parens + precedence)
+  ([#449](https://github.com/n24q02m/imagine-mcp/pull/449),
+  [`4d5faa3`](https://github.com/n24q02m/imagine-mcp/commit/4d5faa38d2567ff3ab8593ffc9b7112c7d022895))
+
+- Gate oc mention job on comment author write access
+  ([#449](https://github.com/n24q02m/imagine-mcp/pull/449),
+  [`4d5faa3`](https://github.com/n24q02m/imagine-mcp/commit/4d5faa38d2567ff3ab8593ffc9b7112c7d022895))
+
+- Lowercase renovate lock-file and pin PR subjects
+  ([#448](https://github.com/n24q02m/imagine-mcp/pull/448),
+  [`30b4c83`](https://github.com/n24q02m/imagine-mcp/commit/30b4c8343eabea2a8ea12935b35e985cf4f82d42))
+
+- Run opencode bot on hosted runners ([#447](https://github.com/n24q02m/imagine-mcp/pull/447),
+  [`9e88b88`](https://github.com/n24q02m/imagine-mcp/commit/9e88b881307968337064e05570eaa7aef1e401e5))
+
+- **deps**: Lock file maintenance ([#441](https://github.com/n24q02m/imagine-mcp/pull/441),
+  [`bea1ec8`](https://github.com/n24q02m/imagine-mcp/commit/bea1ec8fa8628f025cdf2d2d72bbc8c1971418f8))
+
+### Features
+
+- Declare tool annotations so clients see cost and safety hints
+  ([#450](https://github.com/n24q02m/imagine-mcp/pull/450),
+  [`dd7df2b`](https://github.com/n24q02m/imagine-mcp/commit/dd7df2b8f778437d2f22f33c79aed14e1c416530))
+
+
 ## v1.9.0-beta.3 (2026-07-11)
 
 ### Bug Fixes
