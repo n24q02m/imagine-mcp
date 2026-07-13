@@ -20,7 +20,8 @@
       "before 5am"
     ],
     "automerge": true,
-    "automergeType": "pr"
+    "automergeType": "pr",
+    "commitMessageAction": "lock file maintenance"
   },
   "packageRules": [
     {
@@ -123,6 +124,14 @@
         "java"
       ],
       "enabled": false
+    },
+    {
+      "description": "Lowercase pin subjects (PR title lint requires lowercase start)",
+      "matchUpdateTypes": [
+        "pin",
+        "pinDigest"
+      ],
+      "commitMessageAction": "pin"
     }
   ],
   "semanticCommits": "enabled",
