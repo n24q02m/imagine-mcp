@@ -215,8 +215,8 @@ def build_app() -> FastMCP:
         ),
         annotations=ToolAnnotations(
             readOnlyHint=False,
-            destructiveHint=False,
-            idempotentHint=True,
+            destructiveHint=True,
+            idempotentHint=False,
             openWorldHint=False,
         ),
     )

@@ -44,6 +44,8 @@ async def test_tools_advertise_annotations() -> None:
     assert tools["generate"].annotations.openWorldHint is True
     assert tools["help"].annotations.readOnlyHint is True
     assert tools["config"].annotations.openWorldHint is False
+    assert tools["config"].annotations.destructiveHint is True
+    assert tools["config"].annotations.idempotentHint is False
 
 
 def test_get_version() -> None:
