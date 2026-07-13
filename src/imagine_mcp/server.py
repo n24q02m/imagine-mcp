@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 import platformdirs
 from fastmcp import FastMCP
 from loguru import logger
+from mcp.types import ToolAnnotations
 from mcp_core.relay.tool_helpers import register_open_relay_tool
 
 from imagine_mcp.config import settings
@@ -134,6 +135,12 @@ def build_app() -> FastMCP:
             "Gemini supports mixed image+video in one call; "
             "OpenAI/Grok are image-only."
         ),
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=True,
+        ),
     )
     async def understand(
         media_urls: list[str],
@@ -162,6 +169,12 @@ def build_app() -> FastMCP:
         description=(
             "Generate an image or video from a text prompt. "
             "Video is async: first call returns job_id; call again with job_id to poll."
+        ),
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=False,
+            idempotentHint=False,
+            openWorldHint=True,
         ),
     )
     async def generate(
@@ -199,6 +212,12 @@ def build_app() -> FastMCP:
             "Server config + credential setup (MERGED). Actions: "
             "(relay) open_relay|relay_status|relay_skip|relay_reset|"
             "relay_complete|warmup; (runtime) status|set|cache_clear."
+        ),
+        annotations=ToolAnnotations(
+            readOnlyHint=False,
+            destructiveHint=True,
+            idempotentHint=False,
+            openWorldHint=False,
         ),
     )
     async def config(
@@ -291,6 +310,12 @@ def build_app() -> FastMCP:
 
     @app.tool(
         description=("Full documentation. Topics: understand | generate | config."),
+        annotations=ToolAnnotations(
+            readOnlyHint=True,
+            destructiveHint=False,
+            idempotentHint=True,
+            openWorldHint=False,
+        ),
     )
     async def help(topic: str = "understand") -> str:
         """Load documentation for a specific tool or topic."""

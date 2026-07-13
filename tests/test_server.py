@@ -33,6 +33,21 @@ def test_build_app_attributes() -> None:
     assert "Image/video understanding and generation" in app.instructions
 
 
+@pytest.mark.asyncio
+async def test_tools_advertise_annotations() -> None:
+    app = build_app()
+    tools = {t.name: t for t in await app.list_tools()}
+    assert tools["understand"].annotations.readOnlyHint is True
+    assert tools["understand"].annotations.openWorldHint is True
+    assert tools["generate"].annotations.readOnlyHint is False
+    assert tools["generate"].annotations.idempotentHint is False
+    assert tools["generate"].annotations.openWorldHint is True
+    assert tools["help"].annotations.readOnlyHint is True
+    assert tools["config"].annotations.openWorldHint is False
+    assert tools["config"].annotations.destructiveHint is True
+    assert tools["config"].annotations.idempotentHint is False
+
+
 def test_get_version() -> None:
     assert _get_version() == __version__
 
