@@ -15,3 +15,7 @@
 **Vulnerability:** The application blindly casted `MCP_PORT` to an integer and passed `MCP_HOST` without verifying format validity. Malformed environment variables could cause unhandled exceptions leading to stack trace leakage or unexpected behavior.
 **Learning:** Application startup code should robustly validate user-provided environment configuration (like port numbers and IPs/hostnames) and handle exceptions securely (using clear log messages or generic exits instead of throwing internal tracebacks).
 **Prevention:** Use defensive parsing (`int()` with range checks for ports, `ipaddress.ip_address` or regex for hostnames) and employ `try...except` blocks that catch formatting errors, raising clean `SystemExit` messages using `from None` to hide internal stack traces from operators.
+## 2024-05-18 - Auth bypass via path obfuscation
+**Vulnerability:** Edge authorization gate could be bypassed by using obfuscated paths like `//mcp` or `/%2Fmcp`.
+**Learning:** URL routing mechanisms and security gates that rely on exact string matches without canonicalization are susceptible to path obfuscation attacks.
+**Prevention:** Always normalize and decode paths before applying string-matching security rules, ensuring consistent representations.

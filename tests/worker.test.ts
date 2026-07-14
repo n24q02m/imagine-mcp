@@ -171,6 +171,29 @@ describe('edge auth gate rejects anonymous /mcp before touching the container DO
     expect(calls()).toBe(0)
   })
 
+  it('POST //mcp (obfuscated path) with no Authorization -> 401, stub never called', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com//mcp', { method: 'POST' }), env as never)
+    expect(res.status).toBe(401)
+    expect(calls()).toBe(0)
+  })
+
+  it('POST /%2Fmcp (URI-encoded obfuscated path) with no Authorization -> 401, stub never called', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/%2Fmcp', { method: 'POST' }), env as never)
+    expect(res.status).toBe(401)
+    expect(calls()).toBe(0)
+  })
+
+  it('POST /mcp with a malformed URI (e.g. invalid %) falls back to raw path without crashing', async () => {
+    const { calls, env } = envWithDoSpy()
+    // A malformed path that decodeURIComponent would throw on, but isn't /mcp
+    // envWithDoSpy gives it an IMAGINE stub that returns 200, so it will pass through to the DO.
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/foo%2'), env as never)
+    expect(res.status).toBe(200) // Passes through safely
+    expect(calls()).toBe(1)
+  })
+
   it('POST /mcp with Authorization: Bearer anything -> stub called exactly once', async () => {
     const { calls, env } = envWithDoSpy()
     const res = await worker.fetch(
