@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.9.0 (2026-07-14)
+
+### Bug Fixes
+
+- **deps**: Lock file maintenance ([#451](https://github.com/n24q02m/imagine-mcp/pull/451),
+  [`f1a918f`](https://github.com/n24q02m/imagine-mcp/commit/f1a918f5b4f265bbd7c37bf8663218f99ec79ec1))
+
+### Features
+
+- Add smithery.yaml for stdio deployment ([#454](https://github.com/n24q02m/imagine-mcp/pull/454),
+  [`e30ea9b`](https://github.com/n24q02m/imagine-mcp/commit/e30ea9bdf7ed8187f5e2b727d50be11ab7d77d67))
+
+
 ## v1.9.0-beta.4 (2026-07-13)
 
 ### Bug Fixes
