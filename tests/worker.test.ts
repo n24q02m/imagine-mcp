@@ -240,3 +240,44 @@ describe('edge gate declines the standing GET /mcp SSE stream (405)', () => {
     expect(calls()).toBe(0)
   })
 })
+
+describe('edge auth gate path obfuscation (security)', () => {
+  function envWithDoSpy() {
+    let stubCalls = 0
+    return {
+      calls: () => stubCalls,
+      env: {
+        IMAGINE: {
+          idFromName: (n: string) => ({ name: n }),
+          get: (_id: unknown) => ({
+            fetch: async () => {
+              stubCalls++
+              return new Response('routed', { status: 200 })
+            },
+          }),
+        },
+      },
+    }
+  }
+
+  it('rejects unauthenticated requests to //mcp', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com//mcp', { method: 'POST' }), env as never)
+    expect(res.status).toBe(401)
+    expect(calls()).toBe(0)
+  })
+
+  it('rejects unauthenticated requests to /%2Fmcp', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/%2Fmcp', { method: 'POST' }), env as never)
+    expect(res.status).toBe(401)
+    expect(calls()).toBe(0)
+  })
+
+  it('handles malformed URI gracefully', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/%', { method: 'POST' }), env as never)
+    expect(res.status).toBe(200) // Passes through to DO path which returns 200 via spy
+    expect(calls()).toBe(1)
+  })
+})
