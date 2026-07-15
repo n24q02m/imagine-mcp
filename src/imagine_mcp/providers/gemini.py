@@ -107,8 +107,7 @@ async def understand_video(
             config=types.GenerateContentConfig(max_output_tokens=max_tokens),
         )
     finally:
-        if await asyncio.to_thread(tmp_path.exists):
-            await asyncio.to_thread(tmp_path.unlink)
+        await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
 
     return {
         "text": resp.text,
@@ -194,8 +193,7 @@ async def understand_multimodal(
         )
     finally:
         for f in tmp_files:
-            if await asyncio.to_thread(f.exists):
-                await asyncio.to_thread(f.unlink)
+            await asyncio.to_thread(f.unlink, missing_ok=True)
 
     return {
         "text": resp.text,
