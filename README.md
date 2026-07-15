@@ -47,7 +47,10 @@ mcp-name: io.github.n24q02m/imagine-mcp
 
 - [Features](#features)
 - [Install](#install)
+- [Smithery](#smithery)
 - [Configuration](#configuration)
+- [CLI](#cli)
+- [Hosted endpoint](#hosted-endpoint)
 - [Documentation](#documentation)
 - [Tools](#tools)
 - [Comparison](#comparison)
@@ -107,8 +110,17 @@ browser-based HTTP setup, see the [Setup docs](https://mcp.n24q02m.com/servers/i
 
 **Install with an AI agent** -- paste this to your AI coding agent:
 
-> Install MCP server `imagine-mcp` following the steps at  
+> Install MCP server `imagine-mcp` following the steps at
 > https://raw.githubusercontent.com/n24q02m/claude-plugins/main/plugins/imagine-mcp/setup-with-agent.md
+
+## Smithery
+
+imagine-mcp ships a [`smithery.yaml`](smithery.yaml) so it can be installed and
+run through [Smithery](https://smithery.ai). The entry launches the published
+PyPI package over stdio (`uvx --python 3.13 imagine-mcp`) with an empty config
+schema -- no setup fields are required at deploy time. Provider keys are supplied
+at runtime through the server's own credential flow (env vars in stdio mode, or
+the browser setup form in HTTP mode; see [Configuration](#configuration)).
 
 ## Configuration
 
@@ -170,6 +182,35 @@ native provider SDKs (Gemini, OpenAI, Grok). Example:
 
 `config(action="set", key=..., value=...)` adjusts `log_level`, `default_provider`,
 `default_tier`, and `cache_ttl_seconds` at runtime.
+
+## CLI
+
+The `imagine-mcp` console command installed by the package takes **no
+subcommands** -- it starts the MCP server directly. Transport is selected by a
+single flag or its environment-variable equivalents:
+
+```bash
+imagine-mcp            # stdio transport (default); reads provider keys from env vars
+imagine-mcp --http     # HTTP daemon; credentials via the browser setup form
+```
+
+| Invocation | Equivalent env | Result |
+|---|---|---|
+| `imagine-mcp` | `MCP_TRANSPORT` unset | stdio, single-user, env-var credentials |
+| `imagine-mcp --http` | `MCP_TRANSPORT=http` (or `TRANSPORT_MODE=http`) | HTTP daemon -- local `127.0.0.1` self-host, or multi-user remote when `PUBLIC_URL` + `MCP_DCR_SERVER_SECRET` are set |
+
+In stdio mode the server exits if none of the provider keys are set. The remote
+HTTP bind knobs (`MCP_HOST`, `MCP_PORT`) apply only when `PUBLIC_URL` is set; see
+[Configuration](#configuration).
+
+## Hosted endpoint
+
+A maintainer-run instance is live at **`https://imagine.n24q02m.com/mcp`** for
+clients that support remote HTTP MCP servers. It is OAuth-gated -- an
+unauthenticated request returns `401` with a `WWW-Authenticate: Bearer` challenge
+-- and credentials are provisioned through the browser setup form. Point an
+HTTP-capable MCP client at that URL and complete the OAuth flow to connect.
+Prefer to run your own? See [Deploy to Cloudflare](#deploy-to-cloudflare).
 
 ## Documentation
 
