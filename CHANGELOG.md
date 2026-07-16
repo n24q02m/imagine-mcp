@@ -2,6 +2,32 @@
 
 <!-- version list -->
 
+## v1.10.0-beta.1 (2026-07-16)
+
+### Bug Fixes
+
+- Bump mcp-core floor to 1.19.0 stable ([#465](https://github.com/n24q02m/imagine-mcp/pull/465),
+  [`afb441e`](https://github.com/n24q02m/imagine-mcp/commit/afb441e32542aaf2251fc8af57ea5ca26e7160df))
+
+- Drop hardcoded model catalog, pass model choice through litellm
+  ([#464](https://github.com/n24q02m/imagine-mcp/pull/464),
+  [`9302df9`](https://github.com/n24q02m/imagine-mcp/commit/9302df9797c3d2566d72e3698041fef68221098d))
+
+- Forward CF AI Gateway litellm envs into container
+  ([#467](https://github.com/n24q02m/imagine-mcp/pull/467),
+  [`30d4707`](https://github.com/n24q02m/imagine-mcp/commit/30d4707e8e6c2d7cbd921c8e6903274954c4325b))
+
+### Features
+
+- Document CLI, smithery, and self-host endpoint in README
+  ([#460](https://github.com/n24q02m/imagine-mcp/pull/460),
+  [`39c6f31`](https://github.com/n24q02m/imagine-mcp/commit/39c6f31a17ffff8f1ac8fe53df5c47f77751dea7))
+
+- Wrap external media understanding output in XPIA envelope
+  ([#466](https://github.com/n24q02m/imagine-mcp/pull/466),
+  [`8475128`](https://github.com/n24q02m/imagine-mcp/commit/8475128620262f5fb4d149e088627d3b4f3cf32b))
+
+
 ## v1.9.0 (2026-07-14)
 
 ### Bug Fixes
