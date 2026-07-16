@@ -13,10 +13,10 @@ from imagine_mcp.errors import (
     InvalidMediaTypeError,
     InvalidProviderError,
     InvalidTierError,
+    ModelNotConfiguredError,
     ProviderUnsupportedError,
 )
 from imagine_mcp.media import detect_media_type_async, validate_url_and_get_ip
-from imagine_mcp.models import UNSUPPORTED, get_model_id
 
 VALID_PROVIDERS = ["gemini", "openai", "grok"]
 VALID_TIERS = ["poor", "rich"]
@@ -157,9 +157,10 @@ def resolve_understand_chain() -> list[str]:
     accessor -- never from ``os.environ`` (that would leak one sub's chain to a
     concurrent request of another). Single-user / stdio reads ``os.getenv``.
 
-    Empty / unset -> empty list, which preserves the provider/tier catalog
-    default. The first entry is the primary model; the rest are litellm
-    fallbacks.
+    Empty / unset -> empty list. There is no provider/tier catalog default
+    (#461): with an empty chain and no explicit ``model``, ``dispatch_understand``
+    raises ``ModelNotConfiguredError`` rather than guessing. The first entry
+    is the primary model; the rest are litellm fallbacks.
     """
     from imagine_mcp.credential_state import config_value_for_current_request
 
@@ -171,8 +172,8 @@ def resolve_generate_chain() -> list[str]:
 
     Sub-aware (same isolation contract as ``resolve_understand_chain``). When
     set, the first entry's ``provider/`` prefix selects the native generation
-    provider and its model segment OVERRIDES the catalog ``model_id``. Empty /
-    unset -> empty list (catalog default preserved).
+    provider and its model segment OVERRIDES the provider's built-in default
+    model_id. Empty / unset -> empty list (provider default preserved).
     """
     from imagine_mcp.credential_state import config_value_for_current_request
 
@@ -295,24 +296,19 @@ async def dispatch_understand(
     max_tokens: int = 2048,
     model: str | None = None,
 ) -> dict[str, Any]:
-    """Dispatch understand call to provider (fully async).
+    """Dispatch understand call to litellm (fully async).
 
-    When ``model`` is set, the provider/tier catalog is bypassed and the call
-    is routed straight to litellm via ``mcp_core.llm`` (open passthrough).
+    There is no provider/tier catalog default (#461): the caller must supply
+    either an explicit ``model`` (litellm ``provider/model``) or set the
+    ``UNDERSTAND_MODELS`` env chain -- ``ModelNotConfiguredError`` is raised
+    otherwise, instead of silently substituting a hardcoded leaderboard
+    model_id. ``provider``/``tier`` no longer select a model; ``provider``
+    (when given) is still enum-validated and used to reject video content on
+    a provider that structurally cannot handle it (only Gemini supports
+    video understanding, native multimodal).
     """
-    if model is not None:
-        return await _passthrough_understand(media_urls, prompt, model, max_tokens)
-
-    if model is None and provider is None:
-        chain = resolve_understand_chain()
-        if chain:
-            return await _passthrough_understand(
-                media_urls, prompt, chain[0], max_tokens, fallbacks=chain[1:]
-            )
-
-    if provider is None:
-        provider = _default_provider()
-    _validate(provider, tier)
+    if provider is not None:
+        _validate(provider, tier)
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
 
@@ -334,24 +330,48 @@ async def dispatch_understand(
         media_types.append(res)
     has_video = "video" in media_types
 
-    if has_video:
-        video_model = get_model_id(provider, "understand", "video", tier)
-        if video_model is UNSUPPORTED:
-            raise _unsupported(provider, "video", "understand")
+    # Hard capability limit, independent of model configuration: only Gemini
+    # supports video understanding. Checked against an explicit provider hint
+    # before model resolution so the error names the capability gap, not a
+    # missing-model config issue.
+    if has_video and provider is not None and provider != "gemini":
+        raise _unsupported(provider, "video", "understand")
 
-    mod = _load_provider(provider)
+    resolved_model = model
+    fallbacks: list[str] | None = None
+    if resolved_model is None:
+        chain = resolve_understand_chain()
+        if chain:
+            resolved_model, fallbacks = chain[0], (chain[1:] or None)
 
-    # Gemini native multimodal can accept many URLs in one call
-    if provider == "gemini" and len(media_urls) > 1:
-        return await mod.understand_multimodal(
-            media_urls, prompt, tier, max_tokens, media_types=media_types
+    if resolved_model is None:
+        # Resolve provider only to name it in the error / raise the more
+        # specific CredentialMissingError first when no key exists at all.
+        effective_provider = provider or _default_provider()
+        if has_video and effective_provider != "gemini":
+            raise _unsupported(effective_provider, "video", "understand")
+        raise ModelNotConfiguredError(
+            "understand has no provider/tier catalog default (removed, #461; "
+            f"provider={effective_provider!r}); pass model='provider/model' "
+            "explicitly or set the UNDERSTAND_MODELS env chain."
         )
 
-    url = media_urls[0]
-    primary = media_types[0]
-    if primary == "image":
-        return await mod.understand_image(url, prompt, tier, max_tokens)
-    return await mod.understand_video(url, prompt, tier, max_tokens)
+    if has_video:
+        model_provider, sep, raw_model = resolved_model.partition("/")
+        if not sep or model_provider.lower() not in ("gemini", "google"):
+            raise _unsupported(
+                model_provider.lower() or "unknown", "video", "understand"
+            )
+        mod = _load_provider("gemini")
+        if len(media_urls) > 1 or "image" in media_types:
+            return await mod.understand_multimodal(
+                media_urls, prompt, raw_model, max_tokens, media_types=media_types
+            )
+        return await mod.understand_video(media_urls[0], prompt, raw_model, max_tokens)
+
+    return await _passthrough_understand(
+        media_urls, prompt, resolved_model, max_tokens, fallbacks=fallbacks
+    )
 
 
 # litellm provider prefix -> native generation provider. Generation stays
@@ -403,14 +423,15 @@ async def dispatch_generate(
     Provider + model resolution precedence (highest first):
 
     1. Explicit ``model`` ('provider/model'): prefix selects the native
-       generation provider and its model segment overrides the catalog
-       ``model_id``; generation itself is never routed through litellm.
-    2. Explicit ``provider``: catalog path (catalog picks the model by tier).
+       generation provider and its model segment overrides the provider's
+       built-in default; generation itself is never routed through litellm.
+    2. Explicit ``provider``: the provider module supplies its own minimal
+       default model_id per tier (no leaderboard ranking; #461).
     3. ``GENERATE_MODELS`` chain (sub-aware): the first entry's prefix selects
-       the provider and its model segment overrides the catalog ``model_id``.
+       the provider and its model segment overrides the provider's default.
     4. Auto-fallback: ``resolve_generate_provider_priority()`` (sub-aware,
        defaults to the native priority) picks the first provider with a key;
-       the catalog supplies the model.
+       the provider module supplies its default model_id.
 
     ``output_mode`` controls how generated media is returned:
     ``"base64"`` (no disk write -- required on ephemeral CF FS),
@@ -440,12 +461,9 @@ async def dispatch_generate(
     if reference_image_url is not None:
         await _validate_url(reference_image_url, "reference_image_url")
 
-    # When an explicit model override is supplied, the catalog lookup is only a
-    # support guard (an UNSUPPORTED combo still cannot be served natively).
-    catalog_model = get_model_id(provider, "generate", media_type, tier)
-    if catalog_model is UNSUPPORTED:
-        raise _unsupported(provider, media_type, "generate")
-
+    # Unsupported (provider, media) combos self-guard inside the provider
+    # module (e.g. openai.generate_video raises unconditionally -- Sora 2 API
+    # shutdown); there is no separate catalog-driven support check (#461).
     mod = _load_provider(provider)
     if media_type == "image":
         return await mod.generate_image(

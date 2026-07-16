@@ -73,9 +73,12 @@ status = generate(
 
 Sync timeout: 300 seconds. On timeout, resume by calling `generate(media_type="video", job_id=...)`.
 
-## Model IDs per tier
+## Model selection
 
-See `docs/models.md` or `config(action="status")`.
+Generation is native (not litellm-routed). Each provider supplies its own
+built-in default model per tier unless overridden via `model="provider/model"`
+or the `GENERATE_MODELS` env chain. See `config(action="status")` for the
+currently configured chain.
 
 ## Errors
 

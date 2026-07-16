@@ -92,18 +92,6 @@ repos:
         exclude_types: [image]
 
   # ============================================================================
-  # Repo-specific: keep docs/models.md in sync with models.py
-  # ============================================================================
-  - repo: local
-    hooks:
-      - id: models-table-drift
-        name: docs/models.md drift check
-        entry: uv run python scripts/gen_models_table.py --check
-        language: system
-        files: ^(src/imagine_mcp/models\.py|docs/models\.md|scripts/gen_models_table\.py)$
-        pass_filenames: false
-
-  # ============================================================================
   # Commit Message Enforcement
   # ============================================================================
   - repo: local

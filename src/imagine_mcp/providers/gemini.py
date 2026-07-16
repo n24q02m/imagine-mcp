@@ -10,8 +10,17 @@ from typing import Any
 import platformdirs
 
 from imagine_mcp.errors import ProviderAPIError
-from imagine_mcp.models import get_model_id
 from imagine_mcp.providers.base import ClientManager
+
+# Minimal per-tier default (no leaderboard ranking; #461). Used only when the
+# caller supplies neither an explicit `model` override nor a matching
+# GENERATE_MODELS chain entry.
+_GENERATE_DEFAULT_MODEL: dict[tuple[str, str], str] = {
+    ("image", "poor"): "gemini-3.1-flash-image-preview",
+    ("image", "rich"): "gemini-3-pro-image-preview",
+    ("video", "poor"): "veo-3.1-lite-generate-preview",
+    ("video", "rich"): "veo-3.1-generate-preview",
+}
 
 
 def _client_factory(api_key: str) -> Any:
@@ -37,61 +46,20 @@ def _reset_client() -> None:
     _manager.reset()
 
 
-async def understand_image(
-    url: str, prompt: str, tier: str, max_tokens: int = 2048
-) -> dict[str, Any]:
-    # litellm passthrough; live-verify deferred (gemini billing 2026-06-11)
-    import base64 as _base64
-
-    from mcp_core.llm import acompletion
-
-    from imagine_mcp.media import get_ssrf_safe_async_client, resolve_image_mime
-
-    model = get_model_id("gemini", "understand", "image", tier)
-
-    # Download image securely to prevent backend SSRF
-    img_resp = await get_ssrf_safe_async_client().get(
-        url, follow_redirects=True, timeout=60
-    )
-    img_data = img_resp.content
-    mime_type = resolve_image_mime(img_resp.headers.get("content-type"), img_data)
-    data_url = f"data:{mime_type};base64,{_base64.b64encode(img_data).decode()}"
-
-    # Normalise empty string to None: a non-None api_key suppresses litellm's
-    # provider env-var fallback (would 401 on "").
-    resolved_api_key = _manager.get_api_key() or None
-
-    resp = await acompletion(
-        model=f"gemini/{model}",
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": data_url}},
-                ],
-            }
-        ],
-        max_tokens=max_tokens,
-        api_key=resolved_api_key,
-    )
-    return {
-        "text": resp.choices[0].message.content,
-        "model": model,
-        "provider": "gemini",
-        "tier": tier,
-    }
-
-
 async def understand_video(
-    url: str, prompt: str, tier: str, max_tokens: int = 2048
+    url: str, prompt: str, model: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
+    """Gemini native video understanding (file upload; not litellm-routed).
+
+    ``model`` is the raw Gemini model id (no ``gemini/`` prefix), resolved by
+    the dispatcher from an explicit ``model=`` or the ``UNDERSTAND_MODELS``
+    chain -- there is no provider/tier catalog default (#461).
+    """
     from google.genai import types
 
     from imagine_mcp.media import download_to_path_async
 
     client = _client()
-    model = get_model_id("gemini", "understand", "video", tier)
 
     # Download video securely and upload to Gemini
     tmp_dir = Path(platformdirs.user_cache_dir("imagine-mcp")) / "tmp"
@@ -114,18 +82,21 @@ async def understand_video(
         "text": resp.text,
         "model": model,
         "provider": "gemini",
-        "tier": tier,
     }
 
 
 async def understand_multimodal(
     urls: list[str],
     prompt: str,
-    tier: str,
+    model: str,
     max_tokens: int = 2048,
     media_types: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Gemini native multimodal: mixed image+video URLs in a single call."""
+    """Gemini native multimodal: mixed image+video URLs in a single call.
+
+    ``model`` is the raw Gemini model id (no ``gemini/`` prefix); see
+    ``understand_video`` for the resolution contract (#461).
+    """
     from google.genai import types
 
     from imagine_mcp.media import (
@@ -136,7 +107,6 @@ async def understand_multimodal(
     )
 
     client = _client()
-    model = get_model_id("gemini", "understand", "image", tier)
     parts: list[Any] = [prompt]
     tmp_files: list[Path] = []
 
@@ -201,7 +171,6 @@ async def understand_multimodal(
         "text": resp.text,
         "model": model,
         "provider": "gemini",
-        "tier": tier,
         "multimodal": True,
     }
 
@@ -221,8 +190,8 @@ async def generate_image(
 
     client = _client()
     # ``model_id`` (from a GENERATE_MODELS chain or explicit override) wins over
-    # the provider/tier catalog default.
-    model = model_id or get_model_id("gemini", "generate", "image", tier)
+    # the provider's minimal per-tier default.
+    model = model_id or _GENERATE_DEFAULT_MODEL[("image", tier)]
     contents: list[Any] = [prompt]
 
     if reference_image_url:
@@ -271,8 +240,8 @@ async def generate_video(
     from google.genai import types
 
     # ``model_id`` (from a GENERATE_MODELS chain or explicit override) wins over
-    # the provider/tier catalog default.
-    model = model_id or get_model_id("gemini", "generate", "video", tier)
+    # the provider's minimal per-tier default.
+    model = model_id or _GENERATE_DEFAULT_MODEL[("video", tier)]
     client = _client()
 
     if job_id is None:

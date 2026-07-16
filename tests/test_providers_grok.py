@@ -30,39 +30,6 @@ async def test_understand_video_raises() -> None:
 
 
 @pytest.mark.asyncio
-async def test_understand_image_mocked(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # understand_image uses mcp_core.llm.acompletion
-    mock_resp = MagicMock()
-    mock_resp.choices = [MagicMock()]
-    mock_resp.choices[0].message.content = "a parrot"
-
-    mock_client = AsyncMock()
-    mock_client.get.return_value = MagicMock(
-        content=b"fake-bytes", headers={"content-type": "image/png"}
-    )
-    monkeypatch.setattr(
-        "imagine_mcp.providers.grok.get_ssrf_safe_async_client", lambda: mock_client
-    )
-
-    captured: dict[str, object] = {}
-
-    async def fake_acompletion(**kwargs: object) -> object:
-        captured.update(kwargs)
-        return mock_resp
-
-    monkeypatch.setenv("XAI_API_KEY", "xai-test")
-    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
-
-    result = await provider.understand_image(
-        url="https://example.com/parrot.png", prompt="describe", tier="rich"
-    )
-    assert result["text"] == "a parrot"
-    assert captured["api_key"] == "xai-test"
-
-
-@pytest.mark.asyncio
 async def test_generate_image_b64(
     mock_media: AsyncMock, monkeypatch: pytest.MonkeyPatch
 ) -> None:

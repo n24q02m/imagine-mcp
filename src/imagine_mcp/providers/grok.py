@@ -1,7 +1,7 @@
-"""Grok (xAI) provider -- 3 LIVE + 1 ERROR.
+"""Grok (xAI) provider -- 2 LIVE + 1 ERROR.
 
-Uses litellm passthrough (mcp_core.llm) for chat completions (understand).
-Dedicated endpoints for images and videos via httpx.
+Image/video generation via dedicated httpx endpoints. Image understanding is
+handled by ``dispatcher._passthrough_understand`` (litellm), not natively here.
 """
 
 from __future__ import annotations
@@ -15,10 +15,19 @@ from imagine_mcp.errors import (
     ProviderUnsupportedError,
 )
 from imagine_mcp.media import get_ssrf_safe_async_client
-from imagine_mcp.models import get_model_id
 from imagine_mcp.providers.base import ClientManager
 
 _BASE_URL = "https://api.x.ai/v1"
+
+# Minimal per-tier default (no leaderboard ranking; #461). Used only when the
+# caller supplies neither an explicit `model` override nor a matching
+# GENERATE_MODELS chain entry. Video is single-tier (same model for poor/rich).
+_GENERATE_DEFAULT_MODEL: dict[tuple[str, str], str] = {
+    ("image", "poor"): "grok-imagine-image",
+    ("image", "rich"): "grok-imagine-image-pro",
+    ("video", "poor"): "grok-imagine-video",
+    ("video", "rich"): "grok-imagine-video",
+}
 
 _manager = ClientManager(
     provider_name="xAI (Grok)",
@@ -30,48 +39,6 @@ _manager = ClientManager(
 def _api_key() -> str:
     """Return XAI_API_KEY for the current request scope."""
     return _manager.get_api_key()
-
-
-async def understand_image(
-    url: str, prompt: str, tier: str, max_tokens: int = 2048
-) -> dict[str, Any]:
-    # litellm passthrough via mcp_core.llm; live-verified 2026-06-11 (xAI vision).
-    from mcp_core.llm import acompletion
-
-    model = get_model_id("grok", "understand", "image", tier)
-
-    # Download image securely and pass as base64 data URL to prevent backend SSRF
-    resp_img = await get_ssrf_safe_async_client().get(
-        url, follow_redirects=True, timeout=60
-    )
-    img_b64 = base64.b64encode(resp_img.content).decode()
-    mime_type = resp_img.headers.get("content-type", "image/png")
-    data_url = f"data:{mime_type};base64,{img_b64}"
-
-    # Normalise empty string to None: a non-None api_key suppresses litellm's
-    # provider env-var fallback (would 401 on "").
-    resolved_api_key = _api_key() or None
-
-    resp = await acompletion(
-        model=f"xai/{model}",
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": data_url}},
-                ],
-            }
-        ],
-        max_tokens=max_tokens,
-        api_key=resolved_api_key,
-    )
-    return {
-        "text": resp.choices[0].message.content,
-        "model": model,
-        "provider": "grok",
-        "tier": tier,
-    }
 
 
 async def understand_video(
@@ -93,8 +60,8 @@ async def generate_image(
 ) -> dict[str, Any]:
     # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     # ``model_id`` (from a GENERATE_MODELS chain or explicit override) wins over
-    # the provider/tier catalog default.
-    model = model_id or get_model_id("grok", "generate", "image", tier)
+    # the provider's minimal per-tier default.
+    model = model_id or _GENERATE_DEFAULT_MODEL[("image", tier)]
     headers = {"Authorization": f"Bearer {_api_key()}"}
     payload: dict[str, Any] = {"model": model, "prompt": prompt, "n": 1}
 
@@ -158,8 +125,8 @@ async def generate_video(
 ) -> dict[str, Any]:
     # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     # ``model_id`` (from a GENERATE_MODELS chain or explicit override) wins over
-    # the provider/tier catalog default.
-    model = model_id or get_model_id("grok", "generate", "video", tier)
+    # the provider's minimal per-tier default.
+    model = model_id or _GENERATE_DEFAULT_MODEL[("video", tier)]
     headers = {"Authorization": f"Bearer {_api_key()}"}
 
     if job_id is None:

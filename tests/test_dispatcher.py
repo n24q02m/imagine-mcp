@@ -17,6 +17,7 @@ from imagine_mcp.errors import (
     InvalidProviderError,
     InvalidTierError,
     InvalidURLError,
+    ModelNotConfiguredError,
     ProviderUnsupportedError,
 )
 
@@ -29,28 +30,26 @@ def clean_provider_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_understand_routes_to_gemini_image(
-    monkeypatch: pytest.MonkeyPatch,
+async def test_understand_no_model_no_chain_raises(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    # Stub provider
-    async def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
-        return {"text": "a cat", "model": "gemini-x", "provider": "gemini"}
+    """#461: no explicit model + no UNDERSTAND_MODELS chain -> fail loud.
 
-    import imagine_mcp.providers.gemini as gemini_mod
+    Previously this silently fell back to a hardcoded leaderboard model_id
+    (catalog default) for the given provider/tier. The catalog is gone: an
+    arbitrary/custom model must be passed straight to litellm via `model=`
+    or `UNDERSTAND_MODELS`, never silently substituted.
+    """
+    monkeypatch.delenv("UNDERSTAND_MODELS", raising=False)
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
 
-    monkeypatch.setattr(gemini_mod, "understand_image", mock_fn, raising=False)
-    monkeypatch.setattr(
-        "imagine_mcp.dispatcher.detect_media_type_async",
-        AsyncMock(return_value="image"),
-    )
-
-    result = await dispatch_understand(
-        media_urls=["https://example.com/cat.png"],
-        prompt="describe",
-        provider="gemini",
-        tier="poor",
-    )
-    assert result["text"] == "a cat"
+    with pytest.raises(ModelNotConfiguredError, match="UNDERSTAND_MODELS"):
+        await dispatch_understand(
+            media_urls=["https://example.com/cat.png"],
+            prompt="describe",
+            provider="gemini",
+            tier="poor",
+        )
 
 
 @pytest.mark.asyncio
@@ -237,34 +236,25 @@ def test_default_provider_raises_when_none_set(clean_provider_env: None) -> None
 
 
 @pytest.mark.asyncio
-async def test_dispatch_understand_resolves_default_provider(
+async def test_dispatch_understand_no_model_names_default_provider_in_error(
     clean_provider_env: None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """No model/chain + no explicit provider -> error names the auto-resolved
+    provider (the auto-fallback still runs; it just no longer picks a model)."""
     monkeypatch.setenv("XAI_API_KEY", "xai-test")
-
-    captured: dict[str, str] = {}
-
-    async def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
-        captured["called"] = "grok"
-        return {"text": "ok", "model": "grok-x", "provider": "grok"}
-
-    import imagine_mcp.providers.grok as grok_mod
-
-    monkeypatch.setattr(grok_mod, "understand_image", mock_fn, raising=False)
     monkeypatch.setattr(
         "imagine_mcp.dispatcher.detect_media_type_async",
         AsyncMock(return_value="image"),
     )
 
-    result = await dispatch_understand(
-        media_urls=["https://example.com/cat.png"],
-        prompt="describe",
-        provider=None,
-        tier="poor",
-    )
-    assert captured["called"] == "grok"
-    assert result["provider"] == "grok"
+    with pytest.raises(ModelNotConfiguredError, match="provider='grok'"):
+        await dispatch_understand(
+            media_urls=["https://example.com/cat.png"],
+            prompt="describe",
+            provider=None,
+            tier="poor",
+        )
 
 
 @pytest.mark.asyncio
@@ -617,21 +607,39 @@ async def test_dispatch_understand_single_chain_no_fallbacks(
 
 
 @pytest.mark.asyncio
-async def test_dispatch_understand_explicit_provider_ignores_chain(
+async def test_dispatch_understand_explicit_provider_does_not_override_chain(
     clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An explicit provider preserves the catalog path even with a chain set."""
+    """#461: there is no per-provider catalog path to fall back to any more, so an
+    explicit ``provider`` (used only for validation / video-capability gating) does
+    NOT override the ``UNDERSTAND_MODELS`` chain -- the chain is still the only
+    source of the model, exactly as when ``provider`` is omitted."""
+    from unittest.mock import MagicMock
+
     monkeypatch.setenv("UNDERSTAND_MODELS", "xai/grok-4.20-0309-non-reasoning")
 
-    async def mock_fn(url: str, prompt: str, tier: str, max_tokens: int = 2048) -> dict:
-        return {"text": "a cat", "model": "gemini-x", "provider": "gemini"}
+    msg = MagicMock()
+    msg.content = "a cat"
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
 
-    import imagine_mcp.providers.gemini as gemini_mod
+    async def fake_acompletion(**kwargs: object) -> object:
+        return resp
 
-    monkeypatch.setattr(gemini_mod, "understand_image", mock_fn, raising=False)
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
     monkeypatch.setattr(
         "imagine_mcp.dispatcher.detect_media_type_async",
         AsyncMock(return_value="image"),
+    )
+    mock_resp = MagicMock()
+    mock_resp.content = b"x"
+    mock_resp.headers = {"content-type": "image/png"}
+    mock_client = AsyncMock()
+    mock_client.get.return_value = mock_resp
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
     )
 
     result = await dispatch_understand(
@@ -640,8 +648,10 @@ async def test_dispatch_understand_explicit_provider_ignores_chain(
         provider="gemini",
         tier="poor",
     )
-    # Catalog path, NOT passthrough chain.
-    assert result["provider"] == "gemini"
+    # Chain passthrough, not a gemini-specific route -- ``provider`` did not
+    # steer model resolution.
+    assert result["provider"] == "passthrough"
+    assert result["model"] == "xai/grok-4.20-0309-non-reasoning"
 
 
 @pytest.mark.asyncio

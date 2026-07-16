@@ -7,12 +7,13 @@ from typing import Any, Protocol
 
 
 class ImagineProvider(Protocol):
-    async def understand_image(
-        self, url: str, prompt: str, tier: str, max_tokens: int = 2048
-    ) -> dict[str, Any]: ...
+    """Gemini-only native methods (video/multimodal understand); generation
+    is implemented by all three providers. Image understanding is uniformly
+    handled by ``dispatcher._passthrough_understand`` (litellm) -- there is
+    no per-provider ``understand_image`` (#461)."""
 
     async def understand_video(
-        self, url: str, prompt: str, tier: str, max_tokens: int = 2048
+        self, url: str, prompt: str, model: str, max_tokens: int = 2048
     ) -> dict[str, Any]: ...
 
     async def generate_image(
