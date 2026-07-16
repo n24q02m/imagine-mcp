@@ -48,6 +48,9 @@ const CONTAINER_ENV_KEYS = [
   'PUBLIC_URL', 'CREDENTIAL_SECRET', 'MCP_DCR_SERVER_SECRET',
   'MCP_RELAY_PASSWORD',
   'GEMINI_API_KEY', 'OPENAI_API_KEY', 'XAI_API_KEY', 'UNDERSTAND_MODELS',
+  // CF AI Gateway (llm-main) litellm routing + generate defaults
+  'OPENROUTER_API_BASE', 'OPENROUTER_API_KEY', 'JINA_AI_API_BASE', 'JINA_AI_API_KEY',
+  'GENERATE_MODELS',
 ] as const
 
 function pickContainerEnv(env: Env): Record<string, string> {
