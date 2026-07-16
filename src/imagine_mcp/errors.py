@@ -43,6 +43,14 @@ class ProviderUnsupportedError(ProviderError):
     """Provider does not support this (action, media, tier) combo."""
 
 
+class ModelNotConfiguredError(ValidationError):
+    """No model could be resolved: no explicit ``model`` and no env chain.
+
+    Raised instead of silently picking a hardcoded default (#461 -- the
+    provider/tier leaderboard catalog was removed).
+    """
+
+
 class CredentialMissingError(ProviderError):
     """API key for the requested provider is not available."""
 

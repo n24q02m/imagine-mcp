@@ -73,7 +73,7 @@ mcp-name: io.github.n24q02m/imagine-mcp
 - **Image generation** -- Text-to-image and image-to-image (edit / inpaint) across Gemini Imagen, OpenAI gpt-image, Grok Imagine
 - **Video generation** -- Text-to-video and image-to-video (Gemini Veo 3.1, Grok Imagine Video)
 - **3 providers x 2 tiers** -- Same interface for `gemini` / `openai` / `grok` at `poor` (cheap/fast) or `rich` (high quality); swap via parameter
-- **Leaderboard-ranked models** -- Provider ordering auto-refreshed weekly from Artificial Analysis + LMArena leaderboards
+- **Open model passthrough** -- Understanding routes through litellm; pass any `provider/model`, or configure an ordered model chain (no hardcoded catalog)
 - **Degraded mode** -- Server starts with zero credentials and surfaces remaining providers as you add keys
 - **Response cache** -- Disk-based caching of `understand` responses with configurable TTL
 - **Dual transport** -- pure stdio with provider env vars (default) or HTTP multi-user with paste-token relay form
@@ -149,13 +149,14 @@ order `XAI_API_KEY` -> `OPENAI_API_KEY` -> `GEMINI_API_KEY`.
 
 ### Model chains (optional)
 
-Override the built-in provider/tier catalog with explicit model chains. Each is a CSV of
-litellm `provider/model` entries; the order is the fallback order.
+Model choice passes straight through to litellm (`understand`) or the native
+provider SDK (`generate`) -- there is no hardcoded model catalog. Each chain is a
+CSV of litellm `provider/model` entries; the order is the fallback order.
 
 | Env var | Purpose |
 |---|---|
-| `UNDERSTAND_MODELS` | Ordered model chain for `understand` (litellm fallback). Empty -> catalog default. |
-| `GENERATE_MODELS` | Ordered model chain for `generate`. The first entry selects the native provider + model. Empty -> catalog default. |
+| `UNDERSTAND_MODELS` | Ordered model chain for `understand` (litellm fallback). Empty and no explicit `model` -> `understand` fails loud (no built-in default). |
+| `GENERATE_MODELS` | Ordered model chain for `generate`. The first entry selects the native provider + model. Empty -> the provider's own minimal built-in default. |
 | `GENERATE_PROVIDER_PRIORITY` | CSV of provider names reordering generation auto-fallback. Defaults to `grok,openai,gemini`. |
 
 Understanding is routed through litellm (`provider/model` passthrough), so any litellm
@@ -169,7 +170,7 @@ native provider SDKs (Gemini, OpenAI, Grok). Example:
       "command": "uvx",
       "args": ["imagine-mcp"],
       "env": {
-        "UNDERSTAND_MODELS": "gemini/gemini-3.1-pro-preview,openai/gpt-5.4",
+        "UNDERSTAND_MODELS": "gemini/<model-id>,openai/<model-id>",
         "GEMINI_API_KEY": "AIza...",
         "OPENAI_API_KEY": "sk-..."
       }
@@ -230,7 +231,8 @@ Full docs at **[mcp.n24q02m.com/servers/imagine-mcp/setup/](https://mcp.n24q02m.
 | `help` | -- | Full Markdown documentation for `understand`, `generate`, or `config` topics. |
 | `config__open_relay` | -- | Framework-injected helper (mcp-core) equivalent to `config(action="open_relay")`; opens the browser credential form. |
 
-Model IDs per provider x action x tier are leaderboard-ranked; see [`docs/models.md`](docs/models.md) (auto-regenerated from `src/imagine_mcp/models.py`).
+Model choice is caller-driven (litellm `provider/model` passthrough or a `*_MODELS`
+env chain) -- see [Model chains](#configuration) above.
 
 ## Comparison
 

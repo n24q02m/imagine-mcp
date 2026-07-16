@@ -108,16 +108,6 @@ uv run pytest -m security     # SSRF / path-traversal / injection boundary tests
 
 Coverage target: 94% for v1.1 (fixtures covering real provider responses). v1.0 baseline is 48%; gate currently set to `fail_under = 45` in `pyproject.toml`.
 
-## Refreshing model ranks
-
-Model ordering in `docs/models.md` is derived from Artificial Analysis + LMArena leaderboards. To update manually:
-
-```bash
-mise run refresh-ranks
-```
-
-The `.github/workflows/refresh-ranks.yml` cron runs the same command weekly (Monday 00:00 UTC) and opens a PR when ranks change. When adding a new model alias (display name -> canonical model ID), update `scripts/fetch_leaderboards.py::MODEL_ALIASES`.
-
 ## Project structure
 
 ```text
@@ -128,16 +118,13 @@ imagine-mcp/
 |   |- server.py           # FastMCP server, 4 tools (N+2 layout)
 |   |- dispatcher.py       # Validates inputs, routes to provider
 |   |- providers/          # gemini / openai / grok adapters
-|   |- models.py           # ModelEntry + rank metadata
 |   |- config.py           # Pydantic Settings
 |   |- relay_schema.py     # Relay form fields
 |   |- relay_setup.py      # ensure_config via mcp-core
 |   |- cache.py            # diskcache wrapper
 |   |- media.py            # URL -> image|video detection + download
 |   `- docs/               # Tool documentation (Markdown)
-|- scripts/
-|   |- fetch_leaderboards.py   # AA + LMArena scraper
-|   `- gen_models_table.py     # Render docs/models.md from models.py
+|- scripts/                # CF deploy + dev tooling
 |- tests/
 |- pyproject.toml
 |- server.json             # MCP Registry manifest

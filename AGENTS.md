@@ -31,34 +31,20 @@ config(action: str, key: str | None = None, value: str | None = None) -> dict
 help(topic: str = "understand") -> str
 ```
 
-`model` (optional, litellm `provider/model` format) overrides the provider/tier
-catalog — bypasses `VALID_PROVIDERS` + the model-ID table for open passthrough.
-Any litellm `provider/model` works via passthrough even if not in the model-ID table.
+`model` (litellm `provider/model` format) selects the model directly for open
+passthrough -- there is no hardcoded model catalog (#461). For `understand` it
+is required unless the `UNDERSTAND_MODELS` env chain is set (no built-in
+default). For `generate` it overrides the `GENERATE_MODELS` chain and the
+provider's own minimal built-in default.
 
-## Model IDs (verified 2026-04-18; rank from Artificial Analysis + LMArena, refreshed weekly)
+## Model selection
 
-For the authoritative leaderboard-sorted table see [`docs/models.md`](docs/models.md) (auto-generated).
-
-| Provider | Action | Media | Tier | Model ID |
-|----------|--------|:-----:|:----:|----------|
-| gemini | understand | image/video | poor | `gemini-3.1-flash-lite-preview` |
-| gemini | understand | image/video | rich | `gemini-3.1-pro-preview` |
-| gemini | generate | image | poor | `gemini-3.1-flash-image-preview` (Nano Banana 2) |
-| gemini | generate | image | rich | `gemini-3-pro-image-preview` (Nano Banana Pro; cross-gen) |
-| gemini | generate | video | poor | `veo-3.1-lite-generate-preview` |
-| gemini | generate | video | rich | `veo-3.1-generate-preview` |
-| openai | understand | image | poor | `gpt-5.4-mini` |
-| openai | understand | image | rich | `gpt-5.4` |
-| openai | understand | video | — | Not supported (extract frames or use gemini) |
-| openai | generate | image | poor | `gpt-image-1-mini` |
-| openai | generate | image | rich | `gpt-image-1.5` (cross-gen; no gpt-image-1.5-mini) |
-| openai | generate | video | — | Not supported (Sora 2 API shutdown 2026-09-24) |
-| grok | understand | image | poor | `grok-4.20-0309-non-reasoning` |
-| grok | understand | image | rich | `grok-4.20-0309-reasoning` |
-| grok | understand | video | — | Not supported (prod 4.20-0309-v2 image-only) |
-| grok | generate | image | poor | `grok-imagine-image` (Aurora) |
-| grok | generate | image | rich | `grok-imagine-image-pro` |
-| grok | generate | video | — | `grok-imagine-video` (single-tier) |
+No hardcoded model-ID catalog: `understand` is caller-driven only (explicit
+`model=` or the `UNDERSTAND_MODELS` chain; litellm passthrough, any provider).
+`generate` stays native per provider (Gemini / OpenAI / Grok) with a minimal
+built-in default per tier, overridable via `model=` or `GENERATE_MODELS`.
+Capability gaps: OpenAI has no video understanding or generation; Grok
+production has no video understanding.
 
 ## Transport modes
 
@@ -85,8 +71,9 @@ passthrough, `n24q02m-mcp-core[llm]`) with OpenAI-format vision messages. Pass
 `mcp_core.llm.check_capability`, graceful on registry-missing).
 
 - `UNDERSTAND_MODELS` -- ordered model chain for understand, CSV `provider/model,...`;
-  order = litellm fallback. Provider inferred from the model prefix. Empty/unset =
-  understand off (provider/tier catalog default). imagine has NO local fallback.
+  order = litellm fallback. Provider inferred from the model prefix. Empty/unset +
+  no explicit `model` = no built-in default -- raises `ModelNotConfiguredError`
+  (#461). imagine has NO local fallback.
 - API keys follow the litellm convention `<PROVIDER>_API_KEY`. The 7 providers the
   server suggests for the understand chain:
 
@@ -117,7 +104,7 @@ openai image (OpenAI SDK), grok image/video (raw httpx; xAI gen = verified litel
     "imagine": {
       "command": "uvx", "args": ["imagine-mcp"],
       "env": {
-        "UNDERSTAND_MODELS": "gemini/gemini-3.1-pro-preview,openai/gpt-5.4",
+        "UNDERSTAND_MODELS": "gemini/<model-id>,openai/<model-id>",
         "GEMINI_API_KEY": "AIza_xxx",
         "OPENAI_API_KEY": "sk_xxx"
       }

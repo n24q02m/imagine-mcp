@@ -18,6 +18,5 @@
 ## Checklist
 - [ ] My code follows the project's coding standards (ruff + ty clean)
 - [ ] I have updated documentation if needed (CLAUDE.md / AGENTS.md / docs/)
-- [ ] `docs/models.md` regenerated if `src/imagine_mcp/models.py` changed (via `mise run refresh-ranks`)
 - [ ] Commit prefix is `fix:` or `feat:` only
 - [ ] No secrets or credentials committed

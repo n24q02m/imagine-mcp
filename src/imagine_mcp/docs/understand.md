@@ -11,7 +11,7 @@ understand(
     provider: str | None = None, # "gemini" | "openai" | "grok" (auto-fallback when None)
     tier: str = "poor",          # "poor" | "rich"
     max_tokens: int = 2048,
-    model: str | None = None,    # litellm "provider/model" passthrough; bypasses provider/tier catalog
+    model: str | None = None,    # litellm "provider/model" passthrough (required, or set UNDERSTAND_MODELS)
 ) -> dict
 ```
 
@@ -76,7 +76,9 @@ understand(
 - `poor`: cheapest/fastest
 - `rich`: highest quality
 
-See `docs/models.md` (or `help(topic="config")`) for the current leaderboard-ranked table.
+There is no built-in default model: pass `model="provider/model"` explicitly or
+set the `UNDERSTAND_MODELS` env chain. See `help(topic="config")` for the
+currently configured chain.
 
 ## Errors
 

@@ -46,15 +46,3 @@ run = [
 [tasks.dev]
 description = "Run server in dev mode (http local relay)"
 run = "uv run imagine-mcp"
-
-[tasks.refresh-ranks]
-description = "Fetch leaderboards, update models.py quality_rank, regen docs/models.md, save snapshot"
-run = [
-    "uv run python scripts/fetch_leaderboards.py",
-    "uv run python scripts/gen_models_table.py",
-    "uv run pytest tests/test_models.py tests/test_fetch_leaderboards.py tests/test_gen_models_table.py -v",
-]
-
-[tasks.refresh-ranks-check]
-description = "Verify docs/models.md is in sync with src/imagine_mcp/models.py"
-run = "uv run python scripts/gen_models_table.py --check"

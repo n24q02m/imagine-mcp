@@ -1,4 +1,4 @@
-"""OpenAI provider -- image-only (2 LIVE + 2 ERROR)."""
+"""OpenAI provider -- image-only (1 LIVE + 2 ERROR)."""
 
 from __future__ import annotations
 
@@ -9,8 +9,15 @@ from imagine_mcp.errors import (
     ProviderAPIError,
     ProviderUnsupportedError,
 )
-from imagine_mcp.models import get_model_id
 from imagine_mcp.providers.base import ClientManager
+
+# Minimal per-tier default (no leaderboard ranking; #461). Used only when the
+# caller supplies neither an explicit `model` override nor a matching
+# GENERATE_MODELS chain entry.
+_GENERATE_DEFAULT_MODEL: dict[str, str] = {
+    "poor": "gpt-image-1-mini",
+    "rich": "gpt-image-1.5",
+}
 
 
 def _client_factory(api_key: str) -> Any:
@@ -35,50 +42,6 @@ def _reset_client() -> None:
     _manager.reset()
 
 
-async def understand_image(
-    url: str, prompt: str, tier: str, max_tokens: int = 2048
-) -> dict[str, Any]:
-    # litellm passthrough; live-verify deferred (no openai key 2026-06-11)
-    from mcp_core.llm import acompletion
-
-    from imagine_mcp.media import get_ssrf_safe_async_client
-
-    model = get_model_id("openai", "understand", "image", tier)
-
-    # Download image securely and pass as base64 data URL to prevent backend SSRF
-    resp_img = await get_ssrf_safe_async_client().get(
-        url, follow_redirects=True, timeout=60
-    )
-    img_b64 = base64.b64encode(resp_img.content).decode()
-    mime_type = resp_img.headers.get("content-type", "image/png")
-    data_url = f"data:{mime_type};base64,{img_b64}"
-
-    # Normalise empty string to None: a non-None api_key suppresses litellm's
-    # provider env-var fallback (would 401 on "").
-    resolved_api_key = _manager.get_api_key() or None
-
-    resp = await acompletion(
-        model=f"openai/{model}",
-        messages=[
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": data_url}},
-                ],
-            }
-        ],
-        max_tokens=max_tokens,
-        api_key=resolved_api_key,
-    )
-    return {
-        "text": resp.choices[0].message.content,
-        "model": model,
-        "provider": "openai",
-        "tier": tier,
-    }
-
-
 async def understand_video(
     url: str, prompt: str, tier: str, max_tokens: int = 2048
 ) -> dict[str, Any]:
@@ -98,8 +61,8 @@ async def generate_image(
 ) -> dict[str, Any]:
     # native: litellm migration deferred -- probe credential-gated (gemini billing / no openai key 2026-06-11); avideo/aimage param unverified
     # ``model_id`` (from a GENERATE_MODELS chain or explicit override) wins over
-    # the provider/tier catalog default.
-    model = model_id or get_model_id("openai", "generate", "image", tier)
+    # the provider's minimal per-tier default.
+    model = model_id or _GENERATE_DEFAULT_MODEL[tier]
     size_map = {"1:1": "1024x1024", "16:9": "1792x1024", "9:16": "1024x1792"}
     size = size_map.get(aspect_ratio, "1024x1024")
 

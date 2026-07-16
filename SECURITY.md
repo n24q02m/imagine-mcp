@@ -22,7 +22,6 @@ In scope:
 - SSRF / path traversal in `media_urls` or `reference_image_url` parameters
 - Prompt injection bypassing the `<untrusted_user_content>` XML boundary
 - Supply chain attacks on pinned dependencies (reported via Renovate or GitHub security)
-- Code execution via malicious leaderboard HTML parsing (`scripts/fetch_leaderboards.py`)
 
 Out of scope:
 

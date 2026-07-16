@@ -92,26 +92,34 @@ async def test_dispatch_understand_detect_media_type_failure(
 async def test_dispatch_understand_gemini_multimodal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """Native multimodal is only reached when video is present (#461: a pure
+    multi-image request is handled by litellm passthrough instead, since only
+    Gemini *video* needs the non-litellm file-upload path)."""
     mock_multimodal = AsyncMock(return_value={"text": "multimodal ok"})
     import imagine_mcp.providers.gemini as gemini_mod
 
     monkeypatch.setattr(gemini_mod, "understand_multimodal", mock_multimodal)
     monkeypatch.setattr(
         "imagine_mcp.dispatcher.detect_media_type_async",
-        AsyncMock(return_value="image"),
+        AsyncMock(side_effect=["image", "video"]),
     )
     monkeypatch.setattr(
         "imagine_mcp.dispatcher._validate_url", AsyncMock(return_value=None)
     )
 
     result = await dispatch_understand(
-        media_urls=["https://example.com/1.png", "https://example.com/2.png"],
+        media_urls=["https://example.com/1.png", "https://example.com/2.mp4"],
         prompt="describe",
         provider="gemini",
         tier="poor",
+        model="gemini/gemini-3.1-pro-preview",
     )
     assert result == {"text": "multimodal ok"}
     assert mock_multimodal.called
+    # The dispatcher strips the litellm ``gemini/`` prefix before calling the
+    # native provider module (raw model id, not litellm-routed).
+    call_args = mock_multimodal.call_args
+    assert call_args.args[2] == "gemini-3.1-pro-preview"
 
 
 @pytest.mark.asyncio
@@ -133,9 +141,11 @@ async def test_dispatch_understand_video(monkeypatch: pytest.MonkeyPatch) -> Non
         prompt="describe",
         provider="gemini",
         tier="poor",
+        model="gemini/gemini-3.1-pro-preview",
     )
     assert result == {"text": "video ok"}
     assert mock_video.called
+    assert mock_video.call_args.args[2] == "gemini-3.1-pro-preview"
 
 
 @pytest.mark.asyncio

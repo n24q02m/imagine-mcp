@@ -27,38 +27,6 @@ def mock_media_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_understand_image_mocked(
-    mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    # understand_image is litellm passthrough via mcp_core.llm (mocked).
-    msg = MagicMock()
-    msg.content = "a cat on a mat"
-    choice = MagicMock()
-    choice.message = msg
-    resp = MagicMock()
-    resp.choices = [choice]
-
-    captured: dict[str, object] = {}
-
-    async def fake_acompletion(**kwargs: object) -> object:
-        captured.update(kwargs)
-        return resp
-
-    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
-    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
-
-    result = await gemini.understand_image(
-        url="https://example.com/cat.png", prompt="describe", tier="poor"
-    )
-    assert result["text"] == "a cat on a mat"
-    assert result["model"] == "gemini-3.1-flash-lite-preview"
-    assert result["provider"] == "gemini"
-    assert result["tier"] == "poor"
-    assert captured["model"] == "gemini/gemini-3.1-flash-lite-preview"
-    assert captured["api_key"] == "gem-test"
-
-
-@pytest.mark.asyncio
 async def test_understand_video_mocked(
     mock_media_fetch: None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -73,7 +41,9 @@ async def test_understand_video_mocked(
     monkeypatch.setattr(gemini, "_client", lambda: fake_client)
 
     result = await gemini.understand_video(
-        url="https://example.com/cat.mp4", prompt="describe", tier="rich"
+        url="https://example.com/cat.mp4",
+        prompt="describe",
+        model="gemini-3.1-pro-preview",
     )
     assert result["text"] == "a cat jumping"
     assert result["model"] == "gemini-3.1-pro-preview"
@@ -82,18 +52,21 @@ async def test_understand_video_mocked(
 @pytest.mark.live
 @pytest.mark.asyncio
 async def test_understand_image_live() -> None:
-    """Live test against real Gemini API."""
+    """Live test against real Gemini API (litellm passthrough via dispatcher)."""
     if not os.environ.get("GEMINI_API_KEY"):
         pytest.skip("Requires GEMINI_API_KEY")
 
-    gemini._reset_client()
-    result = await gemini.understand_image(
-        url=(
+    from imagine_mcp.dispatcher import dispatch_understand
+
+    result = await dispatch_understand(
+        media_urls=[
             "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/"
             "Cat_November_2010-1a.jpg/300px-Cat_November_2010-1a.jpg"
-        ),
+        ],
         prompt="What animal is in this image? Answer in one word.",
+        provider=None,
         tier="poor",
+        model="gemini/gemini-3.1-flash-lite-preview",
     )
     assert "cat" in result["text"].lower()
 
@@ -121,11 +94,11 @@ async def test_understand_multimodal_mocked(
     result = await gemini.understand_multimodal(
         urls=["https://example.com/a.png", "https://example.com/b.mp4"],
         prompt="describe both",
-        tier="rich",
+        model="gemini-3.1-pro-preview",
     )
     assert result["text"] == "mixed content description"
     assert result["multimodal"] is True
-    assert result["tier"] == "rich"
+    assert result["model"] == "gemini-3.1-pro-preview"
     assert fake_client.aio.files.upload.called
 
 
@@ -150,7 +123,7 @@ async def test_understand_multimodal_with_media_types_mocked(
     result = await gemini.understand_multimodal(
         urls=["https://example.com/a.png", "https://example.com/b.mp4"],
         prompt="describe both",
-        tier="rich",
+        model="gemini-3.1-pro-preview",
         media_types=["image", "video"],
     )
     assert result["text"] == "optimized mixed content description"
