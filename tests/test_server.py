@@ -8,6 +8,7 @@ from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 
 from imagine_mcp import __version__
+from imagine_mcp.security import UNTRUSTED_SOURCE
 from imagine_mcp.server import (
     _creds_state,
     _get_version,
@@ -191,6 +192,9 @@ async def test_tool_config_models_action_removed() -> None:
 
 @pytest.mark.asyncio
 async def test_tool_understand_wrapper() -> None:
+    """understand() output is XPIA-wrapped: the vision model's answer is
+    external-media-derived, so both channels carry the untrusted-content
+    envelope (see tests/test_security.py for the full boundary contract)."""
     app = build_app()
     with patch(
         "imagine_mcp.server.dispatch_understand", return_value={"res": "ok"}
@@ -199,7 +203,8 @@ async def test_tool_understand_wrapper() -> None:
             "understand", {"media_urls": ["http://ex.com/i.jpg"], "prompt": "tell me"}
         )
         res = _structured(result)
-        assert res == {"res": "ok"}
+        assert res["res"] == "ok"
+        assert res["_untrusted_source"] == UNTRUSTED_SOURCE
         mock_dispatch.assert_called_once()
 
 

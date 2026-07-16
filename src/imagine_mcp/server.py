@@ -6,7 +6,7 @@ import asyncio
 import ipaddress
 import os
 import re
-from functools import cache
+from functools import cache, wraps
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Literal
@@ -21,6 +21,7 @@ from mcp_core.relay.tool_helpers import register_open_relay_tool
 from imagine_mcp.config import settings
 from imagine_mcp.dispatcher import dispatch_generate, dispatch_understand
 from imagine_mcp.relay_schema import RELAY_SCHEMA
+from imagine_mcp.security import build_external_tool_result
 
 VALID_HELP_TOPICS = {"understand", "generate", "config"}
 
@@ -117,6 +118,36 @@ def _get_help_content(topic: str) -> str:
     return doc_file.read_text(encoding="utf-8")
 
 
+def _wrap_tool(tool_name: str):
+    """Decorate a tool so vision-model output derived from external media is
+    XPIA-marked.
+
+    The wrapped tool returns a plain ``dict``; this turns it into a
+    ``fastmcp.tools.ToolResult`` so both response channels are defended: the
+    text block gains ``<untrusted_{tool}_content>`` boundary tags and
+    ``structured_content`` carries the envelope markers (a client reading
+    structured output never sees the text block). FastMCP still derives the
+    tool's ``outputSchema`` from the wrapped function's ``-> dict``
+    annotation, which ``functools.wraps`` keeps reachable via
+    ``__wrapped__``.
+
+    Applied only to ``understand`` -- its ``text`` field is a vision model's
+    reading of user-supplied ``media_urls``, so image/video-borne prompt
+    injection can steer it. ``generate`` returns base64 media, not
+    model-derived text, and does not need it.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any):
+            result = await func(*args, **kwargs)
+            return build_external_tool_result(tool_name, result)
+
+        return wrapper
+
+    return decorator
+
+
 def build_app() -> FastMCP:
     """Create FastMCP app with 4 tools registered."""
     app: FastMCP = FastMCP(
@@ -142,6 +173,7 @@ def build_app() -> FastMCP:
             openWorldHint=True,
         ),
     )
+    @_wrap_tool("understand")
     async def understand(
         media_urls: list[str],
         prompt: str,
