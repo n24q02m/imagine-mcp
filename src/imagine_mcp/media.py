@@ -454,8 +454,9 @@ def download_to_path(url: str, dest: Path) -> Path:
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
     except Exception:
-        if dest.exists():
-            dest.unlink(missing_ok=True)
+        # ⚡ Bolt: Relying on missing_ok=True instead of explicit dest.exists() check safely handles missing files,
+        # avoids unnecessary file stat calls, and eliminates potential Time-of-Check to Time-of-Use (TOCTOU) race conditions.
+        dest.unlink(missing_ok=True)
         raise
     return dest
 
@@ -471,8 +472,9 @@ async def download_to_path_async(url: str, dest: Path) -> Path:
     except InvalidURLError as e:
         raise httpx.HTTPError(f"Download failed due to invalid redirect: {e}") from e
     except Exception:
-        if await asyncio.to_thread(dest.exists):
-            await asyncio.to_thread(dest.unlink, missing_ok=True)
+        # ⚡ Bolt: Relying on missing_ok=True instead of explicitly checking dest.exists() safely handles missing files,
+        # completely avoids thread-pool dispatch overhead, and eliminates TOCTOU race conditions.
+        await asyncio.to_thread(dest.unlink, missing_ok=True)
         raise
     return dest
 
