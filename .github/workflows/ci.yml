@@ -40,10 +40,14 @@ jobs:
           # so this server-side check is required to keep main history
           # conformant. See historical violations on commits 2bc6657, 76,
           # 77 (closed before this gate was wired).
+          # perf: dropped -- it is not in this repo's own PSR
+          # commit_parser_options.allowed_tags (pyproject.toml, only
+          # feat/fix), so a perf: commit that passed this check would still
+          # silently fail to bump the version, defeating the point of the
+          # gate.
           types: |
             fix
             feat
-            perf
           requireScope: false
           subjectPattern: ^(?![A-Z]).+$
           subjectPatternError: |
