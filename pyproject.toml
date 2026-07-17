@@ -56,7 +56,7 @@ dependencies = [
 ]
 
 [project.scripts]
-imagine-mcp = "imagine_mcp.__main__:main"
+imagine-mcp = "imagine_mcp.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/n24q02m/imagine-mcp"
