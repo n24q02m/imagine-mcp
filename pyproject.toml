@@ -47,7 +47,11 @@ dependencies = [
     "pillow>=12.3.0",
     "diskcache>=5.6.3",
     "loguru>=0.7.3",
-    "n24q02m-mcp-core[llm]>=1.19.0,<2",
+    # 1.20.0b2 fixes build_cli's `config`/`doctor` PerPluginStore key
+    # (#666). cli.py already passes PLUGIN_NAME ("imagine") as
+    # build_cli's server_name to sidestep the mismatch, so no CLI
+    # regression here -- bumped for cascade parity with wet/mnemo/crg.
+    "n24q02m-mcp-core[llm]>=1.20.0b2,<2",
     "platformdirs>=4.10.0",
     # Security floors: transitive deps pinned to patched releases.
     # urllib3 < 2.7.0 -> PYSEC-2026-141/142; idna < 3.15 -> CVE-2026-45409.
