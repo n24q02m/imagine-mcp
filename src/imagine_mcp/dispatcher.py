@@ -258,7 +258,9 @@ async def _passthrough_understand(
 
     try:
         async with asyncio.TaskGroup() as tg:
-            tasks = [tg.create_task(_process_url(i, u)) for i, u in enumerate(media_urls)]
+            tasks = [
+                tg.create_task(_process_url(i, u)) for i, u in enumerate(media_urls)
+            ]
     except ExceptionGroup as eg:
         raise eg.exceptions[0] from None
 
@@ -321,7 +323,10 @@ async def dispatch_understand(
 
     try:
         async with asyncio.TaskGroup() as tg:
-            tasks = [tg.create_task(_process_media_url(i, u)) for i, u in enumerate(media_urls)]
+            tasks = [
+                tg.create_task(_process_media_url(i, u))
+                for i, u in enumerate(media_urls)
+            ]
     except ExceptionGroup as eg:
         raise eg.exceptions[0] from None
 
