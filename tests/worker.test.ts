@@ -171,6 +171,27 @@ describe('edge auth gate rejects anonymous /mcp before touching the container DO
     expect(calls()).toBe(0)
   })
 
+  it('POST //mcp (path obfuscation) with no Authorization -> 401, stub never called', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com//mcp', { method: 'POST' }), env as never)
+    expect(res.status).toBe(401)
+    expect(calls()).toBe(0)
+  })
+
+  it('POST /%2Fmcp (URI encoded obfuscation) with no Authorization -> 401, stub never called', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/%2Fmcp', { method: 'POST' }), env as never)
+    expect(res.status).toBe(401)
+    expect(calls()).toBe(0)
+  })
+
+  it('POST /%zz (malformed URI) -> 400 Bad Request', async () => {
+    const { calls, env } = envWithDoSpy()
+    const res = await worker.fetch(new Request('https://imagine.n24q02m.com/%zz', { method: 'POST' }), env as never)
+    expect(res.status).toBe(400)
+    expect(calls()).toBe(0)
+  })
+
   it('POST /mcp with Authorization: Bearer anything -> stub called exactly once', async () => {
     const { calls, env } = envWithDoSpy()
     const res = await worker.fetch(
