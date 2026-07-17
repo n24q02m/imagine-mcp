@@ -243,8 +243,9 @@ async def _passthrough_understand(
 
     content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
 
-    # ⚡ Bolt: Pipeline URL validation and fetching to eliminate barrier synchronization
-    # Expected impact: Reduces total latency by removing sequential wait states between gathers.
+    # ⚡ Bolt: Pipeline URL validation and fetching with TaskGroup for fail-fast error handling.
+    # Expected impact: Eliminates barrier synchronization latency on the happy path while
+    # immediately cancelling pending slow fetches if any fast validation task fails.
     async def _process_url(i: int, u: str) -> dict[str, Any]:
         await _validate_url(u, f"media_urls[{i}]")
         resp_img = await get_ssrf_safe_async_client().get(
@@ -255,15 +256,14 @@ async def _passthrough_understand(
         data_url = f"data:{mime_type};base64,{img_b64}"
         return {"type": "image_url", "image_url": {"url": data_url}}
 
-    # ⚡ Bolt: Use return_exceptions=True to ensure no background tasks are leaked
-    # if one fetch fails. We then explicitly check and raise the first exception.
-    results = await asyncio.gather(
-        *(_process_url(i, u) for i, u in enumerate(media_urls)), return_exceptions=True
-    )
-    for res in results:
-        if isinstance(res, BaseException):
-            raise res
-        content.append(res)
+    try:
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(_process_url(i, u)) for i, u in enumerate(media_urls)]
+    except ExceptionGroup as eg:
+        raise eg.exceptions[0] from None
+
+    for task in tasks:
+        content.append(task.result())
 
     resp = await acompletion(
         model=model,
@@ -312,22 +312,20 @@ async def dispatch_understand(
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
 
-    # ⚡ Bolt: Pipeline URL validation and media type detection to eliminate barrier sync.
-    # validate_url_and_get_ip offloads DNS to a thread pool internally.
+    # ⚡ Bolt: Pipeline URL validation and media detection with TaskGroup for fail-fast error handling.
+    # Expected impact: Eliminates barrier synchronization latency on the happy path while
+    # immediately cancelling pending slow detections if any fast validation task fails.
     async def _process_media_url(i: int, u: str) -> str:
         await _validate_url(u, f"media_urls[{i}]")
         return await detect_media_type_async(u)
 
-    # ⚡ Bolt: return_exceptions=True prevents background tasks from leaking on failure.
-    results_pipeline = await asyncio.gather(
-        *(_process_media_url(i, u) for i, u in enumerate(media_urls)),
-        return_exceptions=True,
-    )
-    media_types: list[str] = []
-    for res in results_pipeline:
-        if isinstance(res, BaseException):
-            raise res
-        media_types.append(res)
+    try:
+        async with asyncio.TaskGroup() as tg:
+            tasks = [tg.create_task(_process_media_url(i, u)) for i, u in enumerate(media_urls)]
+    except ExceptionGroup as eg:
+        raise eg.exceptions[0] from None
+
+    media_types: list[str] = [task.result() for task in tasks]
     has_video = "video" in media_types
 
     # Hard capability limit, independent of model configuration: only Gemini
