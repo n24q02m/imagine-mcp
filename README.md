@@ -227,9 +227,9 @@ Full docs at **[mcp.n24q02m.com/servers/imagine-mcp/setup/](https://mcp.n24q02m.
 |:-----|:--------|:------------|
 | `understand` | -- | Describe or reason over one or more image/video URLs. `media_urls: list[str]`, `prompt: str`, `provider`, `tier`, `max_tokens`. |
 | `generate` | -- | Generate an image or video from a text prompt. `media_type: image\|video`, optional `reference_image_url`, optional `job_id` (video poll), `aspect_ratio`, `duration_seconds`. |
-| `config` | `open_relay`, `relay_status`, `relay_skip`, `relay_reset`, `relay_complete`, `warmup`, `status`, `set`, `cache_clear` | Credential + runtime config: open relay form, check credential state, set runtime knobs (log level, default provider, TTL), clear response cache. |
+| `config` | `setup_status`, `setup_skip`, `setup_reset`, `setup_complete`, `warmup`, `status`, `set`, `cache_clear` (`relay_status`/`relay_skip`/`relay_reset`/`relay_complete` honored as deprecated aliases) | Credential + runtime config: check credential state, set runtime knobs (log level, default provider, TTL), clear response cache. |
 | `help` | -- | Full Markdown documentation for `understand`, `generate`, or `config` topics. |
-| `config__open_relay` | -- | Framework-injected helper (mcp-core) equivalent to `config(action="open_relay")`; opens the browser credential form. |
+| `config__open_relay` | -- | Framework-injected helper (mcp-core); opens the browser credential form. |
 
 Model choice is caller-driven (litellm `provider/model` passthrough or a `*_MODELS`
 env chain) -- see [Model chains](#configuration) above.

@@ -78,8 +78,8 @@ class ClientManager:
 
         if not key:
             raise CredentialMissingError(
-                f"{self.provider_name} API key missing. Run config(action='open_relay') for "
-                f"browser-based setup, or set {self.env_key}."
+                f"{self.provider_name} API key missing. Call the config__open_relay "
+                f"tool for browser-based setup, or set {self.env_key}."
             )
         return key
 

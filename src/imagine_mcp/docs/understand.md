@@ -85,5 +85,5 @@ currently configured chain.
 - `InvalidProviderError` -- provider not in {gemini, openai, grok}
 - `InvalidTierError` -- tier not in {poor, rich}
 - `ProviderUnsupportedError` -- provider does not support the media type
-- `CredentialMissingError` -- API key not configured (run `config(action="open_relay")`)
+- `CredentialMissingError` -- API key not configured (call the `config__open_relay` tool)
 - `RateLimitError` -- provider 429

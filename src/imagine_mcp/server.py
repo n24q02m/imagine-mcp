@@ -242,8 +242,10 @@ def build_app() -> FastMCP:
     @app.tool(
         description=(
             "Server config + credential setup (MERGED). Actions: "
-            "(relay) open_relay|relay_status|relay_skip|relay_reset|"
-            "relay_complete|warmup; (runtime) status|set|cache_clear."
+            "(setup) setup_status|setup_skip|setup_reset|setup_complete|warmup "
+            "(relay_status|relay_skip|relay_reset|relay_complete honored as "
+            "deprecated aliases); (runtime) status|set|cache_clear. "
+            "Use the config__open_relay tool to open the credential form."
         ),
         annotations=ToolAnnotations(
             readOnlyHint=False,
@@ -261,47 +263,47 @@ def build_app() -> FastMCP:
         from imagine_mcp import relay_setup
 
         match action:
-            case "open_relay":
-                result = await relay_setup.ensure_config(force=True)
-                if result is None:
-                    return {
-                        "status": "degraded",
-                        "message": (
-                            "No credentials loaded. Set MCP_RELAY_URL and retry, "
-                            "or run the server in `http local relay mode` (default)."
-                        ),
-                    }
-                return {
-                    "status": "saved",
-                    "providers_configured": await asyncio.to_thread(
-                        _providers_configured_live
-                    ),
-                }
-            case "relay_status":
+            case "relay_status" | "setup_status":
+                if action == "relay_status":
+                    logger.warning(
+                        "Deprecated action 'relay_status' honored; migrate to 'setup_status'."
+                    )
                 _live_providers = await asyncio.to_thread(_providers_configured_live)
                 return {
                     "status": "configured" if _live_providers else "pending",
                     "providers_configured": _live_providers,
                 }
-            case "relay_complete":
+            case "relay_complete" | "setup_complete":
+                if action == "relay_complete":
+                    logger.warning(
+                        "Deprecated action 'relay_complete' honored; migrate to 'setup_complete'."
+                    )
                 _live_providers = await asyncio.to_thread(_providers_configured_live)
                 return {
                     "status": "saved" if _live_providers else "no_credentials",
                     "providers_configured": _live_providers,
                 }
-            case "relay_skip":
+            case "relay_skip" | "setup_skip":
+                if action == "relay_skip":
+                    logger.warning(
+                        "Deprecated action 'relay_skip' honored; migrate to 'setup_skip'."
+                    )
                 _env_providers = await asyncio.to_thread(_providers_configured)
                 if not _env_providers:
                     return {
                         "status": "needs_setup",
-                        "message": "No env vars set. Run config(action='open_relay') to configure via browser.",
+                        "message": "No env vars set. Call the config__open_relay tool to configure via browser.",
                     }
                 return {
                     "status": "using_env",
                     "message": "Using env vars for credentials.",
                     "providers": _env_providers,
                 }
-            case "relay_reset":
+            case "relay_reset" | "setup_reset":
+                if action == "relay_reset":
+                    logger.warning(
+                        "Deprecated action 'relay_reset' honored; migrate to 'setup_reset'."
+                    )
                 return await asyncio.to_thread(relay_setup.reset_credentials)
             case "warmup":
                 return {
@@ -334,9 +336,10 @@ def build_app() -> FastMCP:
                 return {
                     "status": "error",
                     "message": (
-                        f"Unknown action {action!r}. Valid: open_relay|relay_status|"
-                        "relay_skip|relay_reset|relay_complete|warmup|"
-                        "status|set|cache_clear"
+                        f"Unknown action {action!r}. Valid: setup_status|"
+                        "setup_skip|setup_reset|setup_complete|warmup|"
+                        "status|set|cache_clear (call the config__open_relay "
+                        "tool to open the credential form)"
                     ),
                 }
 
