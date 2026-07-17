@@ -268,64 +268,121 @@ async def test_tool_generate_wrapper() -> None:
 
 
 @pytest.mark.asyncio
-async def test_tool_config_relay_actions(monkeypatch) -> None:
+async def test_tool_config_setup_actions(monkeypatch) -> None:
+    """Canonical setup_* action names (W6.1 taxonomy: matches the other 7
+    servers' config(action='setup_*') family)."""
     app = build_app()
 
-    # relay_status
+    # setup_status
     with patch(
         "imagine_mcp.server._providers_configured_live", return_value=["gemini"]
     ):
-        result = await app.call_tool("config", {"action": "relay_status"})
+        result = await app.call_tool("config", {"action": "setup_status"})
         res = _structured(result)
         assert res["status"] == "configured"
         assert res["providers_configured"] == ["gemini"]
 
-    # relay_complete
+    # setup_complete
     with patch("imagine_mcp.server._providers_configured_live", return_value=[]):
-        result = await app.call_tool("config", {"action": "relay_complete"})
+        result = await app.call_tool("config", {"action": "setup_complete"})
         res = _structured(result)
         assert res["status"] == "no_credentials"
 
-    # relay_skip (using env)
+    # setup_skip (using env)
     monkeypatch.setenv("GEMINI_API_KEY", "test")
-    result = await app.call_tool("config", {"action": "relay_skip"})
+    result = await app.call_tool("config", {"action": "setup_skip"})
     res = _structured(result)
     assert res["status"] == "using_env"
 
-    # relay_skip (needs setup)
+    # setup_skip (needs setup) -- hints at the config__open_relay tool now
+    # that config(action='open_relay') is no longer dual-exposed.
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("XAI_API_KEY", raising=False)
-    result = await app.call_tool("config", {"action": "relay_skip"})
+    result = await app.call_tool("config", {"action": "setup_skip"})
     res = _structured(result)
     assert res["status"] == "needs_setup"
+    assert "config__open_relay" in res["message"]
 
-    # relay_reset
+    # setup_reset
     with patch(
         "imagine_mcp.relay_setup.reset_credentials", return_value={"status": "reset"}
     ):
-        result = await app.call_tool("config", {"action": "relay_reset"})
+        result = await app.call_tool("config", {"action": "setup_reset"})
         res = _structured(result)
         assert res == {"status": "reset"}
 
 
 @pytest.mark.asyncio
-async def test_tool_config_open_relay() -> None:
+async def test_tool_config_relay_actions_deprecated_aliases(monkeypatch) -> None:
+    """relay_status/relay_skip/relay_reset/relay_complete still work (1-cycle
+    deprecation alias for setup_status/setup_skip/setup_reset/setup_complete)
+    but each logs a deprecation warning; the canonical setup_* names do not."""
     app = build_app()
 
-    # Success
-    with patch(
-        "imagine_mcp.relay_setup.ensure_config", return_value={"some": "config"}
+    with (
+        patch("imagine_mcp.server._providers_configured_live", return_value=["gemini"]),
+        patch("imagine_mcp.server.logger.warning") as mock_warn,
     ):
-        result = await app.call_tool("config", {"action": "open_relay"})
+        result = await app.call_tool("config", {"action": "relay_status"})
         res = _structured(result)
-        assert res["status"] == "saved"
+        assert res["status"] == "configured"
+        assert res["providers_configured"] == ["gemini"]
+    mock_warn.assert_called_once()
+    assert "relay_status" in mock_warn.call_args[0][0]
+    assert "setup_status" in mock_warn.call_args[0][0]
 
-    # Degraded
-    with patch("imagine_mcp.relay_setup.ensure_config", return_value=None):
-        result = await app.call_tool("config", {"action": "open_relay"})
-        res = _structured(result)
-        assert res["status"] == "degraded"
+    with (
+        patch("imagine_mcp.server._providers_configured_live", return_value=[]),
+        patch("imagine_mcp.server.logger.warning") as mock_warn,
+    ):
+        result = await app.call_tool("config", {"action": "relay_complete"})
+        assert _structured(result)["status"] == "no_credentials"
+    mock_warn.assert_called_once()
+    assert "relay_complete" in mock_warn.call_args[0][0]
+    assert "setup_complete" in mock_warn.call_args[0][0]
+
+    monkeypatch.setenv("GEMINI_API_KEY", "test")
+    with patch("imagine_mcp.server.logger.warning") as mock_warn:
+        result = await app.call_tool("config", {"action": "relay_skip"})
+        assert _structured(result)["status"] == "using_env"
+    mock_warn.assert_called_once()
+    assert "relay_skip" in mock_warn.call_args[0][0]
+    assert "setup_skip" in mock_warn.call_args[0][0]
+
+    with (
+        patch(
+            "imagine_mcp.relay_setup.reset_credentials",
+            return_value={"status": "reset"},
+        ),
+        patch("imagine_mcp.server.logger.warning") as mock_warn,
+    ):
+        result = await app.call_tool("config", {"action": "relay_reset"})
+        assert _structured(result) == {"status": "reset"}
+    mock_warn.assert_called_once()
+    assert "relay_reset" in mock_warn.call_args[0][0]
+    assert "setup_reset" in mock_warn.call_args[0][0]
+
+    # Canonical names never warn.
+    with (
+        patch("imagine_mcp.server._providers_configured_live", return_value=["gemini"]),
+        patch("imagine_mcp.server.logger.warning") as mock_warn,
+    ):
+        await app.call_tool("config", {"action": "setup_status"})
+    mock_warn.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_tool_config_open_relay_action_removed() -> None:
+    """W6.1: config(action='open_relay') dual-exposure is gone -- the
+    standalone config__open_relay tool (see
+    tests/test_config_open_relay_registered.py) is the only entry point."""
+    app = build_app()
+
+    result = await app.call_tool("config", {"action": "open_relay"})
+    res = _structured(result)
+    assert res["status"] == "error"
+    assert "Unknown action 'open_relay'" in res["message"]
 
 
 @pytest.mark.asyncio

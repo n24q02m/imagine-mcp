@@ -14,16 +14,24 @@ config(
 
 ## Actions
 
-### Credential / relay
+### Credential / setup
+
+Open the credential form via the `config__open_relay` tool (registered
+alongside `config` -- see the tool list), not a `config` action.
 
 | Action | Purpose |
 |--------|---------|
-| `open_relay` | Start relay session; server opens browser with credential form |
-| `relay_status` | Poll current relay session status |
-| `relay_complete` | Persist relay submission to the encrypted per-plugin store (`~/.imagine-mcp/config.json`) |
-| `relay_skip` | Skip relay; rely on env vars only |
-| `relay_reset` | Delete stored credentials (forces re-setup) |
+| `setup_status` | Poll current relay session status |
+| `setup_complete` | Persist relay submission to the encrypted per-plugin store (`~/.imagine-mcp/config.json`) |
+| `setup_skip` | Skip relay; rely on env vars only |
+| `setup_reset` | Delete stored credentials (forces re-setup) |
 | `warmup` | Pre-load heavy resources (no-op in v1) |
+
+`relay_status`/`relay_skip`/`relay_reset`/`relay_complete` are honored as
+deprecated aliases for one release cycle (each logs a deprecation warning) --
+migrate to the `setup_*` names above. `open_relay` is no longer a `config`
+action (dual-exposure removed 2026-07; call the `config__open_relay` tool
+instead).
 
 ### Runtime
 
@@ -37,13 +45,13 @@ config(
 
 ```python
 # First-time setup
-config(action="open_relay")
-# -> {"status": "saved", "providers_configured": [...]} or {"status": "degraded", "message": "..."}
+config__open_relay()
+# -> {"url": "...", "browser_opened": true, "status": "unconfigured"}
 
-config(action="relay_status")
+config(action="setup_status")
 # -> {"status": "pending", "providers_configured": []} or {"status": "configured", "providers_configured": [...]}
 
-config(action="relay_complete")
+config(action="setup_complete")
 # -> {"status": "saved", "providers_configured": ["gemini", "openai", "grok"]} or {"status": "no_credentials", "providers_configured": []}
 
 config(action="status")

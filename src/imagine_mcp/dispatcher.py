@@ -116,7 +116,7 @@ def _default_provider() -> str:
     keys = ", ".join(env for env, _ in _DEFAULT_PROVIDER_PRIORITY)
     raise CredentialMissingError(
         "No provider API key configured. Set one of: "
-        f"{keys}, or run config(action='open_relay') to configure via browser."
+        f"{keys}, or call the config__open_relay tool to configure via browser."
     )
 
 
@@ -139,7 +139,7 @@ def _default_generate_provider() -> str:
     keys = ", ".join(_PROVIDER_TO_ENV.values())
     raise CredentialMissingError(
         "No provider API key configured. Set one of: "
-        f"{keys}, or run config(action='open_relay') to configure via browser."
+        f"{keys}, or call the config__open_relay tool to configure via browser."
     )
 
 
