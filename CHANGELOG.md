@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.10.1 (2026-07-18)
+
+### Bug Fixes
+
+- Remove redundant orphan-tag shell guard (better-semantic-release @v1 has a built-in one)
+  ([#477](https://github.com/n24q02m/imagine-mcp/pull/477),
+  [`d2e7647`](https://github.com/n24q02m/imagine-mcp/commit/d2e764732dfed9e4f019efd44c9c39b31532a3d7))
+
+- Validate understand passthrough media fetch is a real image
+  ([#478](https://github.com/n24q02m/imagine-mcp/pull/478),
+  [`67fcac3`](https://github.com/n24q02m/imagine-mcp/commit/67fcac3c840b3415b7db4b5f4f9cdca8dc470430))
+
+
 ## v1.10.0 (2026-07-18)
 
 
