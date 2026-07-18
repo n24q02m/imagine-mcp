@@ -21,6 +21,12 @@ from imagine_mcp.errors import (
     ProviderUnsupportedError,
 )
 
+# Minimal genuine image body: the 8-byte PNG signature is enough for the
+# understand fetch path's magic-byte guard (``sniff_image_mime``) to accept it
+# as image/png. Used as a stand-in for a real downloaded image so the mocked
+# fetch represents genuine image bytes rather than an arbitrary placeholder.
+_PNG_BYTES = b"\x89PNG\r\n\x1a\n"
+
 
 @pytest.fixture
 def clean_provider_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -351,7 +357,7 @@ async def test_passthrough_understand_routes_to_litellm(
     monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
     # Avoid real image download.
     mock_resp = MagicMock()
-    mock_resp.content = b"fake-image-bytes"
+    mock_resp.content = _PNG_BYTES
     mock_resp.headers = {"content-type": "image/png"}
     mock_client = AsyncMock()
     mock_client.get.return_value = mock_resp
@@ -392,7 +398,7 @@ async def test_passthrough_understand_unknown_model_warns(
 
     monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
     mock_resp = MagicMock()
-    mock_resp.content = b"x"
+    mock_resp.content = _PNG_BYTES
     mock_resp.headers = {"content-type": "image/png"}
     mock_client = AsyncMock()
     mock_client.get.return_value = mock_resp
@@ -544,7 +550,7 @@ async def test_dispatch_understand_uses_chain_default(
 
     monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
     mock_resp = MagicMock()
-    mock_resp.content = b"x"
+    mock_resp.content = _PNG_BYTES
     mock_resp.headers = {"content-type": "image/png"}
     mock_client = AsyncMock()
     mock_client.get.return_value = mock_resp
@@ -588,7 +594,7 @@ async def test_dispatch_understand_single_chain_no_fallbacks(
 
     monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
     mock_resp = MagicMock()
-    mock_resp.content = b"x"
+    mock_resp.content = _PNG_BYTES
     mock_resp.headers = {"content-type": "image/png"}
     mock_client = AsyncMock()
     mock_client.get.return_value = mock_resp
@@ -634,7 +640,7 @@ async def test_dispatch_understand_explicit_provider_does_not_override_chain(
         AsyncMock(return_value="image"),
     )
     mock_resp = MagicMock()
-    mock_resp.content = b"x"
+    mock_resp.content = _PNG_BYTES
     mock_resp.headers = {"content-type": "image/png"}
     mock_client = AsyncMock()
     mock_client.get.return_value = mock_resp
@@ -702,3 +708,207 @@ def test_validate_invalid_tier() -> None:
 
     with pytest.raises(InvalidTierError, match="Unknown tier"):
         _validate("gemini", "invalid-tier")
+
+
+@pytest.mark.asyncio
+async def test_passthrough_understand_raises_on_http_error(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A non-2xx media fetch (e.g. Wikimedia 403 "Please set a user agent") is
+    surfaced loudly. The error body must never be base64'd and handed to the
+    vision model as if it were an image (silent failure -> confident garbage).
+    """
+    from unittest.mock import MagicMock
+
+    import httpx
+
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+    monkeypatch.setattr(
+        "imagine_mcp.dispatcher._validate_url", AsyncMock(return_value=None)
+    )
+
+    acompletion_calls: list[dict[str, object]] = []
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        acompletion_calls.append(kwargs)
+        benign = MagicMock()
+        benign.choices = [MagicMock()]
+        return benign
+
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
+
+    error_resp = MagicMock()
+    error_resp.status_code = 403
+    error_resp.content = b"Please set a user agent"
+    error_resp.headers = {"content-type": "text/plain"}
+    error_resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+        "403 Forbidden", request=MagicMock(), response=MagicMock()
+    )
+    mock_client = AsyncMock()
+    mock_client.get.return_value = error_resp
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
+    )
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await dispatch_understand(
+            media_urls=["https://upload.wikimedia.org/cat.jpg"],
+            prompt="describe",
+            provider=None,
+            tier="poor",
+            model="gemini/gemini-3.1-pro-preview",
+        )
+    assert acompletion_calls == [], "vision model called on a failed fetch"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_understand_rejects_non_image_body(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 200 response whose body is not an image (HTML/text error page with no
+    image magic bytes) is rejected with a clear error -- not base64'd and sent
+    to the vision model."""
+    from unittest.mock import MagicMock
+
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+    monkeypatch.setattr(
+        "imagine_mcp.dispatcher._validate_url", AsyncMock(return_value=None)
+    )
+
+    acompletion_calls: list[dict[str, object]] = []
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        acompletion_calls.append(kwargs)
+        benign = MagicMock()
+        benign.choices = [MagicMock()]
+        return benign
+
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
+
+    html_resp = MagicMock()
+    html_resp.status_code = 200
+    html_resp.content = b"<!DOCTYPE html><html><body>Rate limited</body></html>"
+    html_resp.headers = {"content-type": "text/html"}
+    html_resp.raise_for_status = MagicMock(return_value=None)
+    mock_client = AsyncMock()
+    mock_client.get.return_value = html_resp
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
+    )
+
+    with pytest.raises(InvalidMediaTypeError, match="image"):
+        await dispatch_understand(
+            media_urls=["https://example.com/notreally.png"],
+            prompt="describe",
+            provider=None,
+            tier="poor",
+            model="gemini/gemini-3.1-pro-preview",
+        )
+    assert acompletion_calls == [], "vision model called on a non-image body"
+
+
+@pytest.mark.asyncio
+async def test_passthrough_understand_accepts_real_image(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 200 response with genuine image magic bytes proceeds normally; the data
+    URL mime is derived from the sniffed magic bytes and litellm is called."""
+    from unittest.mock import MagicMock
+
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+    monkeypatch.setattr(
+        "imagine_mcp.dispatcher._validate_url", AsyncMock(return_value=None)
+    )
+
+    msg = MagicMock()
+    msg.content = "a real cat"
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+
+    captured: dict[str, object] = {}
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        captured.update(kwargs)
+        return resp
+
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
+
+    img_resp = MagicMock()
+    img_resp.status_code = 200
+    img_resp.content = _PNG_BYTES
+    # A lying/generic content-type must not steer the mime: magic bytes win.
+    img_resp.headers = {"content-type": "application/octet-stream"}
+    img_resp.raise_for_status = MagicMock(return_value=None)
+    mock_client = AsyncMock()
+    mock_client.get.return_value = img_resp
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
+    )
+
+    result = await dispatch_understand(
+        media_urls=["https://example.com/cat.png"],
+        prompt="describe",
+        provider=None,
+        tier="poor",
+        model="gemini/gemini-3.1-pro-preview",
+    )
+    assert result["text"] == "a real cat"
+    from typing import Any, cast
+
+    messages = cast(list[dict[str, Any]], captured["messages"])
+    content = messages[0]["content"]
+    image_parts = [part for part in content if part.get("type") == "image_url"]
+    assert image_parts, "expected an image_url part in the vision message"
+    assert image_parts[0]["image_url"]["url"].startswith("data:image/png;base64,")
+
+
+@pytest.mark.asyncio
+async def test_passthrough_understand_sends_user_agent(
+    clean_provider_env: None, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The media fetch sends a real, identifying User-Agent header -- many hosts
+    (e.g. Wikimedia) 403 a request that carries no/blank UA."""
+    from unittest.mock import MagicMock
+
+    monkeypatch.setenv("GEMINI_API_KEY", "gem-test")
+    monkeypatch.setattr(
+        "imagine_mcp.dispatcher._validate_url", AsyncMock(return_value=None)
+    )
+
+    msg = MagicMock()
+    msg.content = "ok"
+    choice = MagicMock()
+    choice.message = msg
+    resp = MagicMock()
+    resp.choices = [choice]
+
+    async def fake_acompletion(**kwargs: object) -> object:
+        return resp
+
+    monkeypatch.setattr("mcp_core.llm.acompletion", fake_acompletion)
+
+    img_resp = MagicMock()
+    img_resp.status_code = 200
+    img_resp.content = _PNG_BYTES
+    img_resp.headers = {"content-type": "image/png"}
+    img_resp.raise_for_status = MagicMock(return_value=None)
+    mock_client = AsyncMock()
+    mock_client.get.return_value = img_resp
+    monkeypatch.setattr(
+        "imagine_mcp.media.get_ssrf_safe_async_client", lambda: mock_client
+    )
+
+    await dispatch_understand(
+        media_urls=["https://example.com/cat.png"],
+        prompt="describe",
+        provider=None,
+        tier="poor",
+        model="gemini/gemini-3.1-pro-preview",
+    )
+    _args, kwargs = mock_client.get.call_args
+    headers = kwargs.get("headers") or {}
+    user_agent = headers.get("User-Agent", "")
+    assert user_agent, "media fetch must send a non-empty User-Agent header"
+    assert "imagine" in user_agent.lower()
