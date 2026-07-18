@@ -2,6 +2,47 @@
 
 <!-- version list -->
 
+## v1.10.0-beta.2 (2026-07-18)
+
+### Bug Fixes
+
+- Add orphan-tag integrity guard to release CI
+  ([#469](https://github.com/n24q02m/imagine-mcp/pull/469),
+  [`904ff51`](https://github.com/n24q02m/imagine-mcp/commit/904ff51c7756f3d3fbf4501c1e6bad9fe79620ad))
+
+- Adopt better-semantic-release for built-in release guards
+  ([`5292d29`](https://github.com/n24q02m/imagine-mcp/commit/5292d29eae0e2fbb68c5baead0c7498db13916f8))
+
+- Bump mcp-core to 1.20.0b2 for plugin-name and CLI fixes
+  ([#474](https://github.com/n24q02m/imagine-mcp/pull/474),
+  [`45e803b`](https://github.com/n24q02m/imagine-mcp/commit/45e803b9d5ee016d16bb1e65d6987924310e2c50))
+
+- Normalize request path before edge auth gate to block obfuscated-path bypass
+  ([`3fa3eb2`](https://github.com/n24q02m/imagine-mcp/commit/3fa3eb2e772b3ffbad96d3650309c7d2c5a44779))
+
+- Pin rangeStrategy on delayed packageRules to fix renovate artifacts failure
+  ([#470](https://github.com/n24q02m/imagine-mcp/pull/470),
+  [`db18030`](https://github.com/n24q02m/imagine-mcp/commit/db18030f778d9e0bc68335837fb91445c6356ea8))
+
+- Restrict pr-title gate to feat/fix + add no-bump release warning
+  ([#472](https://github.com/n24q02m/imagine-mcp/pull/472),
+  [`98ad2a7`](https://github.com/n24q02m/imagine-mcp/commit/98ad2a77fc89dbc6ad4618df17a589c3399eef5f))
+
+### Features
+
+- Migrate config relay_* actions to setup_* taxonomy
+  ([#473](https://github.com/n24q02m/imagine-mcp/pull/473),
+  [`7de3004`](https://github.com/n24q02m/imagine-mcp/commit/7de3004a9f611a5519c6e1e3d07991365e01daa1))
+
+- Setup_* taxonomy + built-in CLI (W6.1 + W5.1)
+  ([#473](https://github.com/n24q02m/imagine-mcp/pull/473),
+  [`7de3004`](https://github.com/n24q02m/imagine-mcp/commit/7de3004a9f611a5519c6e1e3d07991365e01daa1))
+
+- Wire mcp_core CLI (config/relay/doctor + --version/-h)
+  ([#473](https://github.com/n24q02m/imagine-mcp/pull/473),
+  [`7de3004`](https://github.com/n24q02m/imagine-mcp/commit/7de3004a9f611a5519c6e1e3d07991365e01daa1))
+
+
 ## v1.10.0-beta.1 (2026-07-16)
 
 ### Bug Fixes
