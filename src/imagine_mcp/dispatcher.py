@@ -207,6 +207,14 @@ def _unsupported(provider: str, media: str, action: str) -> ProviderUnsupportedE
     return ProviderUnsupportedError(msg)
 
 
+# Identifying User-Agent for the understand media fetch. Some hosts (notably
+# Wikimedia) reject a request carrying no/blank UA with an HTTP 403 whose body
+# is an error string; sending one lets those clean fetches succeed. The
+# raise_for_status + magic-byte guard in ``_process_url`` still rejects any
+# error body that slips through, so this is defence-in-depth, not the core fix.
+_MEDIA_FETCH_USER_AGENT = "imagine-mcp (+https://github.com/n24q02m/imagine-mcp)"
+
+
 async def _passthrough_understand(
     media_urls: list[str],
     prompt: str,
@@ -231,7 +239,7 @@ async def _passthrough_understand(
         supports_vision,
     )
 
-    from imagine_mcp.media import get_ssrf_safe_async_client
+    from imagine_mcp.media import get_ssrf_safe_async_client, sniff_image_mime
 
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
@@ -248,10 +256,33 @@ async def _passthrough_understand(
     async def _process_url(i: int, u: str) -> dict[str, Any]:
         await _validate_url(u, f"media_urls[{i}]")
         resp_img = await get_ssrf_safe_async_client().get(
-            u, follow_redirects=True, timeout=60
+            u,
+            follow_redirects=True,
+            timeout=60,
+            headers={"User-Agent": _MEDIA_FETCH_USER_AGENT},
         )
+        # Fail LOUD on a non-2xx fetch instead of base64-ing the error body: a
+        # UA-block / hotlink-protect / rate-limit / 404 page would otherwise be
+        # passed to the vision model as a data: URL and silently hallucinated
+        # over (isError=false, confident wrong answer).
+        resp_img.raise_for_status()
+        # Validate the body is a genuine raster image via its magic bytes before
+        # base64-ing it. The Content-Type header is untrusted (a 200 error page
+        # can claim image/*, and a real image can arrive as
+        # application/octet-stream), so the sniffed magic bytes -- not the
+        # header -- both decide the mime and gate acceptance. resolve_image_mime
+        # is deliberately NOT reused here: it falls back to image/jpeg for
+        # unknown bytes, which would relabel an error page as an image.
+        mime_type = sniff_image_mime(resp_img.content)
+        if mime_type is None:
+            ctype = resp_img.headers.get("content-type")
+            raise InvalidMediaTypeError(
+                f"media_urls[{i}] did not return a recognizable image "
+                f"(HTTP {resp_img.status_code}, content-type={ctype!r}, "
+                f"{len(resp_img.content)} bytes). Refusing to send non-image "
+                "content to the vision model."
+            )
         img_b64 = base64.b64encode(resp_img.content).decode()
-        mime_type = resp_img.headers.get("content-type", "image/png")
         data_url = f"data:{mime_type};base64,{img_b64}"
         return {"type": "image_url", "image_url": {"url": data_url}}
 
