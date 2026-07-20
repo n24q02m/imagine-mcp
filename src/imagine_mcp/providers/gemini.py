@@ -133,28 +133,21 @@ async def understand_multimodal(
                 await download_to_path_async(u, tmp_path)
                 return await client.aio.files.upload(file=tmp_path)
 
-        async def _resolve_mt(idx: int, u: str) -> str:
-            return media_types[idx] if media_types else await detect_media_type_async(u)
+        async def _process_url(idx: int, u: str) -> Any:
+            mt = media_types[idx] if media_types else await detect_media_type_async(u)
+            return await _fetch_part(idx, u, mt)
 
-        # ⚡ Bolt: Use return_exceptions=True to ensure no background tasks are leaked
-        # if one download or upload fails. This also avoids skipping cleanup logic.
-        gathered_mts = await asyncio.gather(
-            *(_resolve_mt(i, u) for i, u in enumerate(urls)), return_exceptions=True
-        )
-        resolved_mts: list[str] = []
-        for res in gathered_mts:
-            if isinstance(res, BaseException):
-                raise res
-            resolved_mts.append(res)
+        # ⚡ Bolt: Pipeline URL media detection and fetching with TaskGroup for fail-fast error handling.
+        # Expected impact: Eliminates barrier synchronization latency on the happy path while
+        # immediately cancelling pending slow fetch tasks if any fast media detection task fails.
+        try:
+            async with asyncio.TaskGroup() as tg:
+                tasks = [tg.create_task(_process_url(i, u)) for i, u in enumerate(urls)]
+        except ExceptionGroup as eg:
+            raise eg.exceptions[0] from None
 
-        results = await asyncio.gather(
-            *(_fetch_part(i, urls[i], resolved_mts[i]) for i in range(len(urls))),
-            return_exceptions=True,
-        )
-        for res in results:
-            if isinstance(res, BaseException):
-                raise res
-            parts.append(res)
+        for task in tasks:
+            parts.append(task.result())
 
         resp = await client.aio.models.generate_content(
             model=model,
