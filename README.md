@@ -254,6 +254,24 @@ How imagine-mcp stacks up against direct competitors in each pillar:
 - **Degraded start** -- Missing credentials do not prevent the server from starting; affected actions surface actionable errors instead of crashing at boot.
 - **Credential storage** -- Credentials submitted through the browser credential form are stored encrypted via `mcp-core` (AES-GCM, machine-bound key) at `~/.imagine-mcp/config.json`.
 
+### Workspace username (HTTP setup form)
+
+The browser credential form has an optional **workspace username** field. Entering
+the same username always lands you in the same per-`sub` bucket, so your provider
+keys stay reachable across a re-authorization and across devices, instead of being
+tied to the one-off subject minted for each `/authorize` round-trip. Leaving it
+blank keeps the previous per-authorize behaviour.
+
+Trust boundary: when the form is gated by a *shared* `MCP_RELAY_PASSWORD`, the
+username is a partition key, not a secret -- anyone who knows that password can
+type any username and reach that bucket. That is fine for a trusted group; an
+untrusted multi-tenant deployment needs a per-user secret or delegated OAuth
+instead.
+
+**One-time migration:** existing users must re-enter their credentials once after
+this change. Nothing is deleted; credentials stored under the old random subject
+are simply no longer addressed.
+
 ## Build from Source
 
 ```bash
