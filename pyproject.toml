@@ -42,8 +42,8 @@ dependencies = [
     "pydantic>=2.13.4,<2.14",
     "pydantic-settings>=2.14.2",
     "httpx>=0.28.1,<1",
-    "google-genai>=2.10.0",
-    "openai>=2.44.0",
+    "google-genai>=2.14.0",
+    "openai>=2.48.0",
     "pillow>=12.3.0",
     "diskcache>=5.6.3",
     "loguru>=0.7.3",
@@ -52,7 +52,7 @@ dependencies = [
     # build_cli's server_name to sidestep the mismatch, so no CLI
     # regression here -- bumped for cascade parity with wet/mnemo/crg.
     "n24q02m-mcp-core[llm]>=1.20.0b2,<2",
-    "platformdirs>=4.10.0",
+    "platformdirs>=4.11.0",
     # Security floors: transitive deps pinned to patched releases.
     # urllib3 < 2.7.0 -> PYSEC-2026-141/142; idna < 3.15 -> CVE-2026-45409.
     "urllib3>=2.7.0",
