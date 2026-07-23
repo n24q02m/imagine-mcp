@@ -19,3 +19,7 @@
 **Vulnerability:** Edge authentication gate in src/worker.ts bypassed using obfuscated URLs (e.g., //mcp or /%2Fmcp).
 **Learning:** Checking strict path strings against unnormalized request paths allows attackers to evade authentication checks before hitting internal endpoints.
 **Prevention:** Always decode and normalize URIs (using decodeURIComponent and replace) before conducting path-based security or routing decisions, and correctly handle malformed URIs.
+## 2026-07-25 - [MEDIUM] Error messages leaking internal details
+**Vulnerability:** The `reset_credentials` function in `src/imagine_mcp/relay_setup.py` caught exceptions and returned `str(exc)` in the JSON response, potentially exposing internal paths, stack traces, or configuration details to the client.
+**Learning:** Returning raw exception strings directly to users can unintentionally leak sensitive system information (e.g. `PermissionError: [Errno 13] /home/user/...`).
+**Prevention:** When handling exceptions that return data to the client, log the raw exception (`exc`) securely on the backend, but return a sanitized, generic error message (e.g., "An internal error occurred").
