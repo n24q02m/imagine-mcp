@@ -143,4 +143,7 @@ def reset_credentials() -> dict[str, Any]:
         return {"status": "reset", "server": SERVER_NAME}
     except Exception as exc:
         logger.error("reset_credentials failed: {}", exc)
-        return {"status": "error", "error": str(exc)}
+        return {
+            "status": "error",
+            "error": "An internal error occurred while resetting credentials.",
+        }
