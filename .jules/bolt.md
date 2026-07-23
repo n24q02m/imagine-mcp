@@ -52,3 +52,7 @@
 ## 2024-07-07 - Consolidate Consecutive Synchronous I/O in Async Contexts
 **Learning:** Executing consecutive synchronous file operations (e.g., `mkdir` followed by `write_bytes`) by wrapping each individually in `asyncio.to_thread` introduces unnecessary thread-pool scheduling and context-switching overhead.
 **Action:** When performing multiple related blocking operations in an async context, consolidate them into a single synchronous helper function and execute that helper via a single `asyncio.to_thread()` call.
+
+## 2024-05-18 - Pipeline sequential Async I/O Gathers
+**Learning:** In flows that require sequentially resolving metadata (like media types) before fetching the actual content, using separate `asyncio.gather` calls introduces unnecessary barrier synchronization latency. The second phase cannot start for *any* item until the first phase completes for *all* items.
+**Action:** Pipeline the detection and fetching into a single asynchronous helper function per item, and execute them concurrently using `asyncio.TaskGroup()`. This eliminates barrier latency while maintaining fail-fast error propagation.
