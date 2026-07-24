@@ -177,3 +177,18 @@ def test_reset_credentials_clears_existing_store():
         "server": relay_setup.SERVER_NAME,
     }
     assert _store().load() is None
+
+
+def test_reset_credentials_error_masking(monkeypatch):
+    class MockStore:
+        def __init__(self, *args, **kwargs):
+            self.cred_path = self
+
+        def exists(self):
+            raise Exception("Mock Exception")
+
+    monkeypatch.setattr("imagine_mcp.relay_setup.PerPluginStore", MockStore)
+    result = reset_credentials()
+    assert result["status"] == "error"
+    assert result["error"] == "Internal server error"
+    assert "Mock Exception" not in result["error"]
