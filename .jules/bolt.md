@@ -52,3 +52,7 @@
 ## 2024-07-07 - Consolidate Consecutive Synchronous I/O in Async Contexts
 **Learning:** Executing consecutive synchronous file operations (e.g., `mkdir` followed by `write_bytes`) by wrapping each individually in `asyncio.to_thread` introduces unnecessary thread-pool scheduling and context-switching overhead.
 **Action:** When performing multiple related blocking operations in an async context, consolidate them into a single synchronous helper function and execute that helper via a single `asyncio.to_thread()` call.
+
+## 2024-07-22 - Pipeline Async I/O Gathers in Providers
+**Learning:** Using two sequential `asyncio.gather` calls (e.g. one for validation/resolving types and another for fetching) creates a barrier synchronization point. All fast validation tasks must complete before *any* slow downloading can begin. We can't simply collapse this into one `gather` with `return_exceptions=True` because it would mask early fail-fast validation errors. `asyncio.TaskGroup` solves this beautifully by letting us schedule an async helper that processes a URL end-to-end (resolve then fetch), providing true pipelining while immediately cancelling pending downloads if any task fails.
+**Action:** When pipelining a fast asynchronous phase (like URL validation or type resolution) with a slow I/O phase (like downloading), encapsulate the sequential steps in a helper function and run them concurrently using `asyncio.TaskGroup`. Do not use multiple `gather` calls, as they introduce unnecessary barrier synchronization latency.
