@@ -113,8 +113,7 @@ async def understand_multimodal(
     await asyncio.to_thread(tmp_dir.mkdir, parents=True, exist_ok=True)
 
     try:
-        # ⚡ Bolt: Optimize network I/O from O(N) to O(1) latency using asyncio.gather
-        # to fetch parts concurrently.
+
         async def _fetch_part(idx: int, u: str, mt: str) -> Any:
             if mt == "image":
                 img_resp = await get_ssrf_safe_async_client().get(
@@ -133,28 +132,29 @@ async def understand_multimodal(
                 await download_to_path_async(u, tmp_path)
                 return await client.aio.files.upload(file=tmp_path)
 
-        async def _resolve_mt(idx: int, u: str) -> str:
-            return media_types[idx] if media_types else await detect_media_type_async(u)
+        async def _process_url(idx: int, u: str) -> Any:
+            mt = media_types[idx] if media_types else await detect_media_type_async(u)
+            return await _fetch_part(idx, u, mt)
 
-        # ⚡ Bolt: Use return_exceptions=True to ensure no background tasks are leaked
-        # if one download or upload fails. This also avoids skipping cleanup logic.
-        gathered_mts = await asyncio.gather(
-            *(_resolve_mt(i, u) for i, u in enumerate(urls)), return_exceptions=True
-        )
-        resolved_mts: list[str] = []
-        for res in gathered_mts:
-            if isinstance(res, BaseException):
-                raise res
-            resolved_mts.append(res)
+        # Detection and fetch run per URL rather than as two batches. Batching
+        # made every download wait for the slowest media-type probe, since
+        # `detect_media_type_async` issues a HEAD request for any URL whose
+        # extension it does not recognise. TaskGroup also cancels the remaining
+        # fetches once one fails, where the previous
+        # `gather(return_exceptions=True)` ran every download to completion and
+        # then discarded the results. `tmp_files` is appended before the
+        # download is awaited, so the `finally` below still clears the partial
+        # file of a cancelled task.
+        try:
+            async with asyncio.TaskGroup() as tg:
+                tasks = [tg.create_task(_process_url(i, u)) for i, u in enumerate(urls)]
+        except ExceptionGroup as eg:
+            # Callers match on the concrete error (MediaDetectError, HTTPError),
+            # so surface one member rather than the group.
+            raise eg.exceptions[0] from None
 
-        results = await asyncio.gather(
-            *(_fetch_part(i, urls[i], resolved_mts[i]) for i in range(len(urls))),
-            return_exceptions=True,
-        )
-        for res in results:
-            if isinstance(res, BaseException):
-                raise res
-            parts.append(res)
+        # Indexing `tasks` keeps parts in URL order, not completion order.
+        parts.extend(task.result() for task in tasks)
 
         resp = await client.aio.models.generate_content(
             model=model,
