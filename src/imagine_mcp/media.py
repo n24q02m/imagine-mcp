@@ -431,8 +431,8 @@ async def _write_response_async(resp: httpx.Response, dest: Path) -> None:
             pass
 
     bytes_read = 0
-    # ⚡ Bolt: Replace high-overhead asyncio.to_thread with anyio.open_file
-    # Expected impact: Dramatically reduces context-switching overhead on file chunk writes
+    # anyio.open_file rather than a per-chunk asyncio.to_thread: at 64 KiB a
+    # chunk, the thread hand-off per write dominates the write itself.
     async with await anyio.open_file(dest, "wb") as f:
         async for chunk in resp.aiter_bytes(chunk_size=65536):
             if bytes_read + len(chunk) > _MAX_DOWNLOAD_SIZE:
@@ -501,8 +501,8 @@ async def emit_media(
     if output_mode in ("path", "both"):
         out_dir = Path(_pd.user_cache_dir("imagine-mcp")) / "generations"
 
-        # ⚡ Bolt: Consolidate multiple asyncio.to_thread calls into a single synchronous
-        # helper to significantly reduce context-switching overhead for small I/O operations.
+        # mkdir and write_bytes go through one thread hand-off instead of two:
+        # both are small, so the scheduling cost outweighs the work.
         def _write_file_sync() -> Path:
             out_dir.mkdir(parents=True, exist_ok=True)
             out_path = out_dir / f"{_uuid.uuid4().hex}{suffix}"

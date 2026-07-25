@@ -159,8 +159,8 @@ def config_value_for_current_request(key: str) -> str | None:
     if sub is None:
         return os.environ.get(key)
 
-    # ⚡ Bolt: Leverage existing request-scoped cache to prevent redundant
-    # file I/O (PerPluginStore.load) and decryption per key lookup.
+    # Read through the request-scoped cache: PerPluginStore.load() is a file
+    # read plus a decrypt, and a single tool call looks up several keys.
     cached = _request_creds.get()
     if cached is not None:
         return cached.get(key)

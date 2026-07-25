@@ -177,3 +177,23 @@ def test_reset_credentials_clears_existing_store():
         "server": relay_setup.SERVER_NAME,
     }
     assert _store().load() is None
+
+
+def test_reset_credentials_keeps_store_path_out_of_the_error(monkeypatch):
+    """`server.py` hands this dict straight back as the `config` tool result.
+
+    A raw ``OSError`` message embeds the absolute store path, so the failure
+    has to reach the caller stripped of server-side detail.
+    """
+    store_path = "/srv/imagine/.config/imagine-mcp/config.enc"
+
+    def _denied(_plugin_name):
+        raise PermissionError(f"[Errno 13] Permission denied: '{store_path}'")
+
+    monkeypatch.setattr("imagine_mcp.relay_setup.PerPluginStore", _denied)
+
+    result = reset_credentials()
+
+    assert result["status"] == "error"
+    assert store_path not in result["error"]
+    assert "Errno" not in result["error"]
