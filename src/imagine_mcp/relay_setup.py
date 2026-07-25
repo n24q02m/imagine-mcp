@@ -142,5 +142,8 @@ def reset_credentials() -> dict[str, Any]:
         store.clear()
         return {"status": "reset", "server": SERVER_NAME}
     except Exception as exc:
+        # This dict is returned verbatim as the `config` tool result, so the
+        # detail stays in the server log: an OSError message carries the
+        # absolute store path, which the caller has no business seeing.
         logger.error("reset_credentials failed: {}", exc)
-        return {"status": "error", "error": str(exc)}
+        return {"status": "error", "error": "reset failed, see server logs"}
