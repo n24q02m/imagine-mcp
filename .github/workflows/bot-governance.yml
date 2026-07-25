@@ -12,6 +12,15 @@ permissions:
 jobs:
   governance:
     name: Bot PR Rate Limit & Duplicate Check
+    # Internal PRs only. This repo is public, so `pull_request` gives a fork a
+    # read-only GITHUB_TOKEN that the `permissions:` block above cannot raise --
+    # `gh pr close` would then fail under `set -e` and abort the job. Closing an
+    # outside contributor's PR because someone else spent the rate limit is the
+    # wrong outcome anyway; the bots this governs push their branches to this
+    # repo, so fork PRs are never in scope. Comparing full_name rather than
+    # head.repo.fork keeps this correct if imagine-mcp is ever itself a fork,
+    # where head.repo.fork would be true for internal branches too.
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - name: Detect and govern bot PRs
