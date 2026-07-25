@@ -251,9 +251,9 @@ async def _passthrough_understand(
 
     content: list[dict[str, Any]] = [{"type": "text", "text": prompt}]
 
-    # ⚡ Bolt: Pipeline URL validation and fetching with TaskGroup for fail-fast error handling.
-    # Expected impact: Eliminates barrier synchronization latency on the happy path while
-    # immediately cancelling pending slow fetches if any fast validation task fails.
+    # Validation and fetch run per URL rather than as two batches, so no fetch
+    # waits on the slowest validation. TaskGroup cancels the pending fetches as
+    # soon as one URL fails validation.
     async def _process_url(i: int, u: str) -> dict[str, Any]:
         await _validate_url(u, f"media_urls[{i}]")
         resp_img = await get_ssrf_safe_async_client().get(
@@ -345,9 +345,9 @@ async def dispatch_understand(
     if not media_urls:
         raise InvalidMediaTypeError("media_urls is empty")
 
-    # ⚡ Bolt: Pipeline URL validation and media detection with TaskGroup for fail-fast error handling.
-    # Expected impact: Eliminates barrier synchronization latency on the happy path while
-    # immediately cancelling pending slow detections if any fast validation task fails.
+    # Validation and media detection run per URL rather than as two batches, so
+    # no detection waits on the slowest validation. TaskGroup cancels the
+    # pending detections as soon as one URL fails validation.
     async def _process_media_url(i: int, u: str) -> str:
         await _validate_url(u, f"media_urls[{i}]")
         return await detect_media_type_async(u)
