@@ -72,7 +72,15 @@ function pickContainerEnv(env: Env): Record<string, string> {
 
 const kvOutbound: OutboundHandler<Env> = async (request, env) => {
   const url = new URL(request.url)
-  const key = decodeURIComponent(url.pathname.replace(/^\//, ''))
+  let key: string
+  try {
+    key = decodeURIComponent(url.pathname.replace(/^\//, ''))
+  } catch (e) {
+    if (e instanceof URIError) {
+      return new Response('Bad Request', { status: 400 })
+    }
+    throw e
+  }
   // Readiness probe (E.1): once this handler answers, outbound interception is
   // wired, so the container's first credential PUT is safe. Reserved key,
   // checked before the normal key lookup so it never shadows a real KV key.
