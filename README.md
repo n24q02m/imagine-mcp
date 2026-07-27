@@ -54,7 +54,7 @@ mcp-name: io.github.n24q02m/imagine-mcp
 - [Smithery](#smithery)
 - [Configuration](#configuration)
 - [CLI](#cli)
-- [Hosted endpoint](#hosted-endpoint)
+- [Remote (HTTP mode)](#remote-http-mode)
 - [Documentation](#documentation)
 - [Tools](#tools)
 - [Comparison](#comparison)
@@ -208,14 +208,14 @@ In stdio mode the server exits if none of the provider keys are set. The remote
 HTTP bind knobs (`MCP_HOST`, `MCP_PORT`) apply only when `PUBLIC_URL` is set; see
 [Configuration](#configuration).
 
-## Hosted endpoint
+## Remote (HTTP mode)
 
-A maintainer-run instance is live at **`https://imagine.n24q02m.com/mcp`** for
-clients that support remote HTTP MCP servers. It is OAuth-gated -- an
-unauthenticated request returns `401` with a `WWW-Authenticate: Bearer` challenge
--- and credentials are provisioned through the browser setup form. Point an
-HTTP-capable MCP client at that URL and complete the OAuth flow to connect.
-Prefer to run your own? See [Deploy to Cloudflare](#deploy-to-cloudflare).
+An HTTP deployment serves clients that support remote HTTP MCP servers. It is
+OAuth-gated -- an unauthenticated request returns `401` with a
+`WWW-Authenticate: Bearer` challenge -- and credentials are provisioned through
+the browser setup form. Point an HTTP-capable MCP client at
+`https://<your-host>/mcp` and complete the OAuth flow to connect.
+To stand one up, see [Deploy to Cloudflare](#deploy-to-cloudflare).
 
 ## Documentation
 
