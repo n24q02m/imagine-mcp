@@ -90,17 +90,15 @@ async def generate_image(
 
     data = resp.json()
     img_b64 = data["data"][0].get("b64_json")
-    if not img_b64:
+    if img_b64:
+        img_bytes = base64.b64decode(img_b64)
+    else:
         img_url = data["data"][0].get("url")
-        img_b64 = base64.b64encode(
-            (
-                await get_ssrf_safe_async_client().get(
-                    img_url, follow_redirects=True, timeout=60
-                )
-            ).content
-        ).decode()
-
-    img_bytes = base64.b64decode(img_b64)
+        img_bytes = (
+            await get_ssrf_safe_async_client().get(
+                img_url, follow_redirects=True, timeout=60
+            )
+        ).content
 
     from imagine_mcp.media import emit_media
 
