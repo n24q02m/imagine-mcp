@@ -47,6 +47,9 @@ def apply_config(config: dict[str, str]) -> None:
     ``credential_state.store_for_sub`` and never touches ``os.environ``.
     """
     for key, value in config.items():
+        if key not in CREDENTIAL_KEYS:
+            logger.warning("Ignoring unauthorized config key: {}", key)
+            continue
         if value and os.environ.get(key) != value:
             os.environ[key] = value
             logger.debug("Applied relay config: {}", key)
