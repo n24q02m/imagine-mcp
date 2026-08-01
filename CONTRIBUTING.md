@@ -139,4 +139,4 @@ Open an issue for bug reports, feature requests, or architecture discussions. Fo
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the MIT License.
+By contributing, you agree that your contributions will be licensed under the Apache License, Version 2.0.

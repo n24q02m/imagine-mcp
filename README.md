@@ -9,7 +9,7 @@ mcp-name: io.github.n24q02m/imagine-mcp
 [![codecov](https://codecov.io/gh/n24q02m/imagine-mcp/graph/badge.svg)](https://codecov.io/gh/n24q02m/imagine-mcp)
 [![PyPI](https://img.shields.io/pypi/v/imagine-mcp?logo=pypi&logoColor=white)](https://pypi.org/project/imagine-mcp/)
 [![Docker](https://img.shields.io/docker/v/n24q02m/imagine-mcp?label=docker&logo=docker&logoColor=white&sort=semver)](https://hub.docker.com/r/n24q02m/imagine-mcp)
-[![License: MIT](https://img.shields.io/github/license/n24q02m/imagine-mcp)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/github/license/n24q02m/imagine-mcp)](LICENSE)
 
 <!-- Badge Row 2: Tech -->
 [![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)](#)
@@ -249,7 +249,7 @@ How imagine-mcp stacks up against direct competitors in each pillar:
 | Video generation | Yes (text-to-video + image-to-video, async `job_id` poll) | No | Yes (text/image-to-video) | No |
 | Multi-provider backends | Yes (Gemini / OpenAI / Grok, auto-fallback) | No (EverArt only) | No (fal.ai only) | No (Replicate Flux only) |
 | Quality/cost tiers | Yes (`poor` cheap-fast vs `rich` high-quality per provider) | No | No | No |
-| Self-hostable / open source | Yes (MIT, stdio + HTTP self-host) | Yes (MIT, archived) | Yes (MIT) | Yes (MIT, archived) |
+| Self-hostable / open source | Yes (Apache-2.0, stdio + HTTP self-host) | Yes (MIT, archived) | Yes (MIT) | Yes (MIT, archived) |
 
 ## Security
 
@@ -346,4 +346,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development workflow, commit
 
 ## License
 
-MIT -- see [LICENSE](LICENSE).
+Apache-2.0 -- see [LICENSE](LICENSE).
