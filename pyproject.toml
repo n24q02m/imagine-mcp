@@ -3,7 +3,7 @@ name = "imagine-mcp"
 version = "1.10.1"
 description = "MCP server for image/video understanding & generation (Gemini/OpenAI/Grok)"
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 authors = [{ name = "n24q02m" }]
 requires-python = "==3.13.*"
 keywords = [
@@ -29,7 +29,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",

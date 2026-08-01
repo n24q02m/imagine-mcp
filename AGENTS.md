@@ -129,4 +129,4 @@ docker run -it --rm ghcr.io/n24q02m/imagine-mcp:latest
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+Apache-2.0. See [`LICENSE`](LICENSE).

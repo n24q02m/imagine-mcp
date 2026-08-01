@@ -35,7 +35,7 @@ FROM python:3.13-slim-bookworm AS runtime
 
 LABEL io.modelcontextprotocol.server.name="io.github.n24q02m/imagine-mcp"
 LABEL org.opencontainers.image.source="https://github.com/n24q02m/imagine-mcp"
-LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.licenses="Apache-2.0"
 
 WORKDIR /app
 
