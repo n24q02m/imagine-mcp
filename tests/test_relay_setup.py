@@ -97,6 +97,16 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_ignores_unlisted_keys(monkeypatch):
+    """Env injection defense: untrusted payload keys must be allowlisted."""
+    monkeypatch.delenv("MALICIOUS_KEY", raising=False)
+    apply_config({"MALICIOUS_KEY": "evil", "OPENAI_API_KEY": "ok"})
+    import os
+
+    assert "MALICIOUS_KEY" not in os.environ
+    assert os.environ["OPENAI_API_KEY"] == "ok"
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
