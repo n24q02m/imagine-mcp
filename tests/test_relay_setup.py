@@ -97,6 +97,15 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_ignores_unauthorized_keys():
+    """Verify that only keys in ALLOWED_CONFIG_KEYS are applied to env."""
+    apply_config({"GEMINI_API_KEY": "ok", "INJECTED_VAR": "bad"})
+    import os
+
+    assert os.environ["GEMINI_API_KEY"] == "ok"
+    assert "INJECTED_VAR" not in os.environ
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
