@@ -24,3 +24,14 @@ def reset_contextvars():
     from imagine_mcp.credential_state import _request_creds
 
     _request_creds.set(None)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_per_plugin_home(tmp_path_factory, monkeypatch):
+    """Redirect ~/ to a per-test tmp dir so PerPluginStore writes don't
+    pollute the real ~/.imagine-mcp/ between test runs (or worse, between
+    parallel pytest workers in CI). Path.home() reads HOME on POSIX
+    and USERPROFILE on Windows."""
+    fake_home = tmp_path_factory.mktemp("imagine_test_home")
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.setenv("USERPROFILE", str(fake_home))
