@@ -58,3 +58,7 @@ Proposals evaluated and turned down. The reasoning lives here so it carries to t
 - **`perf:` as a commit or PR title prefix.** This repo enforces a `fix:`/`feat:` subset, and the "Validate PR title" check fails the PR outright. A performance change is a `fix:`. Five PRs in the cluster above were opened with `perf:` and all five failed that check before review.
 - **Persona markers in source comments.** Comments of the form `# ⚡ Bolt: ... Expected impact: ...` were removed from `credential_state.py`, `dispatcher.py`, `media.py` and `providers/gemini.py`. This is a public repository; a comment should describe the code, not who wrote it or how much it was expected to help. Write the rationale, drop the tag.
 - **A PR that changes nothing.** #482 ("evaluated performance optimizations", empty diff) and #485 (palette persona, empty diff) carried no changes. If a run finds no work, record it here and stop -- do not open an empty PR.
+
+## 2026-07-26 - Consolidate status fetching into a single thread
+**Learning:** The `status` handler in `src/imagine_mcp/server.py` performed three separate `asyncio.to_thread` calls for `_get_version`, `_creds_state`, and `_providers_configured_live`. This pattern introduced unnecessary thread-pool scheduling overhead and repeated disk reads for `PerPluginStore`.
+**Action:** When gathering multiple pieces of synchronous system status in an async endpoint, create a single synchronous helper function (e.g., `_get_system_status_sync`) that aggregates the calls, and execute that helper via a single `asyncio.to_thread` dispatch.
