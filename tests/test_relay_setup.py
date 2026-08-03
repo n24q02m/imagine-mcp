@@ -97,6 +97,14 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_skips_unauthorized_keys():
+    apply_config({"HACKED_VAR": "123", "GEMINI_API_KEY": "val"})
+    import os
+
+    assert "HACKED_VAR" not in os.environ
+    assert os.environ.get("GEMINI_API_KEY") == "val"
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
