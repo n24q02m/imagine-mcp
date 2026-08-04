@@ -99,6 +99,20 @@ def _providers_configured_live() -> list[str]:
     return out
 
 
+def _get_system_status_sync() -> tuple[str, str, list[str]]:
+    """Gather system status sequentially to avoid multiple to_thread dispatches.
+
+    This avoids redundant disk reads since _creds_state() and
+    _providers_configured_live() both eventually trigger PerPluginStore loading.
+    """
+    version = _get_version()
+    # Note: we call _providers_configured_live directly and pass it to _creds_state
+    # logic to avoid duplicated work.
+    providers = _providers_configured_live()
+    creds_state = "CONFIGURED" if providers else "NEEDS_SETUP"
+    return version, creds_state, providers
+
+
 def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
     if not key or key not in _VALID_SET_KEYS:
         return {
@@ -311,12 +325,13 @@ def build_app() -> FastMCP:
                     "message": "No heavy resources to warm up in v1.",
                 }
             case "status":
+                version, creds_state, providers = await asyncio.to_thread(
+                    _get_system_status_sync
+                )
                 return {
-                    "version": await asyncio.to_thread(_get_version),
-                    "credentials_state": await asyncio.to_thread(_creds_state),
-                    "providers_configured": await asyncio.to_thread(
-                        _providers_configured_live
-                    ),
+                    "version": version,
+                    "credentials_state": creds_state,
+                    "providers_configured": providers,
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
