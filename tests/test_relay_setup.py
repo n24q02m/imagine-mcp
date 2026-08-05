@@ -97,6 +97,15 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_rejects_unallowed_keys():
+    """Environment variable injection via relay must be prevented."""
+    apply_config({"LD_PRELOAD": "/malicious.so", "GEMINI_API_KEY": "ok"})
+    import os
+
+    assert "LD_PRELOAD" not in os.environ
+    assert os.environ["GEMINI_API_KEY"] == "ok"
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
