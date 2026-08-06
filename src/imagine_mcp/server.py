@@ -47,6 +47,20 @@ def _creds_state() -> str:
     return "CONFIGURED" if _providers_configured_live() else "NEEDS_SETUP"
 
 
+def _get_system_status_sync() -> dict[str, Any]:
+    """Gather version and credential state in a single synchronous call.
+
+    Avoids redundant disk reads of the PerPluginStore that occur when calling
+    _creds_state() and _providers_configured_live() separately.
+    """
+    live_providers = _providers_configured_live()
+    return {
+        "version": _get_version(),
+        "credentials_state": "CONFIGURED" if live_providers else "NEEDS_SETUP",
+        "providers_configured": live_providers,
+    }
+
+
 def _providers_configured() -> list[str]:
     """Return list of providers configured via environment variables."""
     from imagine_mcp.relay_setup import CREDENTIAL_KEYS
@@ -311,12 +325,9 @@ def build_app() -> FastMCP:
                     "message": "No heavy resources to warm up in v1.",
                 }
             case "status":
+                status_data = await asyncio.to_thread(_get_system_status_sync)
                 return {
-                    "version": await asyncio.to_thread(_get_version),
-                    "credentials_state": await asyncio.to_thread(_creds_state),
-                    "providers_configured": await asyncio.to_thread(
-                        _providers_configured_live
-                    ),
+                    **status_data,
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
