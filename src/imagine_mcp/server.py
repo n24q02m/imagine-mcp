@@ -39,12 +39,13 @@ def _get_version() -> str:
     return __version__
 
 
-def _creds_state() -> str:
-    """Return CONFIGURED if any provider is set (env or store), else NEEDS_SETUP.
-
-    Checks live store because env vars may not be populated at startup.
-    """
-    return "CONFIGURED" if _providers_configured_live() else "NEEDS_SETUP"
+def _get_system_status_sync() -> dict[str, Any]:
+    providers = _providers_configured_live()
+    return {
+        "version": _get_version(),
+        "credentials_state": "CONFIGURED" if providers else "NEEDS_SETUP",
+        "providers_configured": providers,
+    }
 
 
 def _providers_configured() -> list[str]:
@@ -311,12 +312,9 @@ def build_app() -> FastMCP:
                     "message": "No heavy resources to warm up in v1.",
                 }
             case "status":
+                status = await asyncio.to_thread(_get_system_status_sync)
                 return {
-                    "version": await asyncio.to_thread(_get_version),
-                    "credentials_state": await asyncio.to_thread(_creds_state),
-                    "providers_configured": await asyncio.to_thread(
-                        _providers_configured_live
-                    ),
+                    **status,
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
