@@ -21,6 +21,15 @@ CREDENTIAL_KEYS: list[str] = [
     "GOOGLE_VERTEX_EXPRESS_API_KEY",
 ]
 
+ALLOWED_CONFIG_KEYS = frozenset(
+    [
+        *CREDENTIAL_KEYS,
+        "UNDERSTAND_MODELS",
+        "GENERATE_MODELS",
+        "GENERATE_PROVIDER_PRIORITY",
+    ]
+)
+
 # 5 minutes: user needs time to copy URL, open browser, fill up to 3 keys
 RELAY_TIMEOUT_S = 300.0
 
@@ -47,6 +56,9 @@ def apply_config(config: dict[str, str]) -> None:
     ``credential_state.store_for_sub`` and never touches ``os.environ``.
     """
     for key, value in config.items():
+        if key not in ALLOWED_CONFIG_KEYS:
+            logger.warning("Ignored unallowed config key: {}", key)
+            continue
         if value and os.environ.get(key) != value:
             os.environ[key] = value
             logger.debug("Applied relay config: {}", key)

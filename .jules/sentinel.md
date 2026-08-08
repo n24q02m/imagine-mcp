@@ -34,3 +34,8 @@ Proposals evaluated and turned down. The reasoning lives here so it carries to t
 
 - **Replacing this file's history with a single entry (#492).** The PR that reported the `reset_credentials` leak also deleted every prior entry in this ledger, leaving only its own. The finding was correct and has been implemented (see the 2026-07-25 entry), but this file is the record of what has already been fixed; clearing it makes past work invisible to the next run and invites re-proposal of things already landed. Append, never rewrite. #489 reported the same issue and appended correctly.
 - **Asserting on the exact error string.** The test proposed alongside #492 asserted `result["error"] == "Internal server error"`, which pins the wording rather than the property. The committed test asserts that the store path and `Errno` do *not* appear in the response, which is what actually matters and survives a reword.
+
+## 2026-08-15 - [CRITICAL] Environment variable injection via config relay
+**Vulnerability:** Untrusted configuration keys received from external sources (e.g., remote relays or local OAuth forms) were applied directly to `os.environ` without validation, allowing arbitrary environment variable injection (e.g., `LD_PRELOAD`).
+**Learning:** Functions that mutate global environment state (`os.environ`) based on external input must strictly allowlist keys. Validating only the presence of expected keys is insufficient if unexpected keys are silently passed through and applied.
+**Prevention:** Always validate configuration keys against a strict, predefined allowlist before setting them in `os.environ`.
