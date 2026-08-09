@@ -97,6 +97,14 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_ignores_unauthorized_keys():
+    """Ensure environment variable injection is prevented."""
+    apply_config({"MALICIOUS_KEY": "evil_value"})
+    import os
+
+    assert "MALICIOUS_KEY" not in os.environ
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
@@ -106,6 +114,19 @@ def test_save_credentials_persists_and_applies():
     import os
 
     assert os.environ["GEMINI_API_KEY"] == "saved"
+    assert _store().load() == {"GEMINI_API_KEY": "saved"}
+
+
+def test_save_credentials_filters_unauthorized_keys():
+    """Ensure unauthorized keys are filtered before saving to the store."""
+    result = save_credentials(
+        {"GEMINI_API_KEY": "saved", "MALICIOUS_KEY": "evil_value"}
+    )
+    assert result is None
+    import os
+
+    assert os.environ["GEMINI_API_KEY"] == "saved"
+    assert "MALICIOUS_KEY" not in os.environ
     assert _store().load() == {"GEMINI_API_KEY": "saved"}
 
 
