@@ -11,3 +11,7 @@
 Proposals evaluated and turned down. The reasoning lives here so it carries to the next run.
 
 - **Opening a PR to announce that no work was found (#485).** An empty diff is not a change. If a run concludes there is nothing to do, that conclusion belongs in this file.
+
+## 2026-07-26 - No surface for UX enhancements
+**Learning:** Confirmed that the repository is a headless backend MCP server and Cloudflare worker. It lacks any frontend UI components, rendering the Palette persona's objective (UX/a11y improvements) inapplicable.
+**Action:** Skip without creating a PR.
