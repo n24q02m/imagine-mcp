@@ -39,6 +39,11 @@ def _get_version() -> str:
     return __version__
 
 
+def _get_system_status_sync() -> tuple[str, str, list[str]]:
+    """Helper to consolidate version and credential fetching into one synchronous call."""
+    return _get_version(), _creds_state(), _providers_configured_live()
+
+
 def _creds_state() -> str:
     """Return CONFIGURED if any provider is set (env or store), else NEEDS_SETUP.
 
@@ -311,12 +316,13 @@ def build_app() -> FastMCP:
                     "message": "No heavy resources to warm up in v1.",
                 }
             case "status":
+                version, creds_state, providers_live = await asyncio.to_thread(
+                    _get_system_status_sync
+                )
                 return {
-                    "version": await asyncio.to_thread(_get_version),
-                    "credentials_state": await asyncio.to_thread(_creds_state),
-                    "providers_configured": await asyncio.to_thread(
-                        _providers_configured_live
-                    ),
+                    "version": version,
+                    "credentials_state": creds_state,
+                    "providers_configured": providers_live,
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
