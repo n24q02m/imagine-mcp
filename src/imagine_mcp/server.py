@@ -99,6 +99,16 @@ def _providers_configured_live() -> list[str]:
     return out
 
 
+def _get_system_status_sync() -> dict[str, Any]:
+    """Gather version and credential state in a single synchronous dispatch to avoid redundant disk reads."""
+    _live_providers = _providers_configured_live()
+    return {
+        "version": _get_version(),
+        "credentials_state": "CONFIGURED" if _live_providers else "NEEDS_SETUP",
+        "providers_configured": _live_providers,
+    }
+
+
 def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
     if not key or key not in _VALID_SET_KEYS:
         return {
@@ -311,16 +321,13 @@ def build_app() -> FastMCP:
                     "message": "No heavy resources to warm up in v1.",
                 }
             case "status":
-                return {
-                    "version": await asyncio.to_thread(_get_version),
-                    "credentials_state": await asyncio.to_thread(_creds_state),
-                    "providers_configured": await asyncio.to_thread(
-                        _providers_configured_live
-                    ),
+                status_dict = await asyncio.to_thread(_get_system_status_sync)
+                status_dict.update({
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
-                }
+                })
+                return status_dict
             case "set":
                 return _set_runtime(key, value)
             case "cache_clear":
