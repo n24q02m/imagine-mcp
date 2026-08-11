@@ -322,11 +322,13 @@ def build_app() -> FastMCP:
                 }
             case "status":
                 status_dict = await asyncio.to_thread(_get_system_status_sync)
-                status_dict.update({
-                    "default_provider": settings.default_provider,
-                    "default_tier": settings.default_tier,
-                    "cache_ttl_seconds": settings.cache_ttl_seconds,
-                })
+                status_dict.update(
+                    {
+                        "default_provider": settings.default_provider,
+                        "default_tier": settings.default_tier,
+                        "cache_ttl_seconds": settings.cache_ttl_seconds,
+                    }
+                )
                 return status_dict
             case "set":
                 return _set_runtime(key, value)
