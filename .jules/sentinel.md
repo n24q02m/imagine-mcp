@@ -34,3 +34,8 @@ Proposals evaluated and turned down. The reasoning lives here so it carries to t
 
 - **Replacing this file's history with a single entry (#492).** The PR that reported the `reset_credentials` leak also deleted every prior entry in this ledger, leaving only its own. The finding was correct and has been implemented (see the 2026-07-25 entry), but this file is the record of what has already been fixed; clearing it makes past work invisible to the next run and invites re-proposal of things already landed. Append, never rewrite. #489 reported the same issue and appended correctly.
 - **Asserting on the exact error string.** The test proposed alongside #492 asserted `result["error"] == "Internal server error"`, which pins the wording rather than the property. The committed test asserts that the store path and `Errno` do *not* appear in the response, which is what actually matters and survives a reword.
+
+## 2026-08-12 - [CRITICAL] Environment Variable Injection in relay_setup.py
+**Vulnerability:** The `apply_config` function iterated over untrusted configuration dictionary values and loaded them directly into `os.environ`, allowing an attacker to inject arbitrary system environment variables such as `PATH`, `PYTHONPATH`, or `LD_PRELOAD`.
+**Learning:** Accepting unbounded keys from remote or user-provided configuration sources and mapping them directly to the process's environment space exposes the application to Remote Code Execution (RCE) and logic bypass vulnerabilities.
+**Prevention:** Always validate configuration keys received from untrusted boundaries against a strict explicit allowlist (e.g., `ALLOWED_CONFIG_KEYS`) before applying them to `os.environ` or other sensitive state maps.
