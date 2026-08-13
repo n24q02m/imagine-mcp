@@ -97,6 +97,15 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_filters_unauthorized_keys():
+    """Sentinel: Prevent environment variable injection."""
+    apply_config({"GEMINI_API_KEY": "gk", "MALICIOUS_VAR": "injected"})
+    import os
+
+    assert os.environ.get("GEMINI_API_KEY") == "gk"
+    assert "MALICIOUS_VAR" not in os.environ
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
