@@ -99,6 +99,14 @@ def _providers_configured_live() -> list[str]:
     return out
 
 
+def _get_system_status_sync() -> tuple[str, str, list[str]]:
+    """Helper to collect system status synchronously to avoid multiple to_thread calls."""
+    live_providers = _providers_configured_live()
+    version = _get_version()
+    creds_state = "CONFIGURED" if live_providers else "NEEDS_SETUP"
+    return version, creds_state, live_providers
+
+
 def _set_runtime(key: str | None, value: str | None) -> dict[str, Any]:
     if not key or key not in _VALID_SET_KEYS:
         return {
@@ -311,12 +319,11 @@ def build_app() -> FastMCP:
                     "message": "No heavy resources to warm up in v1.",
                 }
             case "status":
+                ver, c_state, p_conf = await asyncio.to_thread(_get_system_status_sync)
                 return {
-                    "version": await asyncio.to_thread(_get_version),
-                    "credentials_state": await asyncio.to_thread(_creds_state),
-                    "providers_configured": await asyncio.to_thread(
-                        _providers_configured_live
-                    ),
+                    "version": ver,
+                    "credentials_state": c_state,
+                    "providers_configured": p_conf,
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
