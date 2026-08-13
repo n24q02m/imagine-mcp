@@ -21,6 +21,13 @@ CREDENTIAL_KEYS: list[str] = [
     "GOOGLE_VERTEX_EXPRESS_API_KEY",
 ]
 
+ALLOWED_CONFIG_KEYS: set[str] = {
+    *CREDENTIAL_KEYS,
+    "UNDERSTAND_MODELS",
+    "GENERATE_MODELS",
+    "GENERATE_PROVIDER_PRIORITY",
+}
+
 # 5 minutes: user needs time to copy URL, open browser, fill up to 3 keys
 RELAY_TIMEOUT_S = 300.0
 
@@ -47,6 +54,8 @@ def apply_config(config: dict[str, str]) -> None:
     ``credential_state.store_for_sub`` and never touches ``os.environ``.
     """
     for key, value in config.items():
+        if key not in ALLOWED_CONFIG_KEYS:
+            continue
         if value and os.environ.get(key) != value:
             os.environ[key] = value
             logger.debug("Applied relay config: {}", key)
@@ -62,8 +71,9 @@ def save_credentials(
     `_context` carries the per-authorize `sub` for future multi-user use;
     single-user local relay mode ignores the subject.
     """
-    PerPluginStore(PLUGIN_NAME).save(config)
-    apply_config(config)
+    filtered_config = {k: v for k, v in config.items() if k in ALLOWED_CONFIG_KEYS}
+    PerPluginStore(PLUGIN_NAME).save(filtered_config)
+    apply_config(filtered_config)
     logger.info("Credentials saved via local OAuth form")
     return None
 
@@ -119,11 +129,12 @@ async def ensure_config(
 
         config = await poll_for_result(relay_url, session, timeout_s=timeout)  # ty: ignore[invalid-argument-type]
 
-        PerPluginStore(PLUGIN_NAME).save(dict(config))
+        filtered_config = {k: v for k, v in config.items() if k in ALLOWED_CONFIG_KEYS}
+        PerPluginStore(PLUGIN_NAME).save(filtered_config)
         logger.info("Config saved to per-plugin store")
 
-        apply_config(dict(config))
-        return dict(config)
+        apply_config(filtered_config)
+        return filtered_config
 
     except Exception as exc:
         logger.error("Relay setup failed: {}", exc)
