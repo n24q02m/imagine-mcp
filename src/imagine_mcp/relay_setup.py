@@ -21,6 +21,13 @@ CREDENTIAL_KEYS: list[str] = [
     "GOOGLE_VERTEX_EXPRESS_API_KEY",
 ]
 
+ALLOWED_CONFIG_KEYS = [
+    *CREDENTIAL_KEYS,
+    "UNDERSTAND_MODELS",
+    "GENERATE_MODELS",
+    "GENERATE_PROVIDER_PRIORITY",
+]
+
 # 5 minutes: user needs time to copy URL, open browser, fill up to 3 keys
 RELAY_TIMEOUT_S = 300.0
 
@@ -45,9 +52,11 @@ def apply_config(config: dict[str, str]) -> None:
     skips empty values and identical re-submits (no churn). This is the
     single-user path only -- multi-user mode scopes config per-sub via
     ``credential_state.store_for_sub`` and never touches ``os.environ``.
+    Only keys explicitly allowed in ``ALLOWED_CONFIG_KEYS`` are applied to
+    prevent environment variable injection from untrusted configuration sources.
     """
     for key, value in config.items():
-        if value and os.environ.get(key) != value:
+        if key in ALLOWED_CONFIG_KEYS and value and os.environ.get(key) != value:
             os.environ[key] = value
             logger.debug("Applied relay config: {}", key)
 
