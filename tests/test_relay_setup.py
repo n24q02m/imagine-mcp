@@ -97,6 +97,14 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_ignores_unallowed_keys():
+    """Verify that injecting an unallowed key is blocked."""
+    apply_config({"LD_PRELOAD": "/malicious/lib.so"})
+    import os
+
+    assert "LD_PRELOAD" not in os.environ
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
