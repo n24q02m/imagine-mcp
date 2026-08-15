@@ -46,6 +46,7 @@ jobs:
           # silently fail to bump the version, defeating the point of the
           # gate.
           types: |
+            perf
             fix
             feat
           requireScope: false
