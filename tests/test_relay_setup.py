@@ -97,6 +97,17 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_rejects_unallowed_keys(monkeypatch):
+    monkeypatch.delenv("LD_PRELOAD", raising=False)
+
+    apply_config({"LD_PRELOAD": "malicious.so", "OPENAI_API_KEY": "ok"})
+
+    import os
+
+    assert os.environ.get("LD_PRELOAD") is None
+    assert os.environ.get("OPENAI_API_KEY") == "ok"
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
