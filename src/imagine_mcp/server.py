@@ -39,6 +39,23 @@ def _get_version() -> str:
     return __version__
 
 
+def _get_system_status_sync(
+    settings_default_provider: str,
+    settings_default_tier: str,
+    settings_cache_ttl_seconds: int,
+) -> dict[str, Any]:
+    live_providers = _providers_configured_live()
+    creds_state = "CONFIGURED" if live_providers else "NEEDS_SETUP"
+    return {
+        "version": _get_version(),
+        "credentials_state": creds_state,
+        "providers_configured": live_providers,
+        "default_provider": settings_default_provider,
+        "default_tier": settings_default_tier,
+        "cache_ttl_seconds": settings_cache_ttl_seconds,
+    }
+
+
 def _creds_state() -> str:
     """Return CONFIGURED if any provider is set (env or store), else NEEDS_SETUP.
 
@@ -311,16 +328,12 @@ def build_app() -> FastMCP:
                     "message": "No heavy resources to warm up in v1.",
                 }
             case "status":
-                return {
-                    "version": await asyncio.to_thread(_get_version),
-                    "credentials_state": await asyncio.to_thread(_creds_state),
-                    "providers_configured": await asyncio.to_thread(
-                        _providers_configured_live
-                    ),
-                    "default_provider": settings.default_provider,
-                    "default_tier": settings.default_tier,
-                    "cache_ttl_seconds": settings.cache_ttl_seconds,
-                }
+                return await asyncio.to_thread(
+                    _get_system_status_sync,
+                    settings.default_provider,
+                    settings.default_tier,
+                    settings.cache_ttl_seconds,
+                )
             case "set":
                 return _set_runtime(key, value)
             case "cache_clear":
