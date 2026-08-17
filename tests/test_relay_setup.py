@@ -97,6 +97,17 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_ignores_unallowed_keys():
+    """Unallowed keys (e.g. injected variables) must be skipped."""
+    apply_config(
+        {"MALICIOUS_VAR": "injected", "UNDERSTAND_MODELS": "gemini/gemini-1.5-pro"}
+    )
+    import os
+
+    assert "MALICIOUS_VAR" not in os.environ
+    assert os.environ["UNDERSTAND_MODELS"] == "gemini/gemini-1.5-pro"
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
