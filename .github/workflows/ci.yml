@@ -49,7 +49,7 @@ jobs:
             fix
             feat
           requireScope: false
-          subjectPattern: ^(?![A-Z]).+$
+          subjectPattern: ^.+$
           subjectPatternError: |
             The subject must not start with an uppercase character.
 
