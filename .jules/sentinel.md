@@ -34,3 +34,8 @@ Proposals evaluated and turned down. The reasoning lives here so it carries to t
 
 - **Replacing this file's history with a single entry (#492).** The PR that reported the `reset_credentials` leak also deleted every prior entry in this ledger, leaving only its own. The finding was correct and has been implemented (see the 2026-07-25 entry), but this file is the record of what has already been fixed; clearing it makes past work invisible to the next run and invites re-proposal of things already landed. Append, never rewrite. #489 reported the same issue and appended correctly.
 - **Asserting on the exact error string.** The test proposed alongside #492 asserted `result["error"] == "Internal server error"`, which pins the wording rather than the property. The committed test asserts that the store path and `Errno` do *not* appear in the response, which is what actually matters and survives a reword.
+
+## 2026-08-19 - [CRITICAL] Prevent environment variable injection via config payload
+**Vulnerability:** The relay setup process blindly accepted any key-value pairs submitted in the `config` payload and applied them directly to `os.environ` via `apply_config`. This allowed arbitrary environment variable injection during remote relay configuration.
+**Learning:** Any process that synchronizes external, user-controlled configuration payloads into process-level state (`os.environ`) must strictly validate the payload against an explicit allowlist. Trusting that the client only sends expected keys (e.g., `GEMINI_API_KEY`) is a security flaw.
+**Prevention:** Maintain an allowlist (`ALLOWED_CONFIG_KEYS`) of valid configuration keys and validate incoming payloads against it before modifying `os.environ`. Reject any unauthorized keys.
