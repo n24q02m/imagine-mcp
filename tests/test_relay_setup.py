@@ -97,6 +97,13 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_rejects_disallowed_keys():
+    apply_config({"MALICIOUS_ENV_VAR": "evil"})
+    import os
+
+    assert "MALICIOUS_ENV_VAR" not in os.environ
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
