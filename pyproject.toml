@@ -37,13 +37,13 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "mcp[cli]>=1.28.1",
+    "mcp[cli]>=1.29.0",
     "fastmcp>=3.4.4",
     "pydantic>=2.13.4,<2.14",
-    "pydantic-settings>=2.14.2",
+    "pydantic-settings>=2.15.0",
     "httpx>=0.28.1,<1",
-    "google-genai>=2.14.0",
-    "openai>=2.48.0",
+    "google-genai>=2.19.0",
+    "openai>=2.54.0",
     "pillow>=12.3.0",
     "diskcache>=5.6.3",
     "loguru>=0.7.3",
@@ -54,12 +54,12 @@ dependencies = [
     # install resolve back past both.
     # Keep the floor on a stable release -- naming a prerelease here opts this
     # dependency into prerelease resolution for anyone installing the package.
-    "n24q02m-mcp-core[llm]>=1.21.0,<2",
+    "n24q02m-mcp-core[llm]>=1.23.0,<2",
     "platformdirs>=4.11.0",
     # Security floors: transitive deps pinned to patched releases.
     # urllib3 < 2.7.0 -> PYSEC-2026-141/142; idna < 3.15 -> CVE-2026-45409.
     "urllib3>=2.7.0",
-    "idna>=3.18",
+    "idna>=3.19",
 ]
 
 [project.scripts]
