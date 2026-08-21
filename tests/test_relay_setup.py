@@ -96,6 +96,7 @@ def test_apply_config_skips_empty_values():
 
     assert "GEMINI_API_KEY" not in os.environ
 
+
 def test_apply_config_skips_unallowed_keys():
     """Arbitrary keys from a malicious relay must not enter os.environ."""
     apply_config({"LD_PRELOAD": "/tmp/evil.so", "OPENAI_API_KEY": "ok"})
@@ -103,7 +104,6 @@ def test_apply_config_skips_unallowed_keys():
 
     assert "LD_PRELOAD" not in os.environ
     assert os.environ["OPENAI_API_KEY"] == "ok"
-
 
 
 # --------------------------------------------------------------------------
