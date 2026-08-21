@@ -10,7 +10,7 @@ from fastmcp.exceptions import ToolError
 from imagine_mcp import __version__
 from imagine_mcp.security import UNTRUSTED_SOURCE
 from imagine_mcp.server import (
-    _creds_state,
+    _get_system_status_sync,
     _get_version,
     _providers_configured,
     _providers_configured_live,
@@ -63,23 +63,31 @@ def test_build_app_reports_package_version() -> None:
     assert reported != "3.4.2"
 
 
-def test_creds_state(monkeypatch) -> None:
+def test_get_system_status_sync_fallback(monkeypatch) -> None:
     # No keys
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("XAI_API_KEY", raising=False)
-    assert _creds_state() == "NEEDS_SETUP"
+    status = _get_system_status_sync()
+    assert status["credentials_state"] == "NEEDS_SETUP"
+    assert "version" in status
+    assert status["providers_configured"] == []
 
     # One key
     monkeypatch.setenv("GEMINI_API_KEY", "test")
-    assert _creds_state() == "CONFIGURED"
+    status = _get_system_status_sync()
+    assert status["credentials_state"] == "CONFIGURED"
+    assert status["providers_configured"] == ["gemini"]
+
     # From store
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     with patch(
         "mcp_core.storage.per_plugin_store.PerPluginStore.load",
         return_value={"GEMINI_API_KEY": "test"},
     ):
-        assert _creds_state() == "CONFIGURED"
+        status = _get_system_status_sync()
+        assert status["credentials_state"] == "CONFIGURED"
+        assert status["providers_configured"] == ["gemini"]
 
 
 def test_providers_configured(monkeypatch) -> None:
