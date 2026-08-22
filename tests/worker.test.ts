@@ -240,3 +240,66 @@ describe('edge gate declines the standing GET /mcp SSE stream (405)', () => {
     expect(calls()).toBe(0)
   })
 })
+
+describe('tombstone contract (W4 dehost preparation & drill)', () => {
+  function envWithDoSpy(flags: Record<string, string> = {}) {
+    let stubCalls = 0
+    return {
+      calls: () => stubCalls,
+      env: {
+        IMAGINE: {
+          idFromName: (n: string) => ({ name: n }),
+          get: (_id: unknown) => ({
+            fetch: async () => {
+              stubCalls++
+              return new Response('routed', { status: 200 })
+            },
+          }),
+        },
+        ...flags,
+      },
+    }
+  }
+
+  it('returns 410 Gone with non-sensitive successor message and headers when DEHOSTED is true', async () => {
+    const { calls, env } = envWithDoSpy({ DEHOSTED: 'true' })
+    const res = await worker.fetch(
+      new Request('https://imagine.n24q02m.com/mcp', {
+        method: 'POST',
+        headers: { authorization: 'Bearer valid.jwt.token' },
+      }),
+      env as never
+    )
+
+    expect(res.status).toBe(410)
+    expect(res.headers.get('Content-Type')).toBe('application/json')
+    expect(res.headers.get('X-Dehosted-Successor')).toBe('https://mcp.n24q02m.com/servers/imagine-mcp/')
+
+    const body = await res.json()
+    expect(body).toMatchObject({
+      error: 'hosted_runtime_dehosted',
+      status: 410,
+      successor: 'https://mcp.n24q02m.com/servers/imagine-mcp/',
+    })
+    expect(body.message).toContain('retired')
+    expect(body.message).toContain('stdio')
+
+    // CRITICAL: 0 requests reach the Container DO
+    expect(calls()).toBe(0)
+  })
+
+  it('returns 410 Gone on all routes when TOMBSTONE is true', async () => {
+    const { calls, env } = envWithDoSpy({ TOMBSTONE: 'true' })
+
+    for (const path of ['/authorize', '/health', '/.well-known/jwks.json', '/mcp/v1']) {
+      const res = await worker.fetch(
+        new Request(`https://imagine.n24q02m.com${path}`, { method: 'GET' }),
+        env as never
+      )
+      expect(res.status).toBe(410)
+      expect(res.headers.get('X-Dehosted-Successor')).toBe('https://mcp.n24q02m.com/servers/imagine-mcp/')
+    }
+
+    expect(calls()).toBe(0)
+  })
+})
