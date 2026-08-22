@@ -97,6 +97,18 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_ignores_unallowed_keys():
+    """Ensure arbitrary environment variables cannot be injected."""
+    apply_config(
+        {"PATH": "/evil/path", "UNKNOWN_KEY": "value", "GEMINI_API_KEY": "valid"}
+    )
+    import os
+
+    assert os.environ.get("PATH") != "/evil/path"
+    assert "UNKNOWN_KEY" not in os.environ
+    assert os.environ.get("GEMINI_API_KEY") == "valid"
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------

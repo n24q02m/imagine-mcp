@@ -34,3 +34,8 @@ Proposals evaluated and turned down. The reasoning lives here so it carries to t
 
 - **Replacing this file's history with a single entry (#492).** The PR that reported the `reset_credentials` leak also deleted every prior entry in this ledger, leaving only its own. The finding was correct and has been implemented (see the 2026-07-25 entry), but this file is the record of what has already been fixed; clearing it makes past work invisible to the next run and invites re-proposal of things already landed. Append, never rewrite. #489 reported the same issue and appended correctly.
 - **Asserting on the exact error string.** The test proposed alongside #492 asserted `result["error"] == "Internal server error"`, which pins the wording rather than the property. The committed test asserts that the store path and `Errno` do *not* appear in the response, which is what actually matters and survives a reword.
+
+## 2026-07-29 - [HIGH] Environment variable injection via config
+**Vulnerability:** The `apply_config` function in `src/imagine_mcp/relay_setup.py` iterated over all keys in the provided config payload and set them in `os.environ`. Since this payload comes from an untrusted source (the browser OAuth form or remote relay), an attacker could inject arbitrary environment variables (like `PATH` or Python execution flags) into the server process.
+**Learning:** Functions that map untrusted configuration payloads directly into process-wide state (like `os.environ`) are dangerous and open up the application to injection attacks that can manipulate process behavior.
+**Prevention:** Always validate configuration keys against a strict allowlist (e.g., `ALLOWED_CONFIG_KEYS`) before applying them to process state or critical configurations.

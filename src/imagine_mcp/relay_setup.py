@@ -46,8 +46,15 @@ def apply_config(config: dict[str, str]) -> None:
     single-user path only -- multi-user mode scopes config per-sub via
     ``credential_state.store_for_sub`` and never touches ``os.environ``.
     """
+    allowed_keys = {
+        *CREDENTIAL_KEYS,
+        "UNDERSTAND_MODELS",
+        "GENERATE_MODELS",
+        "GENERATE_PROVIDER_PRIORITY",
+    }
+
     for key, value in config.items():
-        if value and os.environ.get(key) != value:
+        if key in allowed_keys and value and os.environ.get(key) != value:
             os.environ[key] = value
             logger.debug("Applied relay config: {}", key)
 
