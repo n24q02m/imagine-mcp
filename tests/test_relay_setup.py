@@ -97,6 +97,26 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_ignores_untrusted_environment_keys(monkeypatch):
+    import os
+
+    original_path = os.environ.get("PATH", "")
+    monkeypatch.setenv("PATH", original_path)
+    monkeypatch.delenv("UNKNOWN_KEY", raising=False)
+
+    apply_config(
+        {
+            "PATH": "/evil/path",
+            "UNKNOWN_KEY": "value",
+            "GEMINI_API_KEY": "valid",
+        }
+    )
+
+    assert os.environ["PATH"] == original_path
+    assert "UNKNOWN_KEY" not in os.environ
+    assert os.environ["GEMINI_API_KEY"] == "valid"
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
