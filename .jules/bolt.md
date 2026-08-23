@@ -58,3 +58,7 @@ Proposals evaluated and turned down. The reasoning lives here so it carries to t
 - **`perf:` as a commit or PR title prefix.** This repo enforces a `fix:`/`feat:` subset, and the "Validate PR title" check fails the PR outright. A performance change is a `fix:`. Five PRs in the cluster above were opened with `perf:` and all five failed that check before review.
 - **Persona markers in source comments.** Comments of the form `# ⚡ Bolt: ... Expected impact: ...` were removed from `credential_state.py`, `dispatcher.py`, `media.py` and `providers/gemini.py`. This is a public repository; a comment should describe the code, not who wrote it or how much it was expected to help. Write the rationale, drop the tag.
 - **A PR that changes nothing.** #482 ("evaluated performance optimizations", empty diff) and #485 (palette persona, empty diff) carried no changes. If a run finds no work, record it here and stop -- do not open an empty PR.
+
+## 2026-08-23 - Consolidate consecutive asyncio.to_thread calls in loop
+**Learning:** When performing iterative synchronous operations (like `f.unlink(missing_ok=True)` on a list of temporary files) within an async context, avoid placing `await asyncio.to_thread(...)` inside the loop. Instead, encapsulate the loop within a single synchronous helper function and execute it via a single `asyncio.to_thread()` call to minimize thread-pool dispatch overhead.
+**Action:** Use a single `asyncio.to_thread` call for loops containing synchronous file operations.
