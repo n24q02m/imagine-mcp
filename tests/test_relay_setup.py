@@ -97,6 +97,14 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_skips_unauthorized_keys():
+    apply_config({"LD_PRELOAD": "/evil.so", "GEMINI_API_KEY": "ok"})
+    import os
+
+    assert "LD_PRELOAD" not in os.environ
+    assert os.environ["GEMINI_API_KEY"] == "ok"
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
