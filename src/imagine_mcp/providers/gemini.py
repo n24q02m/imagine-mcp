@@ -162,8 +162,14 @@ async def understand_multimodal(
             config=types.GenerateContentConfig(max_output_tokens=max_tokens),
         )
     finally:
-        for f in tmp_files:
-            await asyncio.to_thread(f.unlink, missing_ok=True)
+        # ⚡ Bolt: Consolidated unlinking into a single synchronous thread
+        # to reduce context-switching and asyncio dispatch overhead.
+        def _cleanup() -> None:
+            for f in tmp_files:
+                f.unlink(missing_ok=True)
+
+        if tmp_files:
+            await asyncio.to_thread(_cleanup)
 
     return {
         "text": resp.text,
