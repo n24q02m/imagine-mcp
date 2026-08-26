@@ -97,6 +97,15 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_rejects_unauthorized_keys():
+    """Ensure that only allowed keys can be injected into os.environ."""
+    apply_config({"EVIL_HACK_KEY": "evil", "UNDERSTAND_MODELS": "gemini/flash"})
+    import os
+
+    assert "EVIL_HACK_KEY" not in os.environ
+    assert os.environ["UNDERSTAND_MODELS"] == "gemini/flash"
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
