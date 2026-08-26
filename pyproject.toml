@@ -88,7 +88,7 @@ dev = [
     "ruff>=0.15.22",
     "ty>=0.0.61",
     "pre-commit>=4.6.0",
-    "syrupy>=5.5.3",
+    "syrupy>=6.0.0",
     "beautifulsoup4>=4.15.0",
     "pyyaml>=6.0.3",
 ]
