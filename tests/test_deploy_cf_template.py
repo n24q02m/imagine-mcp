@@ -68,4 +68,5 @@ def test_committed_template_renders_to_valid_json(monkeypatch):
         cfg["containers"][0]["image"] == "registry.cloudflare.com/acct/imagine-mcp:v1"
     )
     assert cfg["kv_namespaces"][0]["id"] == "kvid"
+    assert cfg["vars"]["DEHOSTED"] == "true"
     assert cfg["vars"]["PUBLIC_URL"] == "https://imagine.n24q02m.com"

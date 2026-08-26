@@ -38,6 +38,9 @@ export interface Env {
   OPENAI_API_KEY?: string
   XAI_API_KEY?: string
   UNDERSTAND_MODELS?: string
+  // Dehost / tombstone drill flag (W4)
+  DEHOSTED?: string
+  TOMBSTONE?: string
 }
 
 // Keys forwarded from the Worker env (wrangler vars + secrets) into the container
@@ -120,8 +123,30 @@ function unauthenticated(request: Request): Response {
   })
 }
 
+function tombstoneResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      error: 'hosted_runtime_dehosted',
+      status: 410,
+      message:
+        'The hosted Cloudflare endpoint for imagine-mcp has been retired. The package remains active via local stdio (uvx imagine-mcp / docker run -i n24q02m/imagine-mcp) and self-hosted HTTP. See https://mcp.n24q02m.com/servers/imagine-mcp/ for instructions.',
+      successor: 'https://mcp.n24q02m.com/servers/imagine-mcp/',
+    }),
+    {
+      status: 410,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Dehosted-Successor': 'https://mcp.n24q02m.com/servers/imagine-mcp/',
+      },
+    }
+  )
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (env.DEHOSTED === 'true' || env.TOMBSTONE === 'true') {
+      return tombstoneResponse()
+    }
     // Edge auth gate. mcp-core's OAuth AS runs INSIDE the container, so before
     // this gate every anonymous /mcp request started the container and reset
     // its 5m idle timer -- an unauthenticated caller could pin it awake and
