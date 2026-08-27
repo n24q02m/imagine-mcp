@@ -97,6 +97,13 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_skips_unallowed_keys():
+    apply_config({"EVIL_HACK_KEY": "hacked"})
+    import os
+
+    assert "EVIL_HACK_KEY" not in os.environ
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------

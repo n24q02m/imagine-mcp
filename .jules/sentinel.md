@@ -34,3 +34,8 @@ Proposals evaluated and turned down. The reasoning lives here so it carries to t
 
 - **Replacing this file's history with a single entry (#492).** The PR that reported the `reset_credentials` leak also deleted every prior entry in this ledger, leaving only its own. The finding was correct and has been implemented (see the 2026-07-25 entry), but this file is the record of what has already been fixed; clearing it makes past work invisible to the next run and invites re-proposal of things already landed. Append, never rewrite. #489 reported the same issue and appended correctly.
 - **Asserting on the exact error string.** The test proposed alongside #492 asserted `result["error"] == "Internal server error"`, which pins the wording rather than the property. The committed test asserts that the store path and `Errno` do *not* appear in the response, which is what actually matters and survives a reword.
+
+## 2024-05-18 - Prevent Environment Variable Injection
+**Vulnerability:** Unrestricted environment variable injection in relay config (`apply_config`). Remote config dicts could arbitrarily overwrite any `os.environ` variable (e.g., `PATH`, `PYTHONPATH`) if passed via the relay OAuth form.
+**Learning:** `os.environ.update` or equivalent loop assignments without an allowlist are dangerous when processing unvalidated external configuration payloads, as it provides an escalation vector for arbitrary code execution or environment tampering.
+**Prevention:** Strictly validate external configuration keys against an explicit allowlist before applying them to system environment variables. Added `ALLOWED_CONFIG_KEYS` check in `apply_config`.
