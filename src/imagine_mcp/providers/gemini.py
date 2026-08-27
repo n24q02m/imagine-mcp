@@ -163,7 +163,6 @@ async def understand_multimodal(
         )
     finally:
         if tmp_files:
-
             # ⚡ Bolt: Consolidate synchronous file unlinking into a single thread dispatch.
             # Expected impact: Eliminates thread-pool scheduling and context-switching overhead per file.
             def _cleanup_sync() -> None:
