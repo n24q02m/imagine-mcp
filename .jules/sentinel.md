@@ -34,3 +34,8 @@ Proposals evaluated and turned down. The reasoning lives here so it carries to t
 
 - **Replacing this file's history with a single entry (#492).** The PR that reported the `reset_credentials` leak also deleted every prior entry in this ledger, leaving only its own. The finding was correct and has been implemented (see the 2026-07-25 entry), but this file is the record of what has already been fixed; clearing it makes past work invisible to the next run and invites re-proposal of things already landed. Append, never rewrite. #489 reported the same issue and appended correctly.
 - **Asserting on the exact error string.** The test proposed alongside #492 asserted `result["error"] == "Internal server error"`, which pins the wording rather than the property. The committed test asserts that the store path and `Errno` do *not* appear in the response, which is what actually matters and survives a reword.
+
+## 2026-08-28 - [CRITICAL] Environment variable injection in apply_config
+**Vulnerability:** The `apply_config` function in `src/imagine_mcp/relay_setup.py` iterated over all keys in the user-provided config dictionary and set them in `os.environ` without any allowlist or validation. This allowed an attacker to overwrite arbitrary environment variables.
+**Learning:** Configuration syncing processes that apply settings directly to `os.environ` must strictly validate all input keys against a predefined allowlist to prevent arbitrary environment variable injection.
+**Prevention:** Implement an `ALLOWED_CONFIG_KEYS` list and ensure that any key being applied to `os.environ` is explicitly present in this list before making the assignment. Log a warning for any rejected keys.
