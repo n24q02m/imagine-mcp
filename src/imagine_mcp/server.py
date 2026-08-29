@@ -47,6 +47,17 @@ def _creds_state() -> str:
     return "CONFIGURED" if _providers_configured_live() else "NEEDS_SETUP"
 
 
+def _get_system_status_sync() -> dict[str, Any]:
+    """Read the complete status payload in one worker-thread dispatch."""
+    version = _get_version()
+    providers_live = _providers_configured_live()
+    return {
+        "version": version,
+        "credentials_state": "CONFIGURED" if providers_live else "NEEDS_SETUP",
+        "providers_configured": providers_live,
+    }
+
+
 def _providers_configured() -> list[str]:
     """Return list of providers configured via environment variables."""
     from imagine_mcp.relay_setup import CREDENTIAL_KEYS
@@ -311,12 +322,9 @@ def build_app() -> FastMCP:
                     "message": "No heavy resources to warm up in v1.",
                 }
             case "status":
+                status_dict = await asyncio.to_thread(_get_system_status_sync)
                 return {
-                    "version": await asyncio.to_thread(_get_version),
-                    "credentials_state": await asyncio.to_thread(_creds_state),
-                    "providers_configured": await asyncio.to_thread(
-                        _providers_configured_live
-                    ),
+                    **status_dict,
                     "default_provider": settings.default_provider,
                     "default_tier": settings.default_tier,
                     "cache_ttl_seconds": settings.cache_ttl_seconds,
