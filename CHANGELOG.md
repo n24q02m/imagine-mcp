@@ -2,6 +2,184 @@
 
 <!-- version list -->
 
+## v1.11.0 (2026-08-29)
+
+### Bug Fixes
+
+- Add bot PR governance workflow ([#496](https://github.com/n24q02m/imagine-mcp/pull/496),
+  [`d51b57f`](https://github.com/n24q02m/imagine-mcp/commit/d51b57f4991be2a2fc3e0b3decdde33cc9c41285))
+
+- Avoid redundant Grok image encoding ([#579](https://github.com/n24q02m/imagine-mcp/pull/579),
+  [`8533ed1`](https://github.com/n24q02m/imagine-mcp/commit/8533ed194143098dee71dfd42f7229e7db356b57))
+
+- Bump mcp-core to 1.21.0 ([#495](https://github.com/n24q02m/imagine-mcp/pull/495),
+  [`a7514b4`](https://github.com/n24q02m/imagine-mcp/commit/a7514b463141156452fe2511fff826a570167b5f))
+
+- Consolidate status lookups ([#577](https://github.com/n24q02m/imagine-mcp/pull/577),
+  [`64b0f3f`](https://github.com/n24q02m/imagine-mcp/commit/64b0f3f97e36838fb3d942930830be20a5c566b1))
+
+- Consolidate temporary file unlink in single thread dispatch
+  ([#601](https://github.com/n24q02m/imagine-mcp/pull/601),
+  [`d87b64a`](https://github.com/n24q02m/imagine-mcp/commit/d87b64a2d61f6ace40401a32e5a441e7861f30aa))
+
+- Correct bot ledger dates and record rejected proposals
+  ([#493](https://github.com/n24q02m/imagine-mcp/pull/493),
+  [`460a260`](https://github.com/n24q02m/imagine-mcp/commit/460a2600f3b37861d448c9282dad7c9cf5ae0a82))
+
+- Describe the HTTP mode instead of advertising a personal instance
+  ([`3dc29bc`](https://github.com/n24q02m/imagine-mcp/commit/3dc29bc985b0dea1de10293b6eb10acce364e9f9))
+
+- Document Imagine hosted runtime removal ([#587](https://github.com/n24q02m/imagine-mcp/pull/587),
+  [`2ea455a`](https://github.com/n24q02m/imagine-mcp/commit/2ea455a71c587869566934e313daa4fcef8b4f9a))
+
+- Drop bot attribution markers from source comments
+  ([#493](https://github.com/n24q02m/imagine-mcp/pull/493),
+  [`460a260`](https://github.com/n24q02m/imagine-mcp/commit/460a2600f3b37861d448c9282dad7c9cf5ae0a82))
+
+- Drop rangeStrategy from update-type package rules
+  ([#486](https://github.com/n24q02m/imagine-mcp/pull/486),
+  [`923b374`](https://github.com/n24q02m/imagine-mcp/commit/923b374fbfbe4f883c8f3e309535196a28323509))
+
+- Drop the code_quality rule from the main ruleset
+  ([#497](https://github.com/n24q02m/imagine-mcp/pull/497),
+  [`b6879d9`](https://github.com/n24q02m/imagine-mcp/commit/b6879d99d82e51ca0063478bd609de820185364d))
+
+- Isolate test HOME so the suite cannot write the real credential store
+  ([#525](https://github.com/n24q02m/imagine-mcp/pull/525),
+  [`ff3e023`](https://github.com/n24q02m/imagine-mcp/commit/ff3e023b1541eabef2334eefaaec2744d6fc371c))
+
+- Keep store path out of the reset_credentials error response
+  ([#493](https://github.com/n24q02m/imagine-mcp/pull/493),
+  [`460a260`](https://github.com/n24q02m/imagine-mcp/commit/460a2600f3b37861d448c9282dad7c9cf5ae0a82))
+
+- Move the mcp-core floor off the b2 prerelease onto 1.20.0
+  ([#493](https://github.com/n24q02m/imagine-mcp/pull/493),
+  [`460a260`](https://github.com/n24q02m/imagine-mcp/commit/460a2600f3b37861d448c9282dad7c9cf5ae0a82))
+
+- Move this repo to Apache-2.0 ([#522](https://github.com/n24q02m/imagine-mcp/pull/522),
+  [`46c953d`](https://github.com/n24q02m/imagine-mcp/commit/46c953d8384fe8037f248c60de96698251faf2f1))
+
+- Pin GitHub Action references to commit SHAs
+  ([#480](https://github.com/n24q02m/imagine-mcp/pull/480),
+  [`82dd401`](https://github.com/n24q02m/imagine-mcp/commit/82dd401ff6ac4bfceca42634cb9caa8e6c2b5e1a))
+
+- Pin workflow runtime actions ([#580](https://github.com/n24q02m/imagine-mcp/pull/580),
+  [`d82d8e1`](https://github.com/n24q02m/imagine-mcp/commit/d82d8e17f3be88b112392589a6e04b8814280c8a))
+
+- Pipeline async media I/O with TaskGroup for fail-fast handling
+  ([`7ced324`](https://github.com/n24q02m/imagine-mcp/commit/7ced324461eac4b54dc5920b7db942b175f16ee9))
+
+- Pipeline gemini multimodal fetches, mask reset_credentials errors, repair bot ledgers
+  ([#493](https://github.com/n24q02m/imagine-mcp/pull/493),
+  [`460a260`](https://github.com/n24q02m/imagine-mcp/commit/460a2600f3b37861d448c9282dad7c9cf5ae0a82))
+
+- Pipeline media-type detection with fetch in gemini multimodal
+  ([#493](https://github.com/n24q02m/imagine-mcp/pull/493),
+  [`460a260`](https://github.com/n24q02m/imagine-mcp/commit/460a2600f3b37861d448c9282dad7c9cf5ae0a82))
+
+- Prevent environment variable injection in relay config
+  ([#602](https://github.com/n24q02m/imagine-mcp/pull/602),
+  [`5ec9c74`](https://github.com/n24q02m/imagine-mcp/commit/5ec9c741a6dbe755333acc60530c319a41afb7f9))
+
+- Refresh runtime dependencies ([#581](https://github.com/n24q02m/imagine-mcp/pull/581),
+  [`aad99bf`](https://github.com/n24q02m/imagine-mcp/commit/aad99bf7b591a917f032ccf92c902eca5e660b18))
+
+- Reject malformed KV paths ([#578](https://github.com/n24q02m/imagine-mcp/pull/578),
+  [`24babe5`](https://github.com/n24q02m/imagine-mcp/commit/24babe57eaecedf7b73d8db00466b02d08115939))
+
+- Remove case-colliding .Jules/palette.md duplicate
+  ([#479](https://github.com/n24q02m/imagine-mcp/pull/479),
+  [`8e65f8e`](https://github.com/n24q02m/imagine-mcp/commit/8e65f8e08399efe6fe65a5d84cdfad6cd73ab322))
+
+- Repo-state cleanup — case-collision + uv.lock self-version drift
+  ([#479](https://github.com/n24q02m/imagine-mcp/pull/479),
+  [`8e65f8e`](https://github.com/n24q02m/imagine-mcp/commit/8e65f8e08399efe6fe65a5d84cdfad6cd73ab322))
+
+- Skip bot governance on fork pull requests
+  ([#498](https://github.com/n24q02m/imagine-mcp/pull/498),
+  [`6f33c0f`](https://github.com/n24q02m/imagine-mcp/commit/6f33c0fdef0d930ecabed5c9b4812bcc6cf68e4f))
+
+- Sync uv.lock self-version to 1.10.1 ([#479](https://github.com/n24q02m/imagine-mcp/pull/479),
+  [`8e65f8e`](https://github.com/n24q02m/imagine-mcp/commit/8e65f8e08399efe6fe65a5d84cdfad6cd73ab322))
+
+- Update cryptography to 50.0.0 ([#597](https://github.com/n24q02m/imagine-mcp/pull/597),
+  [`13a2b93`](https://github.com/n24q02m/imagine-mcp/commit/13a2b93632abc9cb5546fe610477abff2130b144))
+
+- **deps**: Lock file maintenance ([#510](https://github.com/n24q02m/imagine-mcp/pull/510),
+  [`149151a`](https://github.com/n24q02m/imagine-mcp/commit/149151af070d6b9300b975221a4ce181a48c1669))
+
+- **deps**: Lock file maintenance ([#502](https://github.com/n24q02m/imagine-mcp/pull/502),
+  [`24a6f20`](https://github.com/n24q02m/imagine-mcp/commit/24a6f201ec9dde8161706202cc3ddb90cadf060b))
+
+- **deps**: Update @cloudflare/workers-types to ^5.20260719.1
+  ([#505](https://github.com/n24q02m/imagine-mcp/pull/505),
+  [`1271c58`](https://github.com/n24q02m/imagine-mcp/commit/1271c586c0ca5140725c7fef06ad9b96875afd87))
+
+- **deps**: Update actions/checkout action to v7
+  ([#439](https://github.com/n24q02m/imagine-mcp/pull/439),
+  [`99c3bbb`](https://github.com/n24q02m/imagine-mcp/commit/99c3bbbfa0d5726bde47deb71ebbb92a4a3fbc1c))
+
+- **deps**: Update actions/checkout action to v7.0.1
+  ([#509](https://github.com/n24q02m/imagine-mcp/pull/509),
+  [`5ee7f86`](https://github.com/n24q02m/imagine-mcp/commit/5ee7f869d4eea65191513cc6bc7ba2641563aef0))
+
+- **deps**: Update minor dependencies ([#456](https://github.com/n24q02m/imagine-mcp/pull/456),
+  [`b8262ff`](https://github.com/n24q02m/imagine-mcp/commit/b8262ff18f233cc2507cc956cba087d5db8cb193))
+
+- **deps**: Update non-major dev dependencies
+  ([#600](https://github.com/n24q02m/imagine-mcp/pull/600),
+  [`8e59c7a`](https://github.com/n24q02m/imagine-mcp/commit/8e59c7a26c5a7341ba122dfa0d10bce9cab71b4a))
+
+- **deps**: Update non-major dev dependencies
+  ([#592](https://github.com/n24q02m/imagine-mcp/pull/592),
+  [`516b456`](https://github.com/n24q02m/imagine-mcp/commit/516b456ca3f933280672bb4fff6766bf55a78181))
+
+- **deps**: Update non-major dev dependencies
+  ([#584](https://github.com/n24q02m/imagine-mcp/pull/584),
+  [`7bb204e`](https://github.com/n24q02m/imagine-mcp/commit/7bb204e9976ef7e22da9edc71b4c49c67897951c))
+
+- **deps**: Update non-major dev dependencies
+  ([#550](https://github.com/n24q02m/imagine-mcp/pull/550),
+  [`b2770fc`](https://github.com/n24q02m/imagine-mcp/commit/b2770fccc43c7a158bfc60aac5dd888b61ee44e5))
+
+- **deps**: Update non-major dev dependencies
+  ([#512](https://github.com/n24q02m/imagine-mcp/pull/512),
+  [`35523c9`](https://github.com/n24q02m/imagine-mcp/commit/35523c9b10dadb62c77b893ea5693c417dc4c57f))
+
+- **deps**: Update non-major dev dependencies
+  ([#490](https://github.com/n24q02m/imagine-mcp/pull/490),
+  [`4c84a88`](https://github.com/n24q02m/imagine-mcp/commit/4c84a881990cfe3ffb20380131929307529eadb3))
+
+- **deps**: Update non-major dev dependencies
+  ([#487](https://github.com/n24q02m/imagine-mcp/pull/487),
+  [`70f942f`](https://github.com/n24q02m/imagine-mcp/commit/70f942fa3849085a23bb2a375469a76437484c29))
+
+- **deps**: Update patch dependencies ([#434](https://github.com/n24q02m/imagine-mcp/pull/434),
+  [`48d6cad`](https://github.com/n24q02m/imagine-mcp/commit/48d6caddf8946dbc6c35e1a79706d78df5053f4e))
+
+- **deps**: Update typescript to v7 ([#440](https://github.com/n24q02m/imagine-mcp/pull/440),
+  [`f7856bd`](https://github.com/n24q02m/imagine-mcp/commit/f7856bd3d29a912b124e2a52fc898dc3d2d43c48))
+
+### Features
+
+- Add hosted runtime tombstone ([#587](https://github.com/n24q02m/imagine-mcp/pull/587),
+  [`2ea455a`](https://github.com/n24q02m/imagine-mcp/commit/2ea455a71c587869566934e313daa4fcef8b4f9a))
+
+- Add protocol-level stdio test driving generate through ClientSession
+  ([#499](https://github.com/n24q02m/imagine-mcp/pull/499),
+  [`768dcee`](https://github.com/n24q02m/imagine-mcp/commit/768dcee0df5f23fc7d1283bfae212154483ed1d9))
+
+- Dehost managed Cloudflare runtime ([#587](https://github.com/n24q02m/imagine-mcp/pull/587),
+  [`2ea455a`](https://github.com/n24q02m/imagine-mcp/commit/2ea455a71c587869566934e313daa4fcef8b4f9a))
+
+- Derive a stable subject from the workspace username
+  ([#483](https://github.com/n24q02m/imagine-mcp/pull/483),
+  [`da2b4e3`](https://github.com/n24q02m/imagine-mcp/commit/da2b4e3c9a4b05882a1b8cab0f3c4e66177e455a))
+
+- Sync cross-promo section ([#507](https://github.com/n24q02m/imagine-mcp/pull/507),
+  [`0efb98f`](https://github.com/n24q02m/imagine-mcp/commit/0efb98f1b661f107ccf58898fe72f18e3afa40a9))
+
+
 ## v1.10.1 (2026-07-18)
 
 ### Bug Fixes
