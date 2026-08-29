@@ -168,6 +168,30 @@ async def test_tool_config_basic_actions() -> None:
 
 
 @pytest.mark.asyncio
+async def test_tool_config_status_uses_one_sync_dispatch(monkeypatch) -> None:
+    from imagine_mcp import server
+
+    calls: list[str] = []
+
+    async def fake_to_thread(func, *args):
+        calls.append(func.__name__)
+        return func(*args)
+
+    monkeypatch.setattr(server.asyncio, "to_thread", fake_to_thread)
+    monkeypatch.setattr(server, "_get_version", lambda: "test-version")
+    monkeypatch.setattr(server, "_creds_state", lambda: "CONFIGURED")
+    monkeypatch.setattr(server, "_providers_configured_live", lambda: ["gemini"])
+
+    result = await build_app().call_tool("config", {"action": "status"})
+    res = _structured(result)
+
+    assert calls == ["_get_system_status_sync"]
+    assert res["version"] == "test-version"
+    assert res["credentials_state"] == "CONFIGURED"
+    assert res["providers_configured"] == ["gemini"]
+
+
+@pytest.mark.asyncio
 async def test_tool_config_cache_clear(monkeypatch) -> None:
     app = build_app()
     monkeypatch.setattr(
