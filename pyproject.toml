@@ -37,29 +37,24 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "mcp[cli]>=1.28.1",
-    "fastmcp>=3.4.4",
+    "mcp[cli]>=1.29.0",
+    "fastmcp>=3.4.7",
     "pydantic>=2.13.4,<2.14",
-    "pydantic-settings>=2.14.2",
+    "pydantic-settings>=2.15.0",
     "httpx>=0.28.1,<1",
-    "google-genai>=2.14.0",
-    "openai>=2.48.0",
+    "google-genai>=2.19.0",
+    "openai>=2.54.0",
     "pillow>=12.3.0",
     "diskcache>=5.6.3",
     "loguru>=0.7.3",
-    # Floor is 1.21.0 rather than 1.20.0 because HTTP mode runs mcp-core's
-    # OAuth AS: 1.21.0 stops it minting an auth code when the credential save
-    # fails (core#682) and adds `iss` to the authorization response
-    # (RFC 9207 / SEP-2468, core#688). A lower floor would let a downstream
-    # install resolve back past both.
-    # Keep the floor on a stable release -- naming a prerelease here opts this
-    # dependency into prerelease resolution for anyone installing the package.
-    "n24q02m-mcp-core[llm]>=1.21.0,<2",
-    "platformdirs>=4.11.0",
+    # Keep the floor on a stable release; 1.23.0 is the current baseline
+    # for this repository's HTTP OAuth integration.
+    "n24q02m-mcp-core[llm]>=1.23.0,<2",
+    "platformdirs>=4.11.3",
     # Security floors: transitive deps pinned to patched releases.
     # urllib3 < 2.7.0 -> PYSEC-2026-141/142; idna < 3.15 -> CVE-2026-45409.
     "urllib3>=2.7.0",
-    "idna>=3.18",
+    "idna>=3.19",
 ]
 
 [project.scripts]
@@ -85,9 +80,9 @@ dev = [
     "pytest-timeout>=2.4.0",
     "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
-    "ruff>=0.15.22",
-    "ty>=0.0.61",
-    "pre-commit>=4.6.0",
+    "ruff>=0.16.3",
+    "ty>=0.0.72",
+    "pre-commit>=4.6.2",
     "syrupy>=5.5.3",
     "beautifulsoup4>=4.15.0",
     "pyyaml>=6.0.3",
