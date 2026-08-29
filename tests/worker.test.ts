@@ -61,6 +61,13 @@ describe('outbound handlers', () => {
     const res = await kvH(new Request('http://kv.internal/imagine%2Fsubs%2Fu1%2Fconfig'), env as never)
     expect(res.status).toBe(404)
   })
+
+  it('returns 400 for malformed percent-encoded KV paths', async () => {
+    const env = fakeEnv()
+    const res = await kvH(new Request('http://kv.internal/%E0%A4%A'), env as never)
+    expect(res.status).toBe(400)
+    expect(await res.text()).toBe('Bad Request')
+  })
 })
 
 describe('public fetch entrypoint does NOT expose outbound handlers (security)', () => {
