@@ -73,6 +73,11 @@ async def test_generate_image_url(
     mock_get_resp.content = b"fetched-image-bytes"
     mock_media.get.return_value = mock_get_resp
 
+    def fail_b64encode(_: bytes) -> bytes:
+        raise AssertionError("URL fallback must not base64-encode fetched bytes")
+
+    monkeypatch.setattr(provider.base64, "b64encode", fail_b64encode)
+
     result = await provider.generate_image(prompt="a sunset", tier="rich")
 
     assert result["image_base64"] == "fake-b64"
