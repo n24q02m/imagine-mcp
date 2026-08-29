@@ -97,6 +97,15 @@ def test_apply_config_skips_empty_values():
     assert "GEMINI_API_KEY" not in os.environ
 
 
+def test_apply_config_blocks_unauthorized_keys():
+    """Environment variable injection prevention: unauthorized keys must be dropped."""
+    apply_config({"EVIL_HACK_KEY": "pwned", "GEMINI_API_KEY": "valid"})
+    import os
+
+    assert "EVIL_HACK_KEY" not in os.environ
+    assert os.environ["GEMINI_API_KEY"] == "valid"
+
+
 # --------------------------------------------------------------------------
 # save_credentials
 # --------------------------------------------------------------------------
