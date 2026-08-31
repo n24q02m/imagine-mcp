@@ -2,6 +2,34 @@
 
 <!-- version list -->
 
+## v1.11.1-beta.1 (2026-08-31)
+
+### Bug Fixes
+
+- Align pending tool bounds with lock ([#609](https://github.com/n24q02m/imagine-mcp/pull/609),
+  [`6ae6be7`](https://github.com/n24q02m/imagine-mcp/commit/6ae6be730ff75b5f6a81db983ba29e228786ce60))
+
+- Redact imagine provider acceptance output
+  ([#613](https://github.com/n24q02m/imagine-mcp/pull/613),
+  [`12a3e7e`](https://github.com/n24q02m/imagine-mcp/commit/12a3e7ee8dcdf9af03f935bc9edd7e5e905266ce))
+
+- **deps**: Bump mcp-core to 1.23.1
+  ([`850767c`](https://github.com/n24q02m/imagine-mcp/commit/850767c1845313206cf11f1f0cfce9e31b146861))
+
+- **deps**: Lock file maintenance ([#612](https://github.com/n24q02m/imagine-mcp/pull/612),
+  [`93a420f`](https://github.com/n24q02m/imagine-mcp/commit/93a420f94cc6b909e195b00a68b65de486a8a17f))
+
+- **deps**: Update @cloudflare/workers-types to ^5.20260823.1
+  ([#610](https://github.com/n24q02m/imagine-mcp/pull/610),
+  [`3ddc85a`](https://github.com/n24q02m/imagine-mcp/commit/3ddc85aa4d1c9f60d10cd44b7260634d4adde599))
+
+- **deps**: Update minor dependencies
+  ([`966d002`](https://github.com/n24q02m/imagine-mcp/commit/966d0024ab315a76dd40896db18685395bb9f833))
+
+- **deps**: Update patch dependencies ([#609](https://github.com/n24q02m/imagine-mcp/pull/609),
+  [`6ae6be7`](https://github.com/n24q02m/imagine-mcp/commit/6ae6be730ff75b5f6a81db983ba29e228786ce60))
+
+
 ## v1.11.0 (2026-08-29)
 
 ### Bug Fixes
