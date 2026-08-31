@@ -40,6 +40,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import base64
+import binascii
 import hashlib
 import json as _json
 import os
@@ -117,18 +118,24 @@ def get_token(
     """
     import httpx  # lazy: keep --help importable without httpx installed
 
-    last: Exception | None = None
     payload = creds if save else {}
     for attempt in range(save_retries):
         try:
             return _get_token_once(httpx, endpoint, payload)
-        except _SaveRetry as e:
-            last = e
+        except _SaveRetry:
             print(
-                f"get_token: save 500 (interception race), retry {attempt + 1}/{save_retries}"
+                _json.dumps(
+                    {
+                        "operation": "GET_TOKEN",
+                        "status": "RETRY",
+                        "attempt": attempt + 1,
+                        "total_attempts": save_retries,
+                    },
+                    sort_keys=True,
+                )
             )
             time.sleep(3)
-    raise RuntimeError(f"get_token failed after {save_retries} retries: {last}")
+    raise RuntimeError(f"get_token failed after {save_retries} retries")
 
 
 def _get_token_once(httpx, endpoint: str, creds: dict[str, str]) -> str:
@@ -176,10 +183,14 @@ def _get_token_once(httpx, endpoint: str, creds: dict[str, str]) -> str:
         nonce = m.group(1)
         sub = c.post(f"{endpoint}/authorize", params={"nonce": nonce}, json=creds)
         if sub.status_code == 500 and "save credentials" in sub.text:
-            raise _SaveRetry(sub.text[:120])
-        assert sub.status_code == 200, (sub.status_code, sub.text[:300])
+            raise _SaveRetry()
+        if sub.status_code != 200:
+            raise RuntimeError(
+                f"credential submission failed with HTTP {sub.status_code}"
+            )
         data = sub.json()
-        assert data.get("ok"), data
+        if not data.get("ok"):
+            raise RuntimeError("credential submission returned an unsuccessful result")
         code = urllib.parse.parse_qs(urllib.parse.urlparse(data["redirect_url"]).query)[
             "code"
         ][0]
@@ -193,7 +204,8 @@ def _get_token_once(httpx, endpoint: str, creds: dict[str, str]) -> str:
                 "code_verifier": verifier,
             },
         )
-        assert tok.status_code == 200, (tok.status_code, tok.text[:300])
+        if tok.status_code != 200:
+            raise RuntimeError(f"token exchange failed with HTTP {tok.status_code}")
         return tok.json()["access_token"]
 
 
@@ -203,34 +215,93 @@ def _sub_of(token: str) -> str:
 
 
 async def _call(s, label, tool, args, *, retries=20, delay=8):
-    """Call a tool, retrying while credentials are still propagating (KV
-    cross-colo eventual consistency after setup writes them on another DO; E.2).
-    Returns the concatenated text payload of the result, or None on give-up."""
+    """Call a tool without emitting provider payloads or exception details."""
     for i in range(retries):
         try:
             res = await s.call_tool(tool, args)
             txt = "".join(getattr(b, "text", "") for b in res.content)
             if "awaiting_setup" in txt or "Credentials not configured" in txt:
-                print(f"{label}: awaiting_setup (KV propagating) try {i + 1}/{retries}")
+                print(
+                    _json.dumps(
+                        {
+                            "operation": label,
+                            "status": "RETRY",
+                            "attempt": i + 1,
+                            "total_attempts": retries,
+                        },
+                        sort_keys=True,
+                    )
+                )
                 await asyncio.sleep(delay)
                 continue
-            print(f"{label} OK:", txt[:320].replace("\n", " "))
+            print(
+                _json.dumps(
+                    {
+                        "operation": label,
+                        "status": "OK",
+                        "content_blocks": len(res.content),
+                        "text_chars": len(txt),
+                    },
+                    sort_keys=True,
+                )
+            )
             return txt
-        except Exception as e:
-            print(f"{label} ERR:", repr(e)[:300])
+        except Exception as exc:
+            print(
+                _json.dumps(
+                    {
+                        "operation": label,
+                        "status": "ERROR",
+                        "error_type": type(exc).__name__,
+                    },
+                    sort_keys=True,
+                )
+            )
             return None
-    print(f"{label}: gave up after {retries} tries")
+    print(
+        _json.dumps(
+            {
+                "operation": label,
+                "status": "GAVE_UP",
+                "attempts": retries,
+            },
+            sort_keys=True,
+        )
+    )
     return None
 
 
-def _assert_base64_no_path(txt: str) -> None:
-    """Assert a generate result carries image_base64 and NOT image_path."""
-    assert txt is not None, "generate returned no payload"
-    assert "image_base64" in txt, f"expected image_base64 in result, got: {txt[:300]}"
-    assert "image_path" not in txt, (
-        f"image_path present -- base64-force NOT live: {txt[:300]}"
-    )
-    print("ASSERT OK: image_base64 present, image_path absent (base64-force live).")
+def _assert_base64_no_path(txt: str | None) -> dict[str, object]:
+    """Validate base64-only output and emit structural metadata."""
+    if txt is None:
+        raise AssertionError("generate returned no payload")
+    try:
+        payload = _json.loads(txt)
+    except (TypeError, _json.JSONDecodeError):
+        raise AssertionError("generate result is not valid JSON") from None
+    if not isinstance(payload, dict):
+        raise AssertionError("generate result must be an object")
+
+    encoded = payload.get("image_base64")
+    if not isinstance(encoded, str) or not encoded:
+        raise AssertionError("image_base64 must be non-empty")
+    if "image_path" in payload:
+        raise AssertionError("image_path must be absent")
+    try:
+        decoded = base64.b64decode(encoded, validate=True)
+    except (binascii.Error, ValueError):
+        raise AssertionError("image_base64 is invalid") from None
+    if not decoded:
+        raise AssertionError("image_base64 must decode to bytes")
+
+    summary: dict[str, object] = {
+        "status": "VERIFIED",
+        "image_base64": True,
+        "image_path": False,
+        "decoded_bytes": len(decoded),
+    }
+    print(_json.dumps(summary, sort_keys=True))
+    return summary
 
 
 async def _session(endpoint: str, token: str):
@@ -251,12 +322,21 @@ async def run_full(endpoint: str) -> None:
         )
     provider = _provider_of(creds)
     token = get_token(endpoint, creds, save=True)
-    print("TOKEN OK len=", len(token), "sub=", _sub_of(token))
+    print("TOKEN OK")
     transport, ClientSession = await _session(endpoint, token)
     async with transport as (r, w, _), ClientSession(r, w) as s:
         await s.initialize()
         tools = await s.list_tools()
-        print("TOOLS:", [t.name for t in tools.tools])
+        print(
+            _json.dumps(
+                {
+                    "operation": "LIST_TOOLS",
+                    "status": "OK",
+                    "count": len(tools.tools),
+                },
+                sort_keys=True,
+            )
+        )
         await _call(s, "CONFIG_STATUS", "config", {"action": "status"})
         txt = await _call(
             s,
@@ -289,13 +369,7 @@ async def run_save_only(endpoint: str) -> None:
     # --auth-only would read a NEW (empty) sub vault; the recreate gate must
     # prove THIS sub's creds survived in KV, hence we persist the token.
     _token_file().write_text(token)
-    print(
-        "SAVE-ONLY OK: creds saved for sub=",
-        _sub_of(token),
-        "len(token)=",
-        len(token),
-        "(token dumped for --auth-only)",
-    )
+    print("SAVE-ONLY OK: credentials saved; bounded replay token file written.")
 
 
 async def run_auth_only(endpoint: str) -> None:
@@ -308,7 +382,7 @@ async def run_auth_only(endpoint: str) -> None:
         raise SystemExit("No dumped token -- run --save-only first.")
     token = tok_path.read_text().strip()
     provider = _provider_of(_provider_creds())  # local hint for the generate call
-    print("AUTH-ONLY: replaying saved token for sub=", _sub_of(token))
+    print("AUTH-ONLY: replaying bounded token file")
     transport, ClientSession = await _session(endpoint, token)
     async with transport as (r, w, _), ClientSession(r, w) as s:
         await s.initialize()
@@ -365,19 +439,18 @@ async def run_two_sub_isolation(endpoint: str) -> None:
     # Each sub's status must reflect its own configured provider and NOT bleed the
     # other sub's provider into its view.
     a, b = keys[0], keys[1]
-    print(f"sub({prov_of[a]})={subs[a]}  sub({prov_of[b]})={subs[b]}")
     if subs[a] == subs[b]:
         raise SystemExit(
-            f"ISOLATION INCONCLUSIVE: both runs share sub {subs[a]} (same gate "
-            "password collapses to one DO). Provide per-sub tokens to test bleed."
+            "ISOLATION INCONCLUSIVE: both runs share one subject. "
+            "Provide per-sub tokens to test bleed."
         )
     if prov_of[b] in results[a] and prov_of[a] not in results[a]:
         raise SystemExit(
-            f"ISOLATION FAIL: sub {subs[a]} sees {prov_of[b]}'s provider, not its own."
+            f"ISOLATION FAIL: first subject sees {prov_of[b]}'s provider, not its own."
         )
     if prov_of[a] in results[b] and prov_of[b] not in results[b]:
         raise SystemExit(
-            f"ISOLATION FAIL: sub {subs[b]} sees {prov_of[a]}'s provider, not its own."
+            f"ISOLATION FAIL: second subject sees {prov_of[a]}'s provider, not its own."
         )
     print(
         "TWO-SUB ISOLATION OK: distinct subs, each configured independently, no bleed."
