@@ -813,9 +813,9 @@ dev = [
     { name = "pytest-timeout", specifier = ">=2.4.0" },
     { name = "pytest-xdist", specifier = ">=3.8.0" },
     { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "ruff", specifier = ">=0.16.4" },
+    { name = "ruff", specifier = ">=0.16.5" },
     { name = "syrupy", specifier = ">=6.0.0" },
-    { name = "ty", specifier = ">=0.0.74" },
+    { name = "ty", specifier = ">=0.0.75" },
 ]
 
 [[package]]
