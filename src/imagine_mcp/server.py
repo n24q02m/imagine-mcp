@@ -178,10 +178,10 @@ def build_app() -> FastMCP:
             "OpenAI/Grok are image-only."
         ),
         annotations=ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=True,
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=True,
         ),
     )
     @_wrap_tool("understand")
@@ -214,10 +214,10 @@ def build_app() -> FastMCP:
             "Video is async: first call returns job_id; call again with job_id to poll."
         ),
         annotations=ToolAnnotations(
-            readOnlyHint=False,
-            destructiveHint=False,
-            idempotentHint=False,
-            openWorldHint=True,
+            read_only_hint=False,
+            destructive_hint=False,
+            idempotent_hint=False,
+            open_world_hint=True,
         ),
     )
     async def generate(
@@ -259,10 +259,10 @@ def build_app() -> FastMCP:
             "Use the config__open_relay tool to open the credential form."
         ),
         annotations=ToolAnnotations(
-            readOnlyHint=False,
-            destructiveHint=True,
-            idempotentHint=False,
-            openWorldHint=False,
+            read_only_hint=False,
+            destructive_hint=True,
+            idempotent_hint=False,
+            open_world_hint=False,
         ),
     )
     async def config(
@@ -354,10 +354,10 @@ def build_app() -> FastMCP:
     @app.tool(
         description=("Full documentation. Topics: understand | generate | config."),
         annotations=ToolAnnotations(
-            readOnlyHint=True,
-            destructiveHint=False,
-            idempotentHint=True,
-            openWorldHint=False,
+            read_only_hint=True,
+            destructive_hint=False,
+            idempotent_hint=True,
+            open_world_hint=False,
         ),
     )
     async def help(topic: str = "understand") -> str:
