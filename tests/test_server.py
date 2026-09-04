@@ -38,15 +38,15 @@ def test_build_app_attributes() -> None:
 async def test_tools_advertise_annotations() -> None:
     app = build_app()
     tools = {t.name: t for t in await app.list_tools()}
-    assert tools["understand"].annotations.readOnlyHint is True
-    assert tools["understand"].annotations.openWorldHint is True
-    assert tools["generate"].annotations.readOnlyHint is False
-    assert tools["generate"].annotations.idempotentHint is False
-    assert tools["generate"].annotations.openWorldHint is True
-    assert tools["help"].annotations.readOnlyHint is True
-    assert tools["config"].annotations.openWorldHint is False
-    assert tools["config"].annotations.destructiveHint is True
-    assert tools["config"].annotations.idempotentHint is False
+    assert tools["understand"].annotations.read_only_hint is True
+    assert tools["understand"].annotations.open_world_hint is True
+    assert tools["generate"].annotations.read_only_hint is False
+    assert tools["generate"].annotations.idempotent_hint is False
+    assert tools["generate"].annotations.open_world_hint is True
+    assert tools["help"].annotations.read_only_hint is True
+    assert tools["config"].annotations.open_world_hint is False
+    assert tools["config"].annotations.destructive_hint is True
+    assert tools["config"].annotations.idempotent_hint is False
 
 
 def test_get_version() -> None:
