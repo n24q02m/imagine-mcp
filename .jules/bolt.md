@@ -62,3 +62,7 @@ Proposals evaluated and turned down. The reasoning lives here so it carries to t
 ## 2026-08-28 - Consolidate iterative async file deletion thread dispatch
 **Learning:** In `src/imagine_mcp/providers/gemini.py`, a loop that iterated through temporary files executing `await asyncio.to_thread(f.unlink, missing_ok=True)` spawned a new thread pool context switch for every file. When operating on collections, this overhead accumulates unnecessarily.
 **Action:** Consolidate sequential synchronous file operations into a single synchronous helper function (`_cleanup`) and execute it via a single `asyncio.to_thread(_cleanup)` call. Add an early return condition (`if tmp_files:`) to avoid spawning threads for empty collections.
+
+## 2026-09-05 - Optimize thread dispatch for fast synchronous operations
+**Learning:** Wrapping fast, CPU-bound synchronous operations (like simple framework initializations or version string lookups) with `asyncio.to_thread` introduces unnecessary thread-pool scheduling and context-switching overhead that outweighs any asynchronous non-blocking benefits.
+**Action:** Execute fast, CPU-bound synchronous operations directly on the event loop thread instead of offloading them to the thread pool.
