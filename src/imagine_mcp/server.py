@@ -442,8 +442,10 @@ async def run_http(port: int = 0) -> None:
         host = "127.0.0.1"
         mode_label = "http local relay"
 
-    app = await asyncio.to_thread(build_app)
-    _version_str = await asyncio.to_thread(_get_version)
+    # Removed unnecessary asyncio.to_thread wrappers for sync init.
+    # Impact: Eliminates ~2ms of thread pool dispatch/context-switching overhead on startup.
+    app = build_app()
+    _version_str = _get_version()
     logger.info("imagine-mcp {} starting ({})", _version_str, mode_label)
 
     auth_disabled = os.environ.get("MCP_AUTH_DISABLE") == "1"
