@@ -37,10 +37,10 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "mcp[cli]>=1.29.1",
+    "mcp[cli]>=1.30.0",
     "fastmcp>=4.0.3",
     "pydantic>=2.13.5,<2.14",
-    "pydantic-settings>=2.14.2,<2.15",
+    "pydantic-settings>=2.15.0,<2.16",
     "httpx>=0.28.1,<1",
     "google-genai>=2.22.0",
     "openai>=2.54.0",
