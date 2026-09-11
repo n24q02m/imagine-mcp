@@ -2,6 +2,79 @@
 
 <!-- version list -->
 
+## v1.11.2 (2026-09-11)
+
+### Bug Fixes
+
+- Add input length validation to prevent DoS
+  ([#643](https://github.com/n24q02m/imagine-mcp/pull/643),
+  [`9dfb7ec`](https://github.com/n24q02m/imagine-mcp/commit/9dfb7ece6a4d379ff92a79c523fc3e1cba59275a))
+
+- Bump mcp-core to 1.23.2 ([#615](https://github.com/n24q02m/imagine-mcp/pull/615),
+  [`45b4583`](https://github.com/n24q02m/imagine-mcp/commit/45b4583b734a231b58c37db60b91b732495df47a))
+
+- Remove unnecessary thread dispatch for fast sync operations
+  ([#641](https://github.com/n24q02m/imagine-mcp/pull/641),
+  [`d512295`](https://github.com/n24q02m/imagine-mcp/commit/d5122955f8f36bd5a4bafa383de4ebd183768d77))
+
+- **deps**: Lock file maintenance ([#633](https://github.com/n24q02m/imagine-mcp/pull/633),
+  [`99219a0`](https://github.com/n24q02m/imagine-mcp/commit/99219a05f5f17876c719ee354f5fb08a2e16a340))
+
+- **deps**: Lock file maintenance ([#631](https://github.com/n24q02m/imagine-mcp/pull/631),
+  [`d48bcaa`](https://github.com/n24q02m/imagine-mcp/commit/d48bcaaa836e484e0730dc5ac5de56c4ec43f133))
+
+- **deps**: Lock file maintenance ([#628](https://github.com/n24q02m/imagine-mcp/pull/628),
+  [`4345b78`](https://github.com/n24q02m/imagine-mcp/commit/4345b7801c85d97476cfdfbc4ebc00cfb807d7f0))
+
+- **deps**: Lock file maintenance ([#618](https://github.com/n24q02m/imagine-mcp/pull/618),
+  [`0e8b396`](https://github.com/n24q02m/imagine-mcp/commit/0e8b396b15b425a17aaf11b545b94b8094127b27))
+
+- **deps**: Reconcile pydantic settings bounds
+  ([`74a2eb0`](https://github.com/n24q02m/imagine-mcp/commit/74a2eb0a835a5040f0bdc87b59060e310cdfe8cb))
+
+- **deps**: Update @cloudflare/workers-types to ^5.20260830.1
+  ([#630](https://github.com/n24q02m/imagine-mcp/pull/630),
+  [`d68bf69`](https://github.com/n24q02m/imagine-mcp/commit/d68bf698747dda3ddcf0a789a9860d17dbe997d8))
+
+- **deps**: Update @cloudflare/workers-types to ^5.20260901.1
+  ([#635](https://github.com/n24q02m/imagine-mcp/pull/635),
+  [`1508663`](https://github.com/n24q02m/imagine-mcp/commit/1508663fc26923a93101f2eafde999a4c3d89527))
+
+- **deps**: Update @cloudflare/workers-types to ^5.20260903.1
+  ([#642](https://github.com/n24q02m/imagine-mcp/pull/642),
+  [`d30bc49`](https://github.com/n24q02m/imagine-mcp/commit/d30bc49c1626df1cf7cc54b86757f8a6ee89031c))
+
+- **deps**: Update dawidd6/action-send-mail action to v20
+  ([#640](https://github.com/n24q02m/imagine-mcp/pull/640),
+  [`0f746b1`](https://github.com/n24q02m/imagine-mcp/commit/0f746b1b5bc7631d46375ff66eb520e6e11c9006))
+
+- **deps**: Update minor dependencies ([#620](https://github.com/n24q02m/imagine-mcp/pull/620),
+  [`9523f43`](https://github.com/n24q02m/imagine-mcp/commit/9523f43644437cad35b640b1276d606ba6f436a1))
+
+- **deps**: Update n24q02m/better-semantic-release action to v1.6.0
+  ([`653cdc9`](https://github.com/n24q02m/imagine-mcp/commit/653cdc9bd15c8748eaa80b3f18ec25dc27eab01d))
+
+- **deps**: Update non-major dev dependencies
+  ([#626](https://github.com/n24q02m/imagine-mcp/pull/626),
+  [`03bf6e8`](https://github.com/n24q02m/imagine-mcp/commit/03bf6e8674a740fbffa356aa46e65542c42ac0ff))
+
+- **deps**: Update non-major dev dependencies
+  ([#619](https://github.com/n24q02m/imagine-mcp/pull/619),
+  [`bbbca28`](https://github.com/n24q02m/imagine-mcp/commit/bbbca28db131c1349ae91fa25e8678b09e32d6b6))
+
+- **deps**: Update patch dependencies ([#624](https://github.com/n24q02m/imagine-mcp/pull/624),
+  [`524468e`](https://github.com/n24q02m/imagine-mcp/commit/524468eab74a9a1f3e5ed016c036bccb8ca765c1))
+
+- **deps**: Update patch dependencies ([#616](https://github.com/n24q02m/imagine-mcp/pull/616),
+  [`b96690b`](https://github.com/n24q02m/imagine-mcp/commit/b96690b8329a2d4e7541f6a7adcb58235ce18b88))
+
+- **deps**: Update vitest to v5 ([#627](https://github.com/n24q02m/imagine-mcp/pull/627),
+  [`bc329a4`](https://github.com/n24q02m/imagine-mcp/commit/bc329a47318091c056f07e79356e4f13b415368d))
+
+- **deps**: Update wrangler to ^4.128.0 ([#639](https://github.com/n24q02m/imagine-mcp/pull/639),
+  [`d3581c7`](https://github.com/n24q02m/imagine-mcp/commit/d3581c720a7cf014d4f0cb23a7aecbd04669905e))
+
+
 ## v1.11.1 (2026-08-31)
 
 
