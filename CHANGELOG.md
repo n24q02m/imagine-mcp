@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.11.3 (2026-09-11)
+
+### Bug Fixes
+
+- **deps**: Update non-major dev dependencies
+  ([#648](https://github.com/n24q02m/imagine-mcp/pull/648),
+  [`d85dfbe`](https://github.com/n24q02m/imagine-mcp/commit/d85dfbeb55d6ba9f719b6f3b2e86348dc30badb8))
+
+
 ## v1.11.2 (2026-09-11)
 
 ### Bug Fixes
