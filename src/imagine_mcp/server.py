@@ -199,6 +199,8 @@ def build_app() -> FastMCP:
         'provider/model' string (e.g. 'gemini/gemini-3.1-pro-preview') --
         bypasses the provider/tier catalog.
         """
+        if len(prompt) > 100000:
+            raise ValueError("Prompt exceeds maximum length of 100000 characters.")
         if len(media_urls) > settings.max_media_urls:
             raise ValueError(
                 f"Too many media_urls ({len(media_urls)}). "
@@ -237,6 +239,8 @@ def build_app() -> FastMCP:
         ``model`` overrides the provider/tier catalog with a litellm
         'provider/model' string -- bypasses the provider/tier catalog.
         """
+        if len(prompt) > 100000:
+            raise ValueError("Prompt exceeds maximum length of 100000 characters.")
         return await dispatch_generate(
             media_type,
             prompt,
