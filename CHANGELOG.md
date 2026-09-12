@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.11.4 (2026-09-12)
+
+### Bug Fixes
+
+- **deps**: Update ruff to >=0.16.6 ([#646](https://github.com/n24q02m/imagine-mcp/pull/646),
+  [`1ff7147`](https://github.com/n24q02m/imagine-mcp/commit/1ff7147256fe98b14c61f2b55fe9f01bf409a89c))
+
+
 ## v1.11.3 (2026-09-11)
 
 ### Bug Fixes
