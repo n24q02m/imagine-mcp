@@ -2,6 +2,18 @@
 
 <!-- version list -->
 
+## v1.11.6 (2026-09-12)
+
+### Bug Fixes
+
+- **deps**: Update @cloudflare/workers-types to ^5.20260905.1
+  ([#652](https://github.com/n24q02m/imagine-mcp/pull/652),
+  [`19bc9e2`](https://github.com/n24q02m/imagine-mcp/commit/19bc9e20ef395518dc795e4869961efa7ddc2ae3))
+
+- **deps**: Update mcp to >=2.2.0 ([#651](https://github.com/n24q02m/imagine-mcp/pull/651),
+  [`4c278cb`](https://github.com/n24q02m/imagine-mcp/commit/4c278cbcf80dfabc259b0d8315dfdbda03ee36ed))
+
+
 ## v1.11.5 (2026-09-12)
 
 ### Bug Fixes
