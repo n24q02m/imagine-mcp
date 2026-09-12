@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.11.5 (2026-09-12)
+
+### Bug Fixes
+
+- **deps**: Bump google-genai and mcp; keep pydantic-settings/mcp-core blocked
+  ([#647](https://github.com/n24q02m/imagine-mcp/pull/647),
+  [`bd40626`](https://github.com/n24q02m/imagine-mcp/commit/bd406268fcfb767e11282f0758215eca291c8593))
+
+
 ## v1.11.4 (2026-09-12)
 
 ### Bug Fixes
