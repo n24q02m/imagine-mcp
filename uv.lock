@@ -782,7 +782,7 @@ wheels = [
 
 [[package]]
 name = "imagine-mcp"
-version = "1.11.4"
+version = "1.11.5"
 source = { editable = "." }
 dependencies = [
     { name = "diskcache" },
@@ -824,7 +824,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1,<1" },
     { name = "idna", specifier = ">=3.19" },
     { name = "loguru", specifier = ">=0.7.3" },
-    { name = "mcp", extras = ["cli"], specifier = ">=1.30.0" },
+    { name = "mcp", extras = ["cli"], specifier = ">=2.2.0" },
     { name = "n24q02m-mcp-core", extras = ["llm"], specifier = "==1.23.2" },
     { name = "openai", specifier = ">=2.54.0" },
     { name = "pillow", specifier = ">=12.3.0" },
