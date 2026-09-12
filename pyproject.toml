@@ -40,7 +40,7 @@ dependencies = [
     "mcp[cli]>=1.30.0",
     "fastmcp>=4.0.3",
     "pydantic>=2.13.5,<2.14",
-    "pydantic-settings>=2.14.2,<2.15",
+    "pydantic-settings>=2.15.0,<2.16",
     "httpx>=0.28.1,<1",
     "google-genai>=2.23.0",
     "openai>=2.54.0",
@@ -49,7 +49,7 @@ dependencies = [
     "loguru>=0.7.3",
     # Keep the floor on a stable release; 1.23.2 is the current baseline
     # for this repository's HTTP OAuth integration.
-    "n24q02m-mcp-core[llm]==1.23.2",
+    "n24q02m-mcp-core[llm]==1.24.2",
     "platformdirs>=4.11.7",
     # Security floors: transitive deps pinned to patched releases.
     # urllib3 < 2.7.0 -> PYSEC-2026-141/142; idna < 3.15 -> CVE-2026-45409.
