@@ -5,7 +5,7 @@ mcp-name: io.github.n24q02m/imagine-mcp
 **Image and video understanding + generation for AI agents -- across Gemini, OpenAI, and Grok.**
 
 <!-- Badge Row 1: Status -->
-[![Mode: daemon · http remote relay](https://img.shields.io/badge/mode-daemon_%C2%B7_http--remote--relay-blue)](https://mcp.n24q02m.com/get-started/modes-overview/)
+[![Mode: daemon · http remote relay](https://img.shields.io/badge/mode-daemon_%C2%B7_http--remote--relay-5C6BC0)](https://mcp.n24q02m.com/get-started/modes-overview/)
 [![CI](https://github.com/n24q02m/imagine-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/n24q02m/imagine-mcp/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/n24q02m/imagine-mcp/graph/badge.svg)](https://codecov.io/gh/n24q02m/imagine-mcp)
 [![PyPI](https://img.shields.io/pypi/v/imagine-mcp?logo=pypi&logoColor=white)](https://pypi.org/project/imagine-mcp/)
