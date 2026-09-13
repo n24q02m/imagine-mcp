@@ -5,6 +5,7 @@ mcp-name: io.github.n24q02m/imagine-mcp
 **Image and video understanding + generation for AI agents -- across Gemini, OpenAI, and Grok.**
 
 <!-- Badge Row 1: Status -->
+[![Mode: daemon · http remote relay](https://img.shields.io/badge/mode-daemon_%C2%B7_http--remote--relay-blue)](https://mcp.n24q02m.com/get-started/modes-overview/)
 [![CI](https://github.com/n24q02m/imagine-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/n24q02m/imagine-mcp/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/n24q02m/imagine-mcp/graph/badge.svg)](https://codecov.io/gh/n24q02m/imagine-mcp)
 [![PyPI](https://img.shields.io/pypi/v/imagine-mcp?logo=pypi&logoColor=white)](https://pypi.org/project/imagine-mcp/)
@@ -61,6 +62,7 @@ mcp-name: io.github.n24q02m/imagine-mcp
 - [Security](#security)
 - [Build from Source](#build-from-source)
 - [Deploy to Cloudflare](#deploy-to-cloudflare)
+- [Deployment](#deployment)
 - [Trust Model](#trust-model)
 - [Contributing](#contributing)
 - [License](#license)
@@ -227,6 +229,8 @@ Full docs at **[mcp.n24q02m.com/servers/imagine-mcp/setup/](https://mcp.n24q02m.
 
 ## Tools
 
+4 MCP tools (`understand`, `generate`, `config`, `help`), plus `config__open_relay` (framework-injected by mcp-core):
+
 | Tool | Actions | Description |
 |:-----|:--------|:------------|
 | `understand` | -- | Describe or reason over one or more image/video URLs. `media_urls: list[str]`, `prompt: str`, `provider`, `tier`, `max_tokens`. |
@@ -330,6 +334,23 @@ The `http` container image already runs multi-user (`MCP_TRANSPORT=http` is bake
 image target). Storage maps to Cloudflare via `MCP_STORAGE_BACKEND=cf-kv` (encrypted
 credential vault) with `IMAGINE_OUTPUT_MODE=base64`, which forces base64 responses so no
 media path is written to the ephemeral container filesystem.
+
+## Deployment
+
+The Cloudflare deployment is CD-managed: publishing a release triggers the
+`deploy-cf` job in [`.github/workflows/cd.yml`](.github/workflows/cd.yml),
+which checks out the released tag, builds the `http-slim` container image
+tagged with the released version, pushes it to Cloudflare's managed registry,
+deploys the Worker + Container stack, and gates on a canary -- a failed canary
+fails the job rather than landing a bad deploy, so the live image always
+corresponds to a released, immutable image tag. Hand-running `wrangler deploy`
+against that deployment breaks the release-to-tag correspondence and is not
+the supported path; to run your own instance instead, see
+[Deploy to Cloudflare](#deploy-to-cloudflare).
+
+The job is currently gated off: the repository Actions variable
+`CF_HOSTED_ENABLED` is set to `false`, so releases do not auto-deploy and no
+hosted endpoint is operated. Self-hosting (above) is the active HTTP path.
 
 ## Trust Model
 
