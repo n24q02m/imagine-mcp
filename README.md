@@ -1,3 +1,5 @@
+> **ARCHIVED 2026-09-13** — This repository is no longer maintained. Use your image provider's native API instead of this MCP server. Existing installations keep working but receive no updates or support.
+
 # imagine-mcp
 
 mcp-name: io.github.n24q02m/imagine-mcp
